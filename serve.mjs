@@ -1,10 +1,16 @@
 import http from 'node:http'
 import {Readable} from 'node:stream'
-import {createHash} from 'node:crypto'
+import {createHash, timingSafeEqual} from 'node:crypto'
 import app from './platform.mjs'
 import {BUCKET} from './storage.mjs'
 
-const matches = value => createHash('sha256').update(value || '').digest('hex') === '38c2da7c250c117c8551fe314f4ac13e4a326671ce2672af167a3427135a3658'
+const configuredCode = process.env.SETUP_KEY
+const validSetupKey = /^[A-Za-z0-9_-]{32,128}$/
+const digest = value => createHash('sha256').update(value).digest()
+const activationDigest = configuredCode === undefined
+  ? Buffer.from('38c2da7c250c117c8551fe314f4ac13e4a326671ce2672af167a3427135a3658', 'hex')
+  : validSetupKey.test(configuredCode) ? digest(configuredCode) : null
+const matches = value => Boolean(activationDigest && value && timingSafeEqual(digest(value), activationDigest))
 const cookieName = '__Host-learning-activation'
 const cookieFlags = '; Path=/; Secure; HttpOnly; SameSite=Strict'
 const setupPage = '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Ativar Learning Sanepav</title><form action="/ativar" method="post"><label>Código de ativação <input required type="password" name="code" autocomplete="off"></label><button>Ativar</button></form></html>'

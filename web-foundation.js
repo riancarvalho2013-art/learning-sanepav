@@ -258,7 +258,7 @@ function platformEvolution(){
  if(!['Administrador','RH/DHO'].includes(d.me.role))return empty('Acompanhamento disponível para a administração e RH.')
  const modules=[
  ['Home e dashboards','Parcial','Painel, tarefas e indicadores iniciais por escopo. Faltam todas as jornadas e métricas por perfil.','Painel'],
- ['LMS/LXP','Em evolução','Cursos, mídias, matrículas, missões e ciclo de publicação. Faltam aulas estruturadas, tentativas e certificados verificáveis.','Catálogo LMS'],
+ ['LMS/LXP','Em evolução','Cursos, mídias, trilhas sequenciais, pré-requisitos, atribuição coletiva e publicação. Faltam aulas estruturadas, tentativas e certificados verificáveis.','Catálogo LMS'],
  ['Avaliação de desempenho','Base legada','Registros simples. Faltam ciclos, avaliadores, formulários, pesos e calibração.','Desempenho'],
  ['9Box e talentos','Base legada','Matriz simples. Faltam critérios configuráveis, calibração e histórico de posicionamentos.','Matriz 9 Box'],
  ['PDI','Base legada','Registros com vínculos. Faltam ações estruturadas, competências, 70-20-10 e evidências.','PDI'],
@@ -273,9 +273,9 @@ function platformEvolution(){
  ['Programas DNA','Base legada','Missões e conteúdos preservados. Gestão completa das jornadas e avaliações ainda pendente.','Missões'],
  ['Administração','Parcial','Empresas, unidades, áreas, vínculos e escopos. Faltam importação, grupos, calendários e retenção.',admin()?'Estrutura organizacional':'']
  ]
- return heading('Evolução da plataforma')+'<section class="hero"><span class="over">Sanepav Learning 2.0</span><h1>Fundação + Learning 01</h1><p>Acompanhe o que já está implementado nesta versão e os próximos incrementos. Os 15 módulos ainda não atendem integralmente aos critérios de aceite.</p></section>'+
+ return heading('Evolução da plataforma')+'<section class="hero"><span class="over">Sanepav Learning 2.0</span><h1>Fundação + Learning 02</h1><p>Acompanhe o que já está implementado nesta versão e os próximos incrementos. Os 15 módulos ainda não atendem integralmente aos critérios de aceite.</p></section>'+
  '<section class="card"><h2>Entrega atual</h2><p>Estrutura organizacional, cinco perfis, autorização por empresa, recuperação de acesso configurável e ciclo de publicação de cursos. Novos ambientes exigem ativação protegida. Recuperação por e-mail depende da configuração de provedor.</p><p>Esta página descreve as funcionalidades incluídas no código em execução. Disponibilidade operacional e configuração dos serviços precisam ser verificadas em cada ambiente.</p></section>'+
- '<div class="table-scroll"><table class="organization-table"><caption>Situação dos 15 módulos — versão 2.0 Learning 01</caption><thead><tr><th scope="col">Módulo</th><th scope="col">Situação</th><th scope="col">Entregas e pendências</th><th scope="col">Acessar</th></tr></thead><tbody>'+modules.map(([name,status,details,target])=>'<tr><th scope="row">'+esc(name)+'</th><td>'+tag(status)+'</td><td>'+esc(details)+'</td><td>'+(target?btn('Abrir módulo','nav',target,'smallBtn'):'—')+'</td></tr>').join('')+'</tbody></table></div>'
+ '<div class="table-scroll"><table class="organization-table"><caption>Situação dos 15 módulos — versão 2.0 Learning 02</caption><thead><tr><th scope="col">Módulo</th><th scope="col">Situação</th><th scope="col">Entregas e pendências</th><th scope="col">Acessar</th></tr></thead><tbody>'+modules.map(([name,status,details,target])=>'<tr><th scope="row">'+esc(name)+'</th><td>'+tag(status)+'</td><td>'+esc(details)+'</td><td>'+(target?btn('Abrir módulo','nav',target,'smallBtn'):'—')+'</td></tr>').join('')+'</tbody></table></div>'
 }
 
 let directoryStatus=''

@@ -1,7 +1,7 @@
 import {hashPassword,verifyPassword} from './credentials.mjs'
 import {recoveryConfigured} from './recovery.mjs'
 import {ASSETS} from './assets.mjs'
-import {courseStatus,courseRevision,requirePublished,checkCourseRevision,stampCourse,changeCourseState} from './learning.mjs'
+import {courseStatus,courseRevision,requirePublished,checkCourseRevision,stampCourse,changeCourseState,missingPrerequisites,requireLearningAccess} from './learning.mjs'
 const pulseContexts=["Orgulho do time", "Metas claras", "Semana muito produtiva", "Apoio de alguém", "Carga de trabalho alta", "Falta de clareza", "Metas pouco claras", "Problemas pessoais", "Precisando de apoio"];
 const stateKey='system/state-v1'
 const roles=['Administrador','Líder','Colaborador','RH/DHO','Diretoria']
@@ -77,7 +77,8 @@ function view(s,u){
    return {...p,people,responseCount:responses.length,averageRating:mean}
  })
  const mine = new Set(enroll.filter(e=>e.person===u.id).map(e=>e.course))
- const missions = (s.missions||[]).filter(m=>['Administrador','RH/DHO'].includes(u.role)||m.courses.every(course=>mine.has(course)))
+ const missionEnrollments=(s.missionEnrollments||[]).filter(item=>ids.has(item.person))
+ const missions = (s.missions||[]).filter(m=>['Administrador','RH/DHO'].includes(u.role)||missionEnrollments.some(item=>item.person===u.id&&item.mission===m.id)||(m.sequential===undefined||m.legacyVisibility===true)&&m.courses.every(course=>mine.has(course)))
  const recent = Date.now()-30*86400000
  const platform = admin ? {
    auditEvents:s.logs.length,
@@ -100,7 +101,7 @@ function view(s,u){
  const praiseRecipients=s.users.filter(person=>person.active&&sameOrganization(s,u,person.id)).map(person=>[person.id,person.name])
  const sentFeedback=s.records.filter(record=>record.kind==='Feedback'&&record.author===u.id&&record.person!==u.id&&sameOrganization(s,u,record.person))
    .map(record=>({...record,recipient:names.get(record.person)||'Colaborador'}))
- return {missions,platform,praise,praiseRecipients,sentFeedback,me:clean(u),theme:s.theme,people:people.map(clean),courses:s.courses.filter(c=>['Administrador','RH/DHO'].includes(u.role)||courseStatus(c)!=='draft'&&enroll.some(e=>e.course===c.id)).map(({answer,history,...c})=>({...c,status:courseStatus(c),revision:courseRevision(c),...(['Administrador','RH/DHO'].includes(u.role)?{history}: {})})),enroll:enroll.map(({cmi,...e})=>e),records:s.records.filter(r=>(u.role==='Diretoria'||u.role==='Administrador')&&r.person!==u.id?false:['Feedback','Pulse'].includes(r.kind)?r.person===u.id:r.kind!=='Elogio'&&ids.has(r.person)&&canReadPrivateRecord(r,u)),pulses,logs:admin?s.logs.filter(row=>row.event!=='Registro de Pulse atualizado').slice(0,200):[]}
+ return {missions,missionEnrollments,platform,praise,praiseRecipients,sentFeedback,me:clean(u),theme:s.theme,people:people.map(clean),courses:s.courses.filter(c=>['Administrador','RH/DHO'].includes(u.role)||courseStatus(c)!=='draft'&&enroll.some(e=>e.course===c.id)).map(({answer,history,...c})=>{const blockedBy=missingPrerequisites(s,s.enroll.find(e=>e.course===c.id&&e.person===u.id));if(blockedBy.length&&!['Administrador','RH/DHO'].includes(u.role))for(const key of ['body','url','options','entry'])delete c[key];return {...c,status:courseStatus(c),revision:courseRevision(c),blockedBy,...(['Administrador','RH/DHO'].includes(u.role)?{history}: {})}}),enroll:enroll.map(({cmi,...e})=>e),records:s.records.filter(r=>(u.role==='Diretoria'||u.role==='Administrador')&&r.person!==u.id?false:['Feedback','Pulse'].includes(r.kind)?r.person===u.id:r.kind!=='Elogio'&&ids.has(r.person)&&canReadPrivateRecord(r,u)),pulses,logs:admin?s.logs.filter(row=>row.event!=='Registro de Pulse atualizado').slice(0,200):[]}
 }
 function starter(s,u){const c={id:id(),title:'Boas-vindas à Sanepav',type:'Leitura',track:'DNA do Desenvolvimento',body:'Sua integração começa com as pessoas. Conheça seu padrinho, converse com sua liderança e identifique os canais de apoio de Departamento Pessoal, DHO, SST e TI.\n\nNa primeira conversa com seu gestor, alinhe as prioridades da semana e registre uma ação no seu PDI.',minutes:5};s.courses.push(c);s.enroll.push({id:id(),person:u.id,course:c.id,progress:0})}
 const response=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json;charset=utf-8','cache-control':'no-store',...headers}})
@@ -253,31 +254,40 @@ function update(s,u,op,b){
    assertLearning(u)
    const missions=s.missions??=[]
    const mission=b.id?missions.find(m=>m.id===b.id):{id:id()}
+   if(b.id){requireOk(mission,'Missão inexistente.',404);requireOk(Number.isSafeInteger(b.revision)&&b.revision===(mission.revision||0),'A trilha mudou. Atualize a página.',409)}
    requireOk(mission&&str(b.title)&&Array.isArray(b.courses)&&b.courses.length>0&&b.courses.length<=30,'Informe um título e selecione de 1 a 30 cursos.')
    requireOk(new Set(b.courses).size===b.courses.length&&b.courses.every(cid=>s.courses.some(c=>c.id===cid)),'Selecione cursos válidos, sem repetir etapas.')
-   Object.assign(mission,{title:str(b.title,150),description:str(b.description,800),courses:b.courses,cover:takeCover(s,u,b.cover)||mission.cover})
+   requireOk(b.sequential===undefined||typeof b.sequential==='boolean','Informe uma ordem de estudo válida.')
+   const sequential=b.sequential===true
+   if(b.id&&mission.sequential===undefined)mission.legacyVisibility=true
+   if((s.missionEnrollments||[]).some(item=>item.mission===mission.id))requireOk(JSON.stringify(b.courses)===JSON.stringify(mission.courses)&&sequential===Boolean(mission.sequential),'Uma trilha atribuída preserva sua sequência. Crie outra trilha para uma nova estrutura.',409)
+   Object.assign(mission,{title:str(b.title,150),description:str(b.description,800),courses:b.courses,sequential,revision:(mission.revision||0)+1,updated:iso(),cover:takeCover(s,u,b.cover)||mission.cover})
    if(!b.id)missions.push(mission)
  }
  else if(op==='missionAssign'){
    assertLearning(u)
    const mission=(s.missions||[]).find(m=>m.id===b.id)
-   requireOk(mission&&group(s,u).some(p=>p.id===b.person&&p.active),'Selecione uma missão e uma pessoa ativa.')
+   const recipients=Array.isArray(b.people)?b.people:[b.person]
+   const allowed=new Set(group(s,u).filter(person=>person.active).map(person=>person.id))
+   requireOk(mission&&recipients.length>0&&recipients.length<=200&&new Set(recipients).size===recipients.length&&recipients.every(person=>allowed.has(person)),'Selecione uma trilha e pessoas ativas no seu escopo.')
    for(const course of mission.courses)requirePublished(s.courses.find(c=>c.id===course))
-   let assigned=false
    const due=b.date||''
-   requireOk(!due||validDate(due),'Informe um prazo válido para a missão.')
-   for(const course of mission.courses){
-     if(!s.enroll.some(e=>e.course===course&&e.person===b.person)){
-       s.enroll.push({id:id(),person:b.person,course,progress:0,due})
-       assigned=true
-     }
+   requireOk(!due||validDate(due),'Informe um prazo válido para a trilha.')
+   for(const person of recipients){
+    const assignments=s.missionEnrollments??=[]
+    if(assignments.some(item=>item.mission===mission.id&&item.person===person))continue
+    mission.courses.forEach((course,index)=>{
+     if(!s.enroll.some(e=>e.course===course&&e.person===person))s.enroll.push({id:id(),person,course,progress:0,due,
+      originMission:mission.id,prerequisites:mission.sequential?mission.courses.slice(0,index):[]})
+    })
+    assignments.push({id:id(),mission:mission.id,person,due,assigned:iso(),author:u.id})
+    if(person!==u.id)notify(s,person,'Missões','Nova trilha atribuída',mission.title,{target:mission.id,due})
    }
-   if(assigned)notify(s,b.person,'Missões','Nova missão atribuída',mission.title,{target:mission.id,due})
  }
  else if(op==='assign'){requireOk(manager,'Permissão insuficiente.',403);member(s,u,b.person);requireOk(s.courses.some(c=>c.id===b.course)&&(admin||u.role==='RH/DHO'||s.enroll.some(e=>e.course===b.course&&group(s,u).some(p=>p.id===e.person))),'Curso indisponível.');requirePublished(s.courses.find(c=>c.id===b.course));requireOk(!s.enroll.some(e=>e.course===b.course&&e.person===b.person),'Matrícula já existe.',409);const due=b.date||''
  requireOk(!due||validDate(due),'Informe um prazo válido para o curso.')
  s.enroll.push({id:id(),person:b.person,course:b.course,progress:0,due});if(b.person!==u.id)notify(s,b.person,'Catálogo LMS','Novo curso atribuído',s.courses.find(c=>c.id===b.course).title,{target:b.course,due})}
- else if(op==='progress'){const e=s.enroll.find(e=>e.id===b.id&&e.person===u.id);requireOk(e,'Matrícula indisponível.',403);const c=s.courses.find(c=>c.id===e.course);requireOk(c&&courseStatus(c)!=='draft','Curso indisponível.',403);let progress=number(b.progress,0,100)
+ else if(op==='progress'){const e=s.enroll.find(e=>e.id===b.id&&e.person===u.id);requireOk(e,'Matrícula indisponível.',403);requireLearningAccess(s,e);const c=s.courses.find(c=>c.id===e.course);requireOk(c&&courseStatus(c)!=='draft','Curso indisponível.',403);let progress=number(b.progress,0,100)
  if(c.type==='Questionário'){const correct=b.answer!=null&&Number(b.answer)===c.answer;e.score=correct?100:0;progress=correct?100:1}
  if(c.type==='SCORM'){requireOk(b.cmi&&JSON.stringify(b.cmi).length<90000,'Estado SCORM inválido.');e.cmi=Object.fromEntries(Object.entries(b.cmi).filter(([k,v])=>k.startsWith('cmi.')&&typeof v==='string'));const raw=e.cmi['cmi.score.raw']??e.cmi['cmi.core.score.raw'];if(raw!=null&&Number.isFinite(Number(raw)))e.score=Number(raw);progress=['completed','passed'].includes(e.cmi['cmi.core.lesson_status'])||e.cmi['cmi.completion_status']==='completed'?100:Math.min(99,Math.max(1,Math.round(Number(e.cmi['cmi.progress_measure']||0)*100)||1))}
  e.progress=Math.max(e.progress,progress);e.updated=iso();if(e.progress===100&&!e.completed)e.completed=e.updated
@@ -690,6 +700,7 @@ async function handle(req,env){
  }
  if(['GET','HEAD'].includes(req.method)&&path.startsWith('/content/')){
  const [, ,cid,...parts]=path.split('/');const name=parts.map(decodeURIComponent).join('/'),c=state.courses.find(x=>x.id===cid),e=state.enroll.find(e=>e.course===cid&&e.person===u.id);requireOk(c&&c.upload&&filePath(name)&&(e&&courseStatus(c)!=='draft'||['Administrador','RH/DHO'].includes(u.role)),'Conteúdo indisponível.',403)
+ if(e)requireLearningAccess(state,e)
  const obj=await env.BUCKET.get('files/'+c.upload+'/'+name);requireOk(obj,'Arquivo inexistente.',404)
  const mime=media[name.split('.').pop().toLowerCase()]||'application/octet-stream'
  const headers={'content-type':mime,'cache-control':'private,no-store','x-content-type-options':'nosniff','content-security-policy':"sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'none'; frame-src 'self'; form-action 'none'; base-uri 'none'"}

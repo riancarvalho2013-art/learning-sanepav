@@ -346,7 +346,7 @@ async function previewSlides(url,container){
   function showError(error){container.textContent=error.message+' Use o arquivo original abaixo.'}
 }
 
-function learn(id){const e=d.enroll.find(x=>x.id===id),c=d.courses.find(x=>x.id===e.course),url=c.upload?'/content/'+c.id+'/'+c.entry.split('/').map(encodeURIComponent).join('/'):'',key=crypto.randomUUID()
+function learn(id){const e=d.enroll.find(x=>x.id===id);if(!e){toast('Matrícula indisponível.');return}const c=d.courses.find(x=>x.id===e.course);if(!c||c.blockedBy?.length){toast('Conclua as etapas anteriores para acessar este conteúdo.');return}const url=c.upload?'/content/'+c.id+'/'+c.entry.split('/').map(encodeURIComponent).join('/'):'',key=crypto.randomUUID()
  let html=tag(c.type)+'<p>'+esc(c.track)+'</p>';if(c.type==='Leitura')html+='<div class="content">'+esc(c.body)+'</div>'
  if(c.type==='Vídeo'||c.type==='Áudio'){const t=c.type==='Vídeo'?'video':'audio';html+='<'+t+' class="media" controls src="'+esc(url)+'"></'+t+'>'}
  if(c.type==='Imagem')html+='<img class="media" alt="'+esc(c.title)+'" src="'+esc(url)+'">'
@@ -385,7 +385,8 @@ document.addEventListener('click',async ev=>{const el=ev.target.closest('[data-a
  if(act==='exportLearning')exportLearning(visible(d.enroll))
  if(act==='exportIndicators'&&admin())exportIndicators(id)
  if(act==='openMission')openMission(id)
- if(act==='missionAssign')form('Atribuir missão',sel('Participante','person',peopleOpts(),person||d.me.id)+fld('Prazo de conclusão (opcional)','date','','date',''),b=>api('missionAssign',{...b,id}),'Atribuir missão')
+ if(act==='missionAssign')missionAssignForm(id)
+ if(act==='missionTeam')missionTeam(id)
  if(act==='selfAssign'){await api('assign',{course:id,person:d.me.id});await refresh();learn(d.enroll.find(e=>e.course===id&&e.person===d.me.id).id)}
  if(act==='learn')learn(id)
  if(act==='assign')form('Atribuir curso',sel('Curso','course',d.courses.filter(c=>c.status==='published').map(c=>[c.id,c.title]))+sel('Participante','person',peopleOpts(),person)+fld('Prazo de conclusão (opcional)','date','','date',''),b=>api('assign',b),'Matricular')
@@ -429,7 +430,7 @@ function editCourse(id) {
     },'Salvar curso')
 }
 function nextLearning() {
-  const own=d.enroll.filter(e=>e.person===d.me.id&&e.progress<100)
+  const own=d.enroll.filter(e=>e.person===d.me.id&&e.progress<100&&!d.courses.find(c=>c.id===e.course)?.blockedBy?.length)
   const started=own.filter(e=>e.progress>0).sort((a,b)=>String(b.updated||'').localeCompare(String(a.updated||'')))
   const next=started[0]||own[0]
   const course=d.courses.find(item=>item.id===next?.course)
@@ -443,51 +444,74 @@ function missionProgress(mission) {
   return mission.courses.map(course=>own.find(e=>e.course===course))
 }
 function missionsPage() {
-  const cards = d.missions.map(mission=>{
-    const steps = missionProgress(mission)
-    const completed = steps.filter(step=>step?.progress===100).length
-    return '<article class="card learning-card" data-direct="'+esc(mission.id)+'">'+coverImage('mission',mission)+tag('Missão')+
-      '<h2>'+esc(mission.title)+'</h2><p>'+esc(mission.description||'')+'</p>'+
-      '<p>'+mission.courses.length+' etapas'+(steps.some(Boolean)?' · '+completed+' concluídas':'')+'</p>'+
-      (steps.some(Boolean)?bar(100*completed/steps.length):'')+
-      '<div class="actions">'+btn('Ver etapas','openMission',mission.id,'primary')+
-      (learningAdmin()?btn('Editar','newMission',mission.id)+btn('Atribuir','missionAssign',mission.id):'')+'</div></article>'
-  })
-  return heading('Missões',learningAdmin()?btn('Criar missão','newMission','','primary'):'')+
-    '<div class="tiles">'+(cards.join('')||empty(learningAdmin()?'Crie uma missão para organizar cursos em sequência.':'Suas missões atribuídas aparecerão aqui.'))+'</div>'
+ const own=d.missions.filter(m=>(d.missionEnrollments||[]).some(item=>item.mission===m.id&&item.person===d.me.id)||(m.sequential===undefined||m.legacyVisibility===true)&&missionProgress(m).every(Boolean))
+ const finished=own.filter(m=>missionProgress(m).every(e=>e?.progress===100)).length
+ const cards=d.missions.map(mission=>{
+  const steps=missionProgress(mission),done=steps.filter(step=>step?.progress===100).length
+  const assigned=own.some(m=>m.id===mission.id)
+  const next=steps.find(step=>step&&step.progress<100&&!d.courses.find(c=>c.id===step.course)?.blockedBy?.length)
+  return '<article class="card learning-card journey-card" data-direct="'+esc(mission.id)+'">'+coverImage('mission',mission)+tag(mission.sequential?'Sequencial':'Livre')+
+   '<h2>'+esc(mission.title)+'</h2><p>'+esc(mission.description||'')+'</p><p>'+mission.courses.length+' etapas · '+mission.courses.reduce((sum,id)=>sum+Number(d.courses.find(c=>c.id===id)?.minutes||0),0)+' min</p>'+
+   (assigned?'<div class="journey-progress"><b>'+Math.round(100*done/steps.length)+'%</b><span>'+done+' de '+steps.length+' etapas concluídas</span></div>'+bar(100*done/steps.length):'<p>Aguardando atribuição para você.</p>')+
+   '<div class="actions">'+(assigned&&next?btn(steps.some(step=>step?.progress>0)?'Continuar':'Começar','learn',next.id,'primary'):'')+btn('Ver etapas','openMission',mission.id)+
+   (learningAdmin()?btn('Editar','newMission',mission.id)+btn('Atribuir','missionAssign',mission.id)+btn('Participantes','missionTeam',mission.id):'')+'</div></article>'
+ })
+ return heading('Trilhas e missões',learningAdmin()?btn('Criar trilha','newMission','','primary'):'')+
+  '<p class="directory-intro">Desenvolvimento em etapas, com progresso real e o próximo conteúdo disponível para sua jornada.</p><div class="stats">'+
+  [['Minhas trilhas',own.length],['Em andamento',own.length-finished],['Concluídas',finished]].map(([label,value])=>'<div class="stat"><span>'+label+'</span><b>'+value+'</b></div>').join('')+'</div><div class="tiles journey-grid">'+
+  (cards.join('')||empty(learningAdmin()?'Crie uma trilha para organizar os cursos existentes.':'As trilhas atribuídas a você aparecerão aqui.'))+'</div>'
 }
 function openMission(id) {
-  const mission = d.missions.find(item=>item.id===id)
-  const steps = missionProgress(mission)
-  const rows = mission.courses.map((course,index)=>{
-    const enrollment = steps[index]
-    return '<li><div><strong>'+esc(cname(course))+'</strong><small>'+ (enrollment?enrollment.progress+'% concluído':'Aguardando matrícula')+'</small>'+
-      (enrollment?enrollmentDeadline(enrollment):'')+'</div>'+
-      (enrollment?btn(enrollment.progress===100?'Revisar':'Acessar','learn',enrollment.id):'')+'</li>'
-  })
-  $('modalBody').innerHTML='<div class="heading"><h2>'+esc(mission.title)+'</h2>'+btn('Fechar','close','','smallBtn')+
-    '</div><p>'+esc(mission.description||'')+'</p><ol class="mission-steps">'+rows.join('')+'</ol>'
-  if(!modal.open)modal.showModal()
+ const mission=d.missions.find(item=>item.id===id)
+ if(!mission)return
+ const steps=missionProgress(mission)
+ const rows=mission.courses.map((course,index)=>{
+  const enrollment=steps[index],content=d.courses.find(c=>c.id===course)
+  const blocked=content?.blockedBy?.length
+  const status=!enrollment?'Aguardando matrícula':enrollment.progress===100?'Concluída':blocked?'Bloqueada':enrollment.progress?'Em andamento':'Disponível'
+  return '<li class="journey-step '+(blocked?'is-locked':enrollment?.progress===100?'is-complete':'')+'"><span class="step-number" aria-hidden="true">'+(index+1)+'</span><div><strong>'+esc(cname(course))+'</strong><small>'+status+(enrollment?' · '+enrollment.progress+'%':'')+'</small>'+
+   (blocked?'<p class="step-requirement">Conclua: '+esc(content.blockedBy.map(cname).join(', '))+'</p>':'')+(enrollment?enrollmentDeadline(enrollment):'')+'</div>'+
+   (enrollment&&!blocked?btn(enrollment.progress===100?'Revisar':'Acessar','learn',enrollment.id):'')+'</li>'
+ })
+ $('modalBody').innerHTML='<div class="heading"><h2>'+esc(mission.title)+'</h2>'+btn('Fechar','close','','smallBtn')+'</div><p>'+esc(mission.description||'')+'</p>'+tag(mission.sequential?'Sequência obrigatória para novas matrículas':'Estudo livre')+
+  '<ol class="mission-steps journey-steps">'+rows.join('')+'</ol><p class="privacy-note">Matrículas anteriores mantêm as regras de acesso que já possuíam.</p>'
+ if(!modal.open)modal.showModal()
+}
+function missionAssignForm(id){
+ const mission=d.missions.find(item=>item.id===id)
+ if(!mission)return
+ form('Atribuir trilha','<p>'+esc(mission.title)+'</p>'+sel('Participantes','person',[['__scope','Todas as pessoas ativas do contexto'],...peopleOpts()],person||d.me.id)+
+  fld('Prazo de conclusão (opcional)','date','','date',''),body=>api('missionAssign',{id,date:body.date,
+   ...(body.person==='__scope'?{people:d.people.filter(person=>person.active).map(person=>person.id)}:{person:body.person})}),'Atribuir trilha')
+}
+function missionTeam(id){
+ const mission=d.missions.find(item=>item.id===id)
+ if(!mission)return
+ const members=(d.missionEnrollments||[]).filter(item=>item.mission===id)
+ $('modalBody').innerHTML='<div class="heading"><h2>Participantes da trilha</h2>'+btn('Fechar','close')+'</div><h3>'+esc(mission.title)+'</h3><p>Participantes no seu escopo autorizado. Atribuições legadas sem vínculo explícito não entram nesta lista.</p>'+
+  (members.map(member=>{const done=mission.courses.filter(course=>d.enroll.some(e=>e.course===course&&e.person===member.person&&e.progress===100)).length;return '<div class="row"><div><b>'+esc(pname(member.person))+'</b><br><small>'+done+' de '+mission.courses.length+' etapas concluídas'+(member.due?' · prazo '+esc(when(member.due)):'')+'</small></div><strong>'+Math.round(100*done/mission.courses.length)+'%</strong></div>'}).join('')||empty('Nenhuma atribuição registrada neste escopo.'))
+ if(!modal.open)modal.showModal()
 }
 function missionForm(id) {
   if(!d.courses.length){toast('Publique um curso antes de criar a missão.');return}
   const mission = d.missions.find(item=>item.id===id)
   const courses = [...(mission?.courses||[])]
   const options = d.courses.map(course=>[course.id,course.title])
-  const f = form(mission?'Editar missão':'Criar missão',
-    fld('Nome da missão','title',mission?.title)+area('Descrição','description',mission?.description)+
+  const f = form(mission?'Editar trilha':'Criar trilha',
+    fld('Nome da trilha','title',mission?.title)+area('Descrição','description',mission?.description)+
+    sel('Ordem de estudo','sequential',[['1','Sequencial — concluir etapas anteriores'],['0','Livre — qualquer etapa']],mission?mission.sequential?'1':'0':'1')+
     coverField()+sel('Escolher curso para adicionar','candidate',options)+
     '<button type="button" id="addStep">Adicionar etapa</button><ol class="mission-steps" id="missionOrder"></ol>',
     async(body,element)=>{
       if(!courses.length)throw Error('Adicione pelo menos uma etapa.')
       const cover=await uploadCover(element)
-      await api('mission',{id,title:body.title,description:body.description,courses,cover})
-    },'Salvar missão')
+      await api('mission',{id,title:body.title,description:body.description,courses,cover,sequential:body.sequential==='1',revision:mission?.revision||0})
+    },'Salvar trilha')
   const order = f.querySelector('#missionOrder')
   const render = ()=>{
     order.innerHTML=courses.map((course,index)=>'<li><strong>'+esc(cname(course))+'</strong><div class="step-actions">'+
-      (index?'<button type="button" data-step="'+index+'" data-dir="-1" aria-label="Subir etapa">↑</button>':'')+
-      (index<courses.length-1?'<button type="button" data-step="'+index+'" data-dir="1" aria-label="Descer etapa">↓</button>':'')+
+      (index?'<button type="button" data-step="'+index+'" data-dir="-1" aria-label="Subir etapa">Subir</button>':'')+
+      (index<courses.length-1?'<button type="button" data-step="'+index+'" data-dir="1" aria-label="Descer etapa">Descer</button>':'')+
       '<button type="button" data-step="'+index+'" data-dir="0">Remover</button></div></li>').join('')
   }
   f.querySelector('#addStep').onclick=()=>{
@@ -930,7 +954,7 @@ function learningCatalog(en){
    const e=d.enroll.find(e=>e.course===c.id&&e.person===d.me.id)
    const published=c.status==='published'
    let actions=e?bar(e.progress)+enrollmentDeadline(e)+'<small>'+e.progress+'% concluído</small><div class="actions">'+
-    btn(e.progress===100?'Revisar':'Acessar','learn',e.id,'primary')+'</div>':
+    (c.blockedBy?.length?'<p class="step-requirement">Etapa bloqueada. Conclua: '+esc(c.blockedBy.map(cname).join(', '))+'</p>':btn(e.progress===100?'Revisar':'Acessar','learn',e.id,'primary'))+'</div>':
     learningAdmin()&&published?'<div class="actions">'+btn('Matricular e acessar','selfAssign',c.id,'primary')+'</div>':
     published?'<small>Disponível para atribuição</small>':''
    if(learningAdmin())actions+='<div class="actions">'+btn('Editar curso','editCourse',c.id)+

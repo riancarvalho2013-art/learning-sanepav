@@ -1,0 +1,371 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Sanepav Learning — fundação 2.0",
+    "version": "2.0-foundation.1",
+    "description": "Todas as mutações exigem Origin igual ao endereço do serviço. Vínculos exigem a revisão atual retornada em organization."
+  },
+  "paths": {
+    "/api/v2/organization": {
+      "get": {
+        "summary": "Consulta empresas e pessoas no escopo autorizado",
+        "responses": {
+          "200": {
+            "description": "Operação concluída"
+          },
+          "400": {
+            "description": "Dados inválidos"
+          },
+          "401": {
+            "description": "Sessão ausente ou expirada"
+          },
+          "403": {
+            "description": "Acesso fora do escopo"
+          },
+          "409": {
+            "description": "Conflito de revisão ou integridade"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v2/company": {
+      "post": {
+        "summary": "Cria ou atualiza empresa",
+        "responses": {
+          "200": {
+            "description": "Operação concluída"
+          },
+          "400": {
+            "description": "Dados inválidos"
+          },
+          "401": {
+            "description": "Sessão ausente ou expirada"
+          },
+          "403": {
+            "description": "Acesso fora do escopo"
+          },
+          "409": {
+            "description": "Conflito de revisão ou integridade"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/unit": {
+      "post": {
+        "summary": "Cria ou atualiza unidade",
+        "responses": {
+          "200": {
+            "description": "Operação concluída"
+          },
+          "400": {
+            "description": "Dados inválidos"
+          },
+          "401": {
+            "description": "Sessão ausente ou expirada"
+          },
+          "403": {
+            "description": "Acesso fora do escopo"
+          },
+          "409": {
+            "description": "Conflito de revisão ou integridade"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/department": {
+      "post": {
+        "summary": "Cria ou atualiza área",
+        "responses": {
+          "200": {
+            "description": "Operação concluída"
+          },
+          "400": {
+            "description": "Dados inválidos"
+          },
+          "401": {
+            "description": "Sessão ausente ou expirada"
+          },
+          "403": {
+            "description": "Acesso fora do escopo"
+          },
+          "409": {
+            "description": "Conflito de revisão ou integridade"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/assignment": {
+      "post": {
+        "summary": "Atualiza vínculo por revisão otimista",
+        "responses": {
+          "200": {
+            "description": "Operação concluída"
+          },
+          "400": {
+            "description": "Dados inválidos"
+          },
+          "401": {
+            "description": "Sessão ausente ou expirada"
+          },
+          "403": {
+            "description": "Acesso fora do escopo"
+          },
+          "409": {
+            "description": "Conflito de revisão ou integridade"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/access": {
+      "post": {
+        "summary": "Configura empresas autorizadas para RH e diretoria",
+        "responses": {
+          "200": {
+            "description": "Operação concluída"
+          },
+          "400": {
+            "description": "Dados inválidos"
+          },
+          "401": {
+            "description": "Sessão ausente ou expirada"
+          },
+          "403": {
+            "description": "Acesso fora do escopo"
+          },
+          "409": {
+            "description": "Conflito de revisão ou integridade"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/analytics": {
+      "get": {
+        "summary": "Consulta indicadores e definições por escopo",
+        "responses": {
+          "200": {
+            "description": "Operação concluída"
+          },
+          "400": {
+            "description": "Dados inválidos"
+          },
+          "401": {
+            "description": "Sessão ausente ou expirada"
+          },
+          "403": {
+            "description": "Acesso fora do escopo"
+          },
+          "409": {
+            "description": "Conflito de revisão ou integridade"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v2/audit": {
+      "get": {
+        "summary": "Consulta metadados de auditoria técnica",
+        "responses": {
+          "200": {
+            "description": "Operação concluída"
+          },
+          "400": {
+            "description": "Dados inválidos"
+          },
+          "401": {
+            "description": "Sessão ausente ou expirada"
+          },
+          "403": {
+            "description": "Acesso fora do escopo"
+          },
+          "409": {
+            "description": "Conflito de revisão ou integridade"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/request-password-reset": {
+      "post": {
+        "summary": "Solicita recuperação sem confirmar existência da conta",
+        "responses": {
+          "200": {
+            "description": "Operação concluída"
+          },
+          "400": {
+            "description": "Dados inválidos"
+          },
+          "401": {
+            "description": "Sessão ausente ou expirada"
+          },
+          "403": {
+            "description": "Acesso fora do escopo"
+          },
+          "409": {
+            "description": "Conflito de revisão ou integridade"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reset-password": {
+      "post": {
+        "summary": "Consome token e revoga sessões",
+        "responses": {
+          "200": {
+            "description": "Operação concluída"
+          },
+          "400": {
+            "description": "Dados inválidos"
+          },
+          "401": {
+            "description": "Sessão ausente ou expirada"
+          },
+          "403": {
+            "description": "Acesso fora do escopo"
+          },
+          "409": {
+            "description": "Conflito de revisão ou integridade"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "summary": "Verifica disponibilidade do serviço",
+        "responses": {
+          "200": {
+            "description": "Operação concluída"
+          },
+          "400": {
+            "description": "Dados inválidos"
+          },
+          "401": {
+            "description": "Sessão ausente ou expirada"
+          },
+          "403": {
+            "description": "Acesso fora do escopo"
+          },
+          "409": {
+            "description": "Conflito de revisão ou integridade"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "learning"
+      }
+    }
+  }
+}

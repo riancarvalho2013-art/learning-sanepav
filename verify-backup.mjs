@@ -7,7 +7,7 @@ import {spawnSync} from 'node:child_process'
 
 const directory=mkdtempSync(join(tmpdir(),'sanepav-backup-test-'))
 const databasePath=join(directory,'learning.sqlite')
-const backupPath=join(directory,'backups','pre-privacy-20261119.sqlite')
+const backupPath=join(directory,'backups','pre-foundation-v1.sqlite')
 const moduleUrl=new URL('./storage.mjs',import.meta.url).href
 try{
  const source=new DatabaseSync(databasePath)

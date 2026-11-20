@@ -95,3 +95,12 @@ Próximos incrementos: aulas e trilhas estruturadas, pré-requisitos, tentativas
 ## Visibilidade da evolução
 
 A página Evolução da plataforma, disponível para Administrador e RH/DHO, apresenta a situação dos quinze módulos, as limitações da versão em execução e atalhos para os módulos existentes. Não considera bases legadas como módulos 2.0 concluídos.
+
+
+## Incremento Pessoas 01 — empresa no cadastro e no perfil
+
+Criar usuário e editar cadastro agora incluem empresa, unidade, área, cargo, datas e liderança. O perfil profissional permite abrir o mesmo formulário administrativo. O diretório Pessoas apresenta empresa e unidade, busca e filtros de acesso e vínculo pendente, com contagens do contexto real.
+
+Usuário e vínculo organizacional são gravados na mesma transação SQLite. Uma empresa inválida, unidade de outra empresa, hierarquia incompatível ou revisão antiga reverte também o cadastro, as credenciais e a revogação de sessões. Não há novas tabelas: person_organizations continua sendo a fonte única do vínculo. Chamadas legadas sem organization permanecem compatíveis; o formulário novo exige empresa ativa. Apenas Administrador técnico altera cadastro e empresa.
+
+verify-user-company.mjs cobre criação, alteração, rollback, revisão concorrente, mudança conjunta de gestor e empresa, permissões e auditoria. O visual usa diretório, indicadores e perfil integrado originais da Sanepav. A referência pública Qulture Rocks foi consultada como orientação funcional, sem copiar layouts ou identidade.

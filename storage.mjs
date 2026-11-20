@@ -44,7 +44,17 @@ export const BUCKET = {
    const result=expected
     ? db.prepare('UPDATE objects SET etag=?,body=? WHERE key=? AND etag=?').run(etag,body,key,expected)
     : db.prepare('INSERT OR IGNORE INTO objects VALUES(?,?,?)').run(key,etag,body)
-   if(result.changes && key==='system/state-v1') DOMAIN.syncPeople(JSON.parse(body.toString()))
+   if(result.changes && key==='system/state-v1') {
+    const state=JSON.parse(body.toString())
+    DOMAIN.syncPeople(state,false)
+    const assignment=options?.organizationAssignment
+    if(assignment){
+     const actor=state.users.find(person=>person.id===assignment.actorId&&person.active)
+     if(!actor)throw Object.assign(new Error('Sessão administrativa indisponível.'),{status:403})
+     DOMAIN.assignPerson(state,actor,assignment.body)
+    }
+    DOMAIN.syncPeople(state)
+   }
    db.exec('COMMIT')
    return result.changes ? {etag} : null
   } catch(error) {

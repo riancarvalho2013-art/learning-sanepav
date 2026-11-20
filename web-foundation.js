@@ -51,7 +51,7 @@ function profileContent(personId){
  const enrollments=d.enroll.filter(item=>item.person===person.id)
  const records=d.records.filter(item=>item.person===person.id)
  const completed=enrollments.filter(item=>item.progress===100)
- return '<section class="card profile-details"><h2>'+esc(person.name)+'</h2><dl>'+[
+ return '<section class="card profile-details"><div class="heading"><div><span class="over">Perfil profissional</span><h2>'+esc(person.name)+'</h2></div>'+(admin()?btn('Editar cadastro e empresa','user',person.id,'primary'):'')+'</div><dl>'+[
  ['Perfil de acesso',person.role],['Empresa',organizationName(organizationData.companies,person.company_id)],
  ['Unidade',organizationName(organizationData.units,person.unit_id)],['Área',organizationName(organizationData.departments,person.department_id)],
  ['Cargo',person.position||'Não informado'],['Liderança',organizationData.people.find(item=>item.id===person.manager)?.name||'Não informada'],
@@ -100,19 +100,59 @@ function organizationEntity(encoded){
   (id?sel('Situação','active',[['1','Ativo'],['0','Arquivar']],previous.active?'1':'0'):''),
   body=>api('v2/'+kind,{...body,id,active:body.active!=='0'}))
 }
-function organizationAssignment(id){
- const person=organizationData.people.find(item=>item.id===id)
- const editor=form('Vínculo de '+person.name,sel('Empresa','company_id',[['','Selecione'],...organizationData.companies.map(item=>[item.id,item.name])],person.company_id)+
-  sel('Unidade','unit_id',[])+sel('Área','department_id',[])+fld('Cargo','position',person.position,'text','maxlength="120"')+
-  fld('Admissão','hired_at',person.hired_at,'date','')+fld('Desligamento','ended_at',person.ended_at,'date',''),
-  body=>api('v2/assignment',{...body,person_id:id,revision:person.revision||0}))
+function organizationFields(person){
+ return '<fieldset class="professional-fields"><legend>Vínculo profissional</legend><div class="professional-grid">'+
+  sel('Empresa','company_id',[['','Selecione a empresa'],...organizationData.companies.map(item=>[item.id,item.name])],person.company_id)+
+  sel('Unidade','unit_id',[])+sel('Área / departamento','department_id',[])+fld('Cargo','position',person.position,'text','maxlength="120"')+
+  fld('Admissão','hired_at',person.hired_at,'date','')+fld('Desligamento','ended_at',person.ended_at,'date','')+'</div></fieldset>'
+}
+function bindOrganizationFields(editor,person){
+ editor.elements.company_id.required=true
  const update=()=>{
   const company=editor.elements.company_id.value
   for(const [field,list] of [['unit_id',organizationData.units],['department_id',organizationData.departments]]){
-   editor.elements[field].innerHTML=opt([['','Não definido'],...list.filter(item=>item.company_id===company).map(item=>[item.id,item.name])],person[field])
+   const previous=editor.elements[field].value||person[field]
+   const choices=list.filter(item=>item.company_id===company)
+   editor.elements[field].innerHTML=opt([['','Não definido'],...choices.map(item=>[item.id,item.name])],choices.some(item=>item.id===previous)?previous:'')
+  }
+  if(editor.elements.manager){
+   const previous=editor.elements.manager.value||person.manager||''
+   const choices=organizationData.people.filter(item=>item.id!==person.id&&item.active&&item.role!=='Colaborador'&&
+    (item.company_id===company||item.id===person.manager&&!item.company_id))
+   editor.elements.manager.innerHTML=opt([['','Sem liderança'],...choices.map(item=>[item.id,item.name+(item.company_id?'':' · vínculo pendente')])],choices.some(item=>item.id===previous)?previous:'')
   }
  }
  editor.elements.company_id.onchange=update;update()
+}
+function organizationAssignment(id){
+ const person=organizationData.people.find(item=>item.id===id)
+ if(!person)return
+ const editor=form('Vínculo de '+person.name,organizationFields(person),
+  body=>api('v2/assignment',{...body,person_id:id,revision:person.revision||0}))
+ bindOrganizationFields(editor,person)
+}
+function userForm(id){
+ if(!admin())return
+ const person=organizationData.people.find(item=>item.id===id)||{}
+ const existing=d.people.find(item=>item.id===id)||{}
+ const editor=form(id?'Editar cadastro e empresa':'Criar usuário',
+  '<p class="form-intro">Cadastro de acesso e vínculo profissional são salvos juntos. A empresa define o escopo organizacional da pessoa.</p>'+
+  '<fieldset class="professional-fields"><legend>Dados e acesso</legend><div class="professional-grid">'+
+  fld('Nome completo','name',person.name)+fld('E-mail','email',person.email,'email')+
+  sel('Perfil','role',['Colaborador','Líder','RH/DHO','Diretoria','Administrador'],person.role||'Colaborador')+
+  sel('Acesso','active',[['1','Ativo'],['0','Bloqueado']],person.active===false?'0':'1')+'</div></fieldset>'+
+  organizationFields(person)+sel('Liderança imediata','manager',[['','Sem liderança']],person.manager)+
+  fld(id?'Nova senha (opcional)':'Senha inicial','password','','password',(id?'':'required ')+'minlength="12" maxlength="150" autocomplete="new-password"')+
+  (!organizationData.companies.length?'<p class="notice">Cadastre uma empresa em Estrutura organizacional antes de criar ou alterar o vínculo.</p>':''),
+  async body=>{
+   const organization={company_id:body.company_id,unit_id:body.unit_id,department_id:body.department_id,position:body.position,
+    hired_at:body.hired_at,ended_at:body.ended_at,revision:person.revision||0}
+   const department=organizationData.departments.find(item=>item.id===body.department_id)
+   await api('user',{id,name:body.name,email:body.email,role:body.role,active:body.active==='1',manager:body.manager,
+    password:body.password,area:department?.name||existing.area||'',organization})
+   if(id===d.me.id&&body.password){modal.close();await start()}
+  },id?'Salvar cadastro e empresa':'Criar usuário')
+ bindOrganizationFields(editor,person)
 }
 function organizationAccess(id){
  const person=organizationData.people.find(item=>item.id===id)
@@ -237,3 +277,19 @@ function platformEvolution(){
  '<section class="card"><h2>Entrega atual</h2><p>Estrutura organizacional, cinco perfis, autorização por empresa, recuperação de acesso configurável e ciclo de publicação de cursos. Novos ambientes exigem ativação protegida. Recuperação por e-mail depende da configuração de provedor.</p><p>Esta página descreve as funcionalidades incluídas no código em execução. Disponibilidade operacional e configuração dos serviços precisam ser verificadas em cada ambiente.</p></section>'+
  '<div class="table-scroll"><table class="organization-table"><caption>Situação dos 15 módulos — versão 2.0 Learning 01</caption><thead><tr><th scope="col">Módulo</th><th scope="col">Situação</th><th scope="col">Entregas e pendências</th><th scope="col">Acessar</th></tr></thead><tbody>'+modules.map(([name,status,details,target])=>'<tr><th scope="row">'+esc(name)+'</th><td>'+tag(status)+'</td><td>'+esc(details)+'</td><td>'+(target?btn('Abrir módulo','nav',target,'smallBtn'):'—')+'</td></tr>').join('')+'</tbody></table></div>'
 }
+
+let directoryStatus=''
+function peopleDirectory(){
+ const scope=organizationData.people.filter(item=>!organizationCompany||item.company_id===organizationCompany)
+ const statusMatch=person=>directoryStatus==='active'?person.active:directoryStatus==='blocked'?!person.active:directoryStatus==='unassigned'?!person.company_id:true
+ const rows=scope.filter(person=>statusMatch(person)&&[person.name,person.email,person.position,organizationName(organizationData.companies,person.company_id)].join(' ').toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))).sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'))
+ return heading('Pessoas',btn('Criar usuário','user','','primary'))+'<p class="directory-intro">Gerencie os acessos e a estrutura profissional. Empresa, unidade e liderança conectam cada pessoa à sua jornada.</p>'+
+  '<div class="stats">'+[['Pessoas no contexto',scope.length,''],['Acessos ativos',scope.filter(p=>p.active).length,'active'],['Sem empresa',scope.filter(p=>!p.company_id).length,'unassigned']].map(([label,value,status])=>'<button class="stat" data-act="directoryStatus" data-id="'+status+'"><span>'+label+'</span><b>'+value+'</b></button>').join('')+'</div>'+
+  '<section class="card directory-panel"><div class="filters"><input id="query" type="search" aria-label="Pesquisar pessoas" placeholder="Buscar nome, e-mail, cargo ou empresa" value="'+esc(search)+'"><label>Situação<select id="directoryStatus">'+opt([['','Todas'],['active','Ativos'],['blocked','Bloqueados'],['unassigned','Sem empresa']],directoryStatus)+'</select></label></div>'+
+  '<div class="table-scroll"><table class="organization-table"><caption>'+rows.length+' pessoa(s) encontradas</caption><thead><tr><th scope="col">Pessoa</th><th scope="col">Empresa e unidade</th><th scope="col">Perfil e acesso</th><th scope="col">Liderança</th><th scope="col">Ações</th></tr></thead><tbody>'+rows.map(person=>'<tr><td><div class="directory-person"><span class="person-monogram" aria-hidden="true">'+esc(person.name.split(' ').map(word=>word[0]).slice(0,2).join(''))+'</span><div><b>'+esc(person.name)+'</b><br><small>'+esc(person.email)+'</small><br><small>'+esc(person.position||'Cargo não informado')+'</small></div></div></td><td>'+esc(organizationName(organizationData.companies,person.company_id))+'<br><small>'+esc(organizationName(organizationData.units,person.unit_id))+'</small></td><td>'+tag(person.role)+'<br><small>'+(person.active?'Ativo':'Bloqueado')+'</small></td><td>'+esc(organizationData.people.find(item=>item.id===person.manager)?.name||'Sem liderança')+'</td><td><div class="actions">'+btn('Ver perfil','professionalProfile',person.id,'smallBtn')+btn('Editar','user',person.id,'smallBtn')+'</div></td></tr>').join('')+'</tbody></table></div>'+(!rows.length?empty('Nenhuma pessoa encontrada para este filtro.'):'')+'</section>'
+}
+document.addEventListener('click',event=>{
+ const button=event.target.closest('[data-act="directoryStatus"]')
+ if(!button||!admin())return
+ directoryStatus=button.dataset.id;body()
+})

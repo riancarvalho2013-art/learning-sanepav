@@ -18,7 +18,7 @@ const password=hashPassword
 function initial(){return {users:[],sessions:[],logs:[],courses:[],enroll:[],records:[],uploads:[],fails:{},theme:{color:'#062b4f',accent:'#94c928',title:'Learning Sanepav',layout:'Confortável'}}}
 async function change(env,fn){
  for(let i=0;i<8;i++){const obj=await env.BUCKET.get(stateKey),s=obj?await obj.json():initial();const result=await fn(s)
- const saved=await env.BUCKET.put(stateKey,JSON.stringify(s),{onlyIf:obj?{etagMatches:obj.etag}:{etagDoesNotMatch:'*'}})
+ const saved=await env.BUCKET.put(stateKey,JSON.stringify(s),{onlyIf:obj?{etagMatches:obj.etag}:{etagDoesNotMatch:'*'},organizationAssignment:s.pendingOrganizationAssignment})
  if(saved)return result}
  requireOk(false,'Os dados mudaram. Tente novamente.',409)
 }
@@ -223,6 +223,10 @@ function update(s,u,op,b){
  requireOk(!p||p.id!==u.id||(b.active&&b.role===roles[0]),'Preserve seu acesso administrativo.');requireOk(!p||!s.users.some(x=>x.manager===p.id)||(b.active&&b.role!==roles[2]),'Reatribua os subordinados antes desta alteração.')
  if(!p){requireOk(b.secret,'Informe a senha inicial.');p={id:id()};s.users.push(p)}Object.assign(p,{name:str(b.name,90),role:b.role,email,active:!!b.active,manager:b.manager||'',area:str(b.area,80)},b.secret||{})
  if(b.secret||!p.active)s.sessions=s.sessions.filter(x=>x.person!==p.id)
+ if(Object.hasOwn(b,'organization')){
+  requireOk(b.organization&&typeof b.organization==='object'&&!Array.isArray(b.organization),'Confira o vínculo profissional.')
+  Object.defineProperty(s,'pendingOrganizationAssignment',{value:{actorId:u.id,body:{...b.organization,person_id:p.id}}})
+ }
  }
  else if(op==='course'){assertLearning(u);requireOk(types.includes(b.type)&&str(b.title),'Informe título e formato.');let c={id:id(),title:str(b.title,150),type:b.type,track:str(b.track,100)||'Catálogo geral',minutes:number(b.minutes,1,10000),body:str(b.body,24000)}
  if(Object.hasOwn(courseExtensions,c.type))takeCourseMaterial(s,u,c,b)

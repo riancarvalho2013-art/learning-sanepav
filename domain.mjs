@@ -92,9 +92,10 @@ export function createDomain(database) {
     }
   }
 
-  function syncPeople(state) {
+  function syncPeople(state, validate=true) {
     const insert = database.prepare('INSERT OR IGNORE INTO people(id) VALUES(?)')
     for (const person of state.users) insert.run(person.id)
+    if(!validate)return
     const organization = context(state)
     for (const person of state.users) {
       const assigned = organization.assignments.get(person.id)
@@ -266,5 +267,5 @@ export function createDomain(database) {
     }
   }
 
-  return {recovery:createRecovery(database),handle,decorateState,syncPeople,canSeePerson,allowedCompanies,permissions}
+  return {recovery:createRecovery(database),handle,decorateState,syncPeople,assignPerson,canSeePerson,allowedCompanies,permissions}
 }

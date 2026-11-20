@@ -11,9 +11,7 @@ const protocol=devMode?'http:':'https:'
 const configuredCode = process.env.SETUP_KEY
 const validSetupKey = /^[A-Za-z0-9_-]{32,128}$/
 const digest = value => createHash('sha256').update(value).digest()
-const activationDigest = configuredCode === undefined
-  ? Buffer.from('38c2da7c250c117c8551fe314f4ac13e4a326671ce2672af167a3427135a3658', 'hex')
-  : validSetupKey.test(configuredCode) ? digest(configuredCode) : null
+const activationDigest = typeof configuredCode==='string'&&validSetupKey.test(configuredCode) ? digest(configuredCode) : null
 const matches = value => Boolean(activationDigest && value && timingSafeEqual(digest(value), activationDigest))
 const cookieName = '__Host-learning-activation'
 const cookieFlags = '; Path=/; Secure; HttpOnly; SameSite=Strict'
@@ -26,6 +24,7 @@ http.createServer(async (req,res) => {
     if(url.pathname==='/healthz'&&req.method==='GET'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});return res.end('{"ok":true}')}
     if (url.pathname === '/ativar') {
       res.setHeader('Cache-Control','no-store')
+      if(!activationDigest){res.writeHead(503,{'Content-Type':'text/plain;charset=utf-8'});return res.end('A ativação requer SETUP_KEY própria deste ambiente. Configure uma chave de 32 a 128 caracteres, usando letras, números, hífen ou sublinhado, nas variáveis do serviço.')}
       if (req.method === 'GET') {res.setHeader('Content-Type','text/html;charset=utf-8');return res.end(setupPage)}
       if (req.method !== 'POST' || req.headers.origin !== url.origin) {res.writeHead(403);return res.end()}
       let input = ''
@@ -63,6 +62,15 @@ http.createServer(async (req,res) => {
       }
     }
     const result = await app.fetch(new Request(url,options),{BUCKET,DOMAIN})
+    if(req.method==='GET'&&url.pathname==='/api/access'&&result.ok){
+      const data=await result.json()
+      if(data.setup){
+        const code=(req.headers.cookie||'').split('; ').find(v=>v.startsWith(cookieName+'='))?.slice(cookieName.length+1)
+        data.activationRequired=!matches(code)
+        data.activationConfigured=Boolean(activationDigest)
+      }
+      res.writeHead(result.status,Object.fromEntries(result.headers));return res.end(JSON.stringify(data))
+    }
     res.writeHead(result.status,Object.fromEntries(result.headers))
     if (result.body) Readable.fromWeb(result.body).pipe(res)
     else res.end()

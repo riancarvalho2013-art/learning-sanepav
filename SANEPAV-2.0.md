@@ -47,7 +47,7 @@ RESEND_API_KEY e EMAIL_FROM precisam estar configuradas para envio real. APP_ORI
 | Módulo | Situação após a fundação |
 | --- | --- |
 | Home e dashboards | Base funcional preservada, contexto e painel executivo inicial adicionados. Pendentes todos os indicadores e jornadas por perfil. |
-| LMS/LXP | Base existente preservada. Pendentes aulas relacionais, pré-requisitos completos, tentativas, certificados PDF verificáveis, turmas e presença. |
+| LMS/LXP | Ciclo de publicação, arquivamento, reativação, histórico e revisões implementados sobre a base existente. Pendentes aulas relacionais, pré-requisitos completos, tentativas, certificados PDF verificáveis, turmas e presença. |
 | Avaliação de desempenho | Registros legados preservados. Pendentes ciclos, formulários parametrizáveis, pesos, avaliadores e calibração. |
 | 9Box | Matriz simples preservada. Pendentes critérios configuráveis, sessões e histórico próprio. |
 | PDI | Registros e vínculos preservados. Pendentes ações estruturadas, competências, 70-20-10 e evidências. |
@@ -63,3 +63,35 @@ RESEND_API_KEY e EMAIL_FROM precisam estar configuradas para envio real. APP_ORI
 | Administração | Empresas, unidades, áreas, vínculos e escopos implementados. Pendentes importação, grupos, retenção e calendários. |
 
 A entrega é um incremento de fundação. O projeto completo continua em evolução e os quinze módulos ainda não satisfazem todos os critérios de aceite.
+
+
+## Homologação da fundação — 19/11/2026
+
+A fundação foi publicada no ambiente homologacao do mesmo projeto Railway, com serviço c64a10c1-6898-4e91-aeab-42d69a3f57e1 e volume próprio 478eff6f-e337-4c4f-8bdf-f2b330ec3c4b montado em /data. O volume de produção não foi copiado nem substituído. URL: https://angelic-serenity-homologacao.up.railway.app/.
+
+O deploy 8dda8616-ee92-440d-8bc0-118ab660a653, commit remoto 1219ea3ec8d68f5078656c1d64a792c08d980272, ficou Active/Deployment successful. O Docker executou as quatro suítes da fundação e o healthcheck /healthz foi aprovado. A página inicial publicada foi verificada. O PR #1 permanece sem merge na produção.
+
+## Incremento Learning 01 — ciclo de publicação
+
+Cursos novos são salvos como rascunhos. Publicação, arquivamento e reativação exigem Administrador ou RH/DHO, revisão atual e validação no servidor. Cursos legados sem esses campos continuam publicados, revisão zero. Nenhuma conversão destrutiva é necessária.
+
+O catálogo mostra status, filtro e histórico por curso. Edições e mudanças de status incrementam a revisão; gravações desatualizadas recebem 409. Leitura e Link podem ter o conteúdo editado pela interface. O histórico registra autor, evento, data e revisão, sem ser um sistema de restauração de versões do conteúdo. Versões imutáveis para certificação ainda são uma pendência.
+
+Rascunhos e cursos arquivados não recebem matrículas novas. Arquivamento preserva os participantes, o progresso e o acesso ao conteúdo já atribuído. A atribuição de uma missão com curso indisponível falha por completo, sem matrículas parciais. RH pode atribuir cursos publicados ao seu escopo organizacional, sem precisar ter uma matrícula prévia.
+
+Os dados adicionais ficam no curso original, dentro de objects/system/state-v1. Não foram criadas tabelas ou cadastros paralelos para cursos. A migração relacional completa do domínio de aprendizagem continua pendente.
+
+Arquivos deste incremento: learning.mjs, platform.mjs, web-app.js, verify-learning.mjs, verify-privacy.mjs, package.json e openapi.json. verify-learning.mjs usa APIs reais e SQLite em disco para verificar permissões, estados, conflito de revisão, integridade da atribuição de missões e persistência. A interface foi testada com contas sintéticas isoladas: criar rascunho, publicar, arquivar e consultar histórico. Esses dados de teste não são publicados no Railway.
+
+## Ativação de novos ambientes
+
+O código de ativação padrão herdado foi removido. Um ambiente sem contas precisa de SETUP_KEY exclusiva nas variáveis do serviço, com 32 a 128 caracteres de letras, números, hífen ou sublinhado. A chave deve ser criada pelo operador e não deve ser enviada no chat ou incluída no repositório. Depois do redeploy, acessar /ativar, informar a chave e criar a conta inicial. Após ativação, SETUP_KEY pode ser removida: as contas existentes continuam autenticando normalmente.
+
+Sem chave, a página mostra a configuração pendente e o servidor bloqueia a primeira conta. verify-bootstrap.mjs testa o servidor HTTP real: bloqueio sem chave, proteção de origem, ativação autorizada e preservação de login após reinício sem chave. O provedor de recuperação por e-mail permanece não configurado na homologação.
+
+Próximos incrementos: aulas e trilhas estruturadas, pré-requisitos, tentativas, certificados verificáveis e programas DNA. Os demais módulos continuam com o estado indicado na matriz acima. A validação autenticada no Railway depende da configuração de ativação e da primeira conta pelo operador.
+
+
+## Visibilidade da evolução
+
+A página Evolução da plataforma, disponível para Administrador e RH/DHO, apresenta a situação dos quinze módulos, as limitações da versão em execução e atalhos para os módulos existentes. Não considera bases legadas como módulos 2.0 concluídos.

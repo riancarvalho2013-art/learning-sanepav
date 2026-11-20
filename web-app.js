@@ -24,6 +24,7 @@ function toast(t){$('toast').textContent=t;$('toast').style.display='block';clea
 function theme(t){document.documentElement.style.setProperty('--brand',t.color);document.documentElement.style.setProperty('--accent',t.accent);document.body.classList.toggle('compact',t.layout==='Compacto');document.title=t.title}
 const brand=()=>'<div class="brand"><img src="/marca.png" alt="Sanepav"><span>Learning</span></div>'
 async function start(){const a=await api('access');theme(a.theme);if(location.hash.startsWith('#reset=')){passwordResetScreen(location.hash.slice(7));return}if(a.me){await enterLearning();return}
+ if(a.setup&&a.activationRequired){app.innerHTML='<section class="login"><div class="loginArt"><span class="over">Universidade corporativa</span><h1>'+esc(a.theme.title)+'</h1><p>Ambiente aguardando ativação pela administração.</p></div><section class="loginForm">'+brand()+'<h2>Configuração inicial protegida</h2><p>'+(a.activationConfigured?'A administração deve informar o código próprio deste ambiente antes de criar a primeira conta.':'A administração precisa configurar a chave SETUP_KEY nas variáveis deste serviço no Railway. Não há um código de ativação padrão.')+'</p>'+(a.activationConfigured?'<a class="primary" href="/ativar">Informar código de ativação</a>':'')+'</section></section>';return}
  app.innerHTML='<section class="login"><div class="loginArt"><span class="over">Universidade corporativa</span><h1>'+esc(a.theme.title)+'</h1><p>Um espaço para aprender, conversar sobre desempenho e acompanhar seu desenvolvimento.</p></div><form class="loginForm" id="login">'+brand()+'<h2>'+(a.setup?'Ativar a plataforma':'Entrar na plataforma')+'</h2><p>'+(a.setup?'Crie a primeira conta de administração deste ambiente privado.':'Use o e-mail e a senha do seu cadastro corporativo.')+'</p>'+(a.setup?fld('Seu nome','name'):'')+fld('E-mail','email','','email','required autocomplete="username"')+fld('Senha','password','','password','required minlength="12" maxlength="150" autocomplete="'+(a.setup?'new-password':'current-password')+'"')+(a.setup?'<small>Use pelo menos 12 caracteres.</small>':'')+'<button class="primary">'+(a.setup?'Ativar e entrar':'Entrar')+'</button>'+(a.setup?'':btn('Recuperar acesso','recoverAccess',a.recoveryConfigured?'available':'unavailable','smallBtn'))+'<div class="err" role="alert"></div></form></section>'
  $('login').onsubmit=async e=>{e.preventDefault();const f=e.target;f.querySelector('button').disabled=true;try{await api('login',Object.fromEntries(new FormData(f)));await enterLearning()}catch(err){f.querySelector('.err').textContent=err.message}finally{f.querySelector('button').disabled=false}}}
 async function refresh({social=true}={}){
@@ -47,7 +48,7 @@ function body(){const root=$('inside');if(foundationPages.has(page)){void render
  else if(page==='Rede social'){h=socialPage()}
  else if(page==='Missões'){h=missionsPage()}
  else if(page==='Relatórios'&&manager()){h=learningReport(en)}
- else if(page==='Catálogo LMS'){h=heading(page,(learningAdmin()?btn('Publicar curso','newCourse','','primary'):'')+(manager()?btn('Atribuir curso','assign'):''))+filters(true)+'<div class="tiles">'+(d.courses.filter(c=>(!person||en.some(e=>e.course===c.id))&&(c.title+' '+c.track).toLowerCase().includes(search.toLowerCase())).map(c=>{const e=d.enroll.find(e=>e.course===c.id&&e.person===d.me.id);return '<article class="card learning-card" data-direct="'+esc(c.id)+'">'+coverImage('course',c)+tag(c.type)+'<h2>'+esc(c.title)+'</h2><p>' +esc(c.track)+' · '+c.minutes+' min</p>'+(c.description?'<p>'+esc(c.description)+'</p>':'')+(e?bar(e.progress)+enrollmentDeadline(e)+'<small>'+e.progress+'% concluído</small><div class="actions">'+btn(e.progress===100?'Revisar':'Acessar','learn',e.id,'primary')+'</div>':(learningAdmin()?'<div class="actions">'+btn('Matricular e acessar','selfAssign',c.id,'primary')+'</div>':'<small>Disponível para atribuição</small>'))+(learningAdmin()?btn('Editar curso','editCourse',c.id):'')+'</article>'}).join('')||empty('Nenhum curso neste filtro.'))+'</div>'}
+ else if(page==='Catálogo LMS'){h=learningCatalog(en)}
  else if(page==='Elogio'){h=praiseWall()}
  else if(kinds.includes(page)){const list=(page==='Pulse'?d.records:rec).filter(r=>r.kind===page).sort((a,b)=>b.updated.localeCompare(a.updated));h=heading(page==='Pulse'?'Meu histórico':page,page==='Pulse'||(page==='Desempenho'&&!manager())?'':btn(recordExperience[page][0],'record','','primary'))+(page==='Pulse'?'':filters())+'<section class="tiles">'+(list.map(r=>'<article class="card experience-card" data-direct="'+esc(r.id)+'">'+(r.kind==='Pulse'?moodBadge(r.rating):'<span class="flow-icon" aria-hidden="true">'+recordExperience[r.kind][3]+'</span>')+tag(r.status)+'<h2>'+esc(r.title)+'</h2><small>'+esc(pname(r.person))+(r.date&&!recordDeadlineKinds.includes(r.kind)?' · '+when(r.date):'')+'</small>'+deadlineBadge(r)+''+(r.note?moreFields('<p class="content">'+esc(r.note)+'</p>','Ver anotação'):'')+''+(r.kind==='Pulse'?contextBadges(r.pulseContexts):details(r))+(r.course?'<p>Curso · '+esc(cname(r.course))+'</p>':'')+(r.link?'<p>Registro vinculado · '+esc(d.records.find(x=>x.id===r.link)?.title)+'</p>':'')+(r.author===d.me.id?btn('Editar','record',r.id,'smallBtn'):'')+'</article>').join('')||empty('Nenhum registro para esta seleção.'))+'</section>'}
  else if(page==='Matriz 9 Box'){let cells='';const last=new Map();for(const r of rec.filter(r=>r.kind==='Desempenho').sort((a,b)=>(a.date||a.updated).localeCompare(b.date||b.updated)||a.updated.localeCompare(b.updated)))last.set(r.person,r);for(let pot=3;pot>=1;pot--)for(let perf=1;perf<=3;perf++){const ps=[...last.values()].filter(r=>r.performance===perf&&r.potential===pot);cells+='<div class="cell"><strong>'+['Baixo','Médio','Alto'][perf-1]+' desempenho</strong><small>Potencial '+['baixo','médio','alto'][pot-1]+'</small><p>'+esc(ps.map(r=>pname(r.person)).join(', ')||'—')+'</p></div>'}h=heading(page)+filters()+'<section class="card"><h2>Desempenho e potencial</h2><p>A avaliação mais recente de cada pessoa define sua posição. '+last.size+' pessoa(s) avaliada(s).</p><div class="nine">'+cells+'</div></section>'}
@@ -56,7 +57,7 @@ function body(){const root=$('inside');if(foundationPages.has(page)){void render
  else h=heading('Auditoria')+'<div class="card"><p>Últimos 200 eventos do ambiente.</p>'+d.logs.map(l=>'<div class="row"><b>'+esc(l.event)+'</b><small>'+esc(l.who)+' · '+esc(new Date(l.at).toLocaleString('pt-BR'))+'</small></div>').join('')+'</div>'
  if(page==='Pulse'){h=weeklyPulseCard()+h;const surveys=d.pulses.filter(p=>!person||p.people.includes(person));h='<section class="card pulse-surveys"><div class="heading"><h2>Pesquisas da equipe</h2>'+(manager()?btn('Criar pesquisa','pulse','','primary'):'')+'</div>'+(surveys.map(p=>{const mine=d.records.some(r=>r.pulse===p.id&&r.person===d.me.id);return '<div class="row" data-direct="'+esc(p.id)+'"><div><b>'+esc(p.title)+'</b><br><small>Até '+when(p.date)+' · '+p.responseCount+' de '+p.people.length+' respostas</small></div>'+(p.people.includes(d.me.id)&&!mine?btn('Responder','answerPulse',p.id):'')+'</div>'}).join('')||empty('Nenhuma pesquisa publicada.'))+'</section><br>'+h}
  if(page==='Feedback')h+=sentFeedbackPanel()
- root.innerHTML=h;if($('filterPerson'))$('filterPerson').onchange=e=>{person=e.target.value;body()};if($('query'))$('query').oninput=e=>{search=e.target.value;body();$('query').focus()}}
+ root.innerHTML=h;if($('filterPerson'))$('filterPerson').onchange=e=>{person=e.target.value;body()};if($('courseStatusFilter'))$('courseStatusFilter').onchange=e=>{learningStatusFilter=e.target.value;body()};if($('query'))$('query').oninput=e=>{search=e.target.value;body();$('query').focus()}}
 function details(r){if(r.kind==='OKR')return bar(100*r.actual/r.target)+'<p>'+r.actual+' de '+r.target+'</p>';if(r.kind==='Pulse')return moodBadge(r.rating);if(r.kind==='Desempenho')return '<p>Desempenho '+r.performance+' / 3 · Potencial '+r.potential+' / 3</p>';return ''}
 function form(title,html,submit,action='Salvar'){player=null;$('modalBody').innerHTML='<div class="heading"><h2>'+esc(title)+'</h2>'+btn('Fechar','close','','smallBtn')+'</div><form id="editor">'+html+'<p class="err" role="alert"></p><div class="actions"><button class="primary">'+esc(action)+'</button></div></form>';if(!modal.open)modal.showModal();const f=$('editor');f.onsubmit=async e=>{e.preventDefault();const b=f.querySelector('button.primary');b.disabled=true;try{await submit(Object.fromEntries(new FormData(f)),f);modal.close();await refresh();toast('Dados salvos.')}catch(err){f.querySelector('.err').textContent=err.message}finally{b.disabled=false}};return f}
 const peopleOpts=()=>d.people.filter(p=>p.active).map(p=>[p.id,p.name])
@@ -283,7 +284,7 @@ async function contentFiles(body,form){
   return {upload:key,entry}
 }
 function courseForm(){
-  const editor=form('Publicar curso','<div class="course-editor-core">'+fld('Título do curso','title')+
+  const editor=form('Criar curso','<div class="course-editor-core">'+fld('Título do curso','title')+
     sel('Formato do conteúdo','type',Object.keys(contentFormats))+'<div id="extra"></div></div>'+
     moreFields(fld('Trilha ou categoria','track','DNA do Desenvolvimento')+
       fld('Duração em minutos','minutes',10,'number','required min="1" max="10000"')+area('Descrição','description')+
@@ -297,7 +298,7 @@ function courseForm(){
     delete body.file
     delete body.coverFile
     await api('course',body)
-  },'Publicar curso')
+  },'Salvar rascunho')
   const fields=()=>{
     const type=editor.elements.type.value
     editor.querySelector('#extra').innerHTML=type==='Leitura'?area('Texto da aula','body','','required'):
@@ -379,13 +380,15 @@ document.addEventListener('click',async ev=>{const el=ev.target.closest('[data-a
  if(act==='newCourse')courseForm()
  if(act==='newMission')missionForm(id)
  if(act==='editCourse')editCourse(id)
+ if(act==='courseState')courseStateForm(id,el.dataset.status)
+ if(act==='courseHistory')courseHistory(id)
  if(act==='exportLearning')exportLearning(visible(d.enroll))
  if(act==='exportIndicators'&&admin())exportIndicators(id)
  if(act==='openMission')openMission(id)
  if(act==='missionAssign')form('Atribuir missão',sel('Participante','person',peopleOpts(),person||d.me.id)+fld('Prazo de conclusão (opcional)','date','','date',''),b=>api('missionAssign',{...b,id}),'Atribuir missão')
  if(act==='selfAssign'){await api('assign',{course:id,person:d.me.id});await refresh();learn(d.enroll.find(e=>e.course===id&&e.person===d.me.id).id)}
  if(act==='learn')learn(id)
- if(act==='assign')form('Atribuir curso',sel('Curso','course',d.courses.map(c=>[c.id,c.title]))+sel('Participante','person',peopleOpts(),person)+fld('Prazo de conclusão (opcional)','date','','date',''),b=>api('assign',b),'Matricular')
+ if(act==='assign')form('Atribuir curso',sel('Curso','course',d.courses.filter(c=>c.status==='published').map(c=>[c.id,c.title]))+sel('Participante','person',peopleOpts(),person)+fld('Prazo de conclusão (opcional)','date','','date',''),b=>api('assign',b),'Matricular')
  if(act==='user'){const p=d.people.find(p=>p.id===id)||{};form(id?'Gerenciar usuário':'Criar usuário',fld('Nome completo','name',p.name)+fld('E-mail','email',p.email,'email')+fld('Área','area',p.area)+sel('Perfil','role',['Colaborador','Líder','RH/DHO','Diretoria','Administrador'],p.role)+sel('Liderança imediata','manager',[['','Sem liderança'],...d.people.filter(x=>x.active&&x.id!==id&&x.role!=='Colaborador').map(x=>[x.id,x.name])],p.manager)+sel('Acesso','active',[['1','Ativo'],['0','Bloqueado']],p.active===false?'0':'1')+fld(id?'Nova senha (opcional)':'Senha inicial','password','','password',(id?'':'required ')+'minlength="12" maxlength="150" autocomplete="new-password"'),async b=>{await api('user',{...b,id,active:b.active==='1'});if(id===d.me.id&&b.password){modal.close();await start()}})}
  if(act==='theme')form('Identidade visual',fld('Nome da plataforma','title',d.theme.title)+fld('Cor institucional','color',d.theme.color,'color')+fld('Cor de destaque','accent',d.theme.accent,'color')+sel('Espaçamento','layout',['Compacto','Confortável'],d.theme.layout),b=>api('theme',b))
  }catch(err){toast(err.message)}})
@@ -414,14 +417,15 @@ function editCourse(id) {
   form('Editar curso',
     fld('Título do curso','title',course.title)+fld('Trilha ou categoria','track',course.track)+
     fld('Duração em minutos','minutes',course.minutes,'number','required min="1" max="10000"')+
-    area('Descrição do curso','description',course.description)+coverField()+
+    area('Descrição do curso','description',course.description)+
+    (course.type==='Leitura'?area('Texto da aula','body',course.body,'required'):course.type==='Link'?fld('Endereço HTTPS','url',course.url,'url'):'')+coverField()+
     (contentFormats[course.type]?.length?moreFields(courseAssetPicker(course.type,false),'Substituir arquivo do curso'):''),
     async(body,element)=>{
       const cover=await uploadCover(element)
       const replacement=element.elements.file?.files[0]?await contentFiles({type:course.type},element):{}
       delete body.file
       delete body.coverFile
-      await api('courseEdit',{...body,...replacement,id,cover})
+      await api('courseEdit',{...body,...replacement,id,cover,revision:course.revision})
     },'Salvar curso')
 }
 function nextLearning() {
@@ -911,3 +915,51 @@ async function enterLearning(){
 
 start().catch(err=>{app.textContent=err.message})
 
+
+let learningStatusFilter=''
+const learningStatusLabels={draft:'Rascunho',published:'Publicado',archived:'Arquivado'}
+function learningCatalog(en){
+ const rows=d.courses.filter(c=>(!person||en.some(e=>e.course===c.id))&&
+  (!learningAdmin()||!learningStatusFilter||c.status===learningStatusFilter)&&
+  (c.title+' '+c.track).toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')))
+ const statusFilter=learningAdmin()?'<label class="learning-status-filter">Status do curso<select id="courseStatusFilter">'+
+  opt([['','Todos os status'],...Object.entries(learningStatusLabels)],learningStatusFilter)+'</select></label>':''
+ return heading('Catálogo LMS',(learningAdmin()?btn('Criar curso','newCourse','','primary'):'')+
+  (manager()?btn('Atribuir curso','assign'):''))+filters(true)+statusFilter+'<div class="tiles">'+
+  (rows.map(c=>{
+   const e=d.enroll.find(e=>e.course===c.id&&e.person===d.me.id)
+   const published=c.status==='published'
+   let actions=e?bar(e.progress)+enrollmentDeadline(e)+'<small>'+e.progress+'% concluído</small><div class="actions">'+
+    btn(e.progress===100?'Revisar':'Acessar','learn',e.id,'primary')+'</div>':
+    learningAdmin()&&published?'<div class="actions">'+btn('Matricular e acessar','selfAssign',c.id,'primary')+'</div>':
+    published?'<small>Disponível para atribuição</small>':''
+   if(learningAdmin())actions+='<div class="actions">'+btn('Editar curso','editCourse',c.id)+
+    '<button type="button" data-act="courseState" data-id="'+esc(c.id)+'" data-status="'+(published?'archived':'published')+'">'+
+    (published?'Arquivar':c.status==='archived'?'Reativar e publicar':'Publicar')+'</button>'+btn('Histórico','courseHistory',c.id,'smallBtn')+'</div>'
+   return '<article class="card learning-card" data-direct="'+esc(c.id)+'">'+coverImage('course',c)+tag(c.type)+' '+
+    tag(learningStatusLabels[c.status]||'Publicado')+'<h2>'+esc(c.title)+'</h2><p>'+esc(c.track)+' · '+c.minutes+' min</p>'+
+    (c.description?'<p>'+esc(c.description)+'</p>':'')+
+    (c.status==='draft'?'<p>Revise o conteúdo antes de publicar. O rascunho não está disponível para matrículas.</p>':'')+
+    (c.status==='archived'?'<p>As matrículas existentes mantêm o acesso. Novas matrículas estão suspensas.</p>':'')+actions+'</article>'
+  }).join('')||empty('Nenhum curso neste filtro.'))+'</div>'
+}
+function courseStateForm(id,status){
+ const course=d.courses.find(c=>c.id===id)
+ if(!course||!['published','archived'].includes(status))return
+ const action=status==='published'?'Publicar curso':'Arquivar curso'
+ form(action,'<p><b>'+esc(course.title)+'</b></p><p>'+(status==='published'?
+  'O curso ficará disponível para novas matrículas. Confirme que o conteúdo e a duração foram revisados.':
+  'Novas matrículas serão suspensas. Os dados e o acesso dos participantes já matriculados serão preservados.')+'</p>',
+  ()=>api('courseState',{id,status,revision:course.revision}),action)
+}
+function courseHistory(id){
+ const course=d.courses.find(c=>c.id===id)
+ if(!course)return
+ const events={created:'Rascunho criado',edited:'Curso editado',published:'Curso publicado',archived:'Curso arquivado'}
+ $('modalBody').innerHTML='<div class="heading"><h2>Histórico do curso</h2>'+btn('Fechar','close')+'</div><h3>'+esc(course.title)+'</h3>'+
+  '<p>Status: '+esc(learningStatusLabels[course.status])+' · Revisão '+course.revision+'</p>'+
+  ((course.history||[]).slice().reverse().map(row=>'<div class="row"><div><b>'+esc(events[row.event]||row.event)+'</b><br><small>'+
+   esc(pname(row.person))+' · '+esc(new Date(row.at).toLocaleString('pt-BR'))+'</small></div><span>Revisão '+row.revision+'</span></div>').join('')||
+   empty('Curso anterior ao controle de versões. As próximas alterações serão registradas.'))
+ modal.showModal()
+}

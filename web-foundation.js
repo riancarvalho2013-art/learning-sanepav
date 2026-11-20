@@ -4,7 +4,7 @@ let organizationData=null
 let organizationCompany=''
 let organizationQuery=''
 let organizationPage=1
-const foundationPages=new Set(['Estrutura organizacional','Meu perfil','Organograma','Indicadores estratégicos'])
+const foundationPages=new Set(['Estrutura organizacional','Meu perfil','Organograma','Indicadores estratégicos','Evolução da plataforma'])
 const organizationName=(list,id)=>list.find(item=>item.id===id)?.name||'Não informado'
 const currentAssignment=()=>organizationData?.people.find(person=>person.id===d.me.id)
 
@@ -12,6 +12,7 @@ function foundationNavigation(){
  let links='<small>Pessoas e organização</small>'+nav('Meu perfil','◉')
  if(d.permissions?.analytics)links+=nav('Indicadores estratégicos','▥')+nav('Organograma','♧')
  if(admin())links+=nav('Estrutura organizacional','▦')
+ if(['Administrador','RH/DHO'].includes(d.me.role))links+=nav('Evolução da plataforma','↗')
  return links
 }
 function companyContext(){
@@ -64,6 +65,7 @@ async function renderFoundation(root){
  const request=++foundationRequest
  if(!organizationData){root.innerHTML='<p role="status">Carregando estrutura organizacional…</p>';return}
  if(page==='Estrutura organizacional')root.innerHTML=organizationPageContent()
+ if(page==='Evolução da plataforma')root.innerHTML=platformEvolution()
  if(page==='Meu perfil')root.innerHTML=heading('Meu perfil')+profileContent(d.me.id)
  if(page==='Organograma'){
   const people=organizationPeople()
@@ -211,3 +213,27 @@ document.addEventListener('keydown',event=>{
   event.preventDefault()
  }
 })
+
+function platformEvolution(){
+ if(!['Administrador','RH/DHO'].includes(d.me.role))return empty('Acompanhamento disponível para a administração e RH.')
+ const modules=[
+ ['Home e dashboards','Parcial','Painel, tarefas e indicadores iniciais por escopo. Faltam todas as jornadas e métricas por perfil.','Painel'],
+ ['LMS/LXP','Em evolução','Cursos, mídias, matrículas, missões e ciclo de publicação. Faltam aulas estruturadas, tentativas e certificados verificáveis.','Catálogo LMS'],
+ ['Avaliação de desempenho','Base legada','Registros simples. Faltam ciclos, avaliadores, formulários, pesos e calibração.','Desempenho'],
+ ['9Box e talentos','Base legada','Matriz simples. Faltam critérios configuráveis, calibração e histórico de posicionamentos.','Matriz 9 Box'],
+ ['PDI','Base legada','Registros com vínculos. Faltam ações estruturadas, competências, 70-20-10 e evidências.','PDI'],
+ ['Reuniões 1:1','Base legada','Histórico privado dos participantes. Faltam agenda, recorrência e tarefas.','1:1'],
+ ['Feedback e reconhecimento','Parcial','Feedback privado e mural de elogios. Faltam solicitações e modelos estruturados.','Feedback'],
+ ['Clima e engajamento','Base legada','Pulse identificada com limite de sete respostas para média. Pesquisa anônima ainda pendente.','Pulse'],
+ ['Objetivos e OKRs','Base legada','Metas simples. Faltam ciclos, alinhamento e múltiplos resultados-chave.','OKR'],
+ ['People Analytics','Parcial','Indicadores reais por escopo e CSV. Faltam séries temporais, XLSX, PDF e efetividade.','Indicadores estratégicos'],
+ ['Perfil integrado','Parcial','Dados profissionais e histórico autorizado. Competências e certificados ainda pendentes.','Meu perfil'],
+ ['Organograma e sucessão','Parcial','Estrutura de liderança. Mapa de sucessão e prontidão ainda pendentes.','Organograma'],
+ ['Inteligência artificial','Desativada','Sem provedor configurado. Nenhum dado de RH é enviado e nenhuma resposta é simulada.',''],
+ ['Programas DNA','Base legada','Missões e conteúdos preservados. Gestão completa das jornadas e avaliações ainda pendente.','Missões'],
+ ['Administração','Parcial','Empresas, unidades, áreas, vínculos e escopos. Faltam importação, grupos, calendários e retenção.',admin()?'Estrutura organizacional':'']
+ ]
+ return heading('Evolução da plataforma')+'<section class="hero"><span class="over">Sanepav Learning 2.0</span><h1>Fundação + Learning 01</h1><p>Acompanhe o que já está implementado nesta versão e os próximos incrementos. Os 15 módulos ainda não atendem integralmente aos critérios de aceite.</p></section>'+
+ '<section class="card"><h2>Entrega atual</h2><p>Estrutura organizacional, cinco perfis, autorização por empresa, recuperação de acesso configurável e ciclo de publicação de cursos. Novos ambientes exigem ativação protegida. Recuperação por e-mail depende da configuração de provedor.</p><p>Esta página descreve as funcionalidades incluídas no código em execução. Disponibilidade operacional e configuração dos serviços precisam ser verificadas em cada ambiente.</p></section>'+
+ '<div class="table-scroll"><table class="organization-table"><caption>Situação dos 15 módulos — versão 2.0 Learning 01</caption><thead><tr><th scope="col">Módulo</th><th scope="col">Situação</th><th scope="col">Entregas e pendências</th><th scope="col">Acessar</th></tr></thead><tbody>'+modules.map(([name,status,details,target])=>'<tr><th scope="row">'+esc(name)+'</th><td>'+tag(status)+'</td><td>'+esc(details)+'</td><td>'+(target?btn('Abrir módulo','nav',target,'smallBtn'):'—')+'</td></tr>').join('')+'</tbody></table></div>'
+}

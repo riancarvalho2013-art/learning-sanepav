@@ -1,6 +1,7 @@
 import {hashPassword,verifyPassword} from './credentials.mjs'
 import {recoveryConfigured} from './recovery.mjs'
 import {ASSETS} from './assets.mjs'
+import {courseStatus,courseRevision,requirePublished,checkCourseRevision,stampCourse,changeCourseState} from './learning.mjs'
 const pulseContexts=["Orgulho do time", "Metas claras", "Semana muito produtiva", "Apoio de alguém", "Carga de trabalho alta", "Falta de clareza", "Metas pouco claras", "Problemas pessoais", "Precisando de apoio"];
 const stateKey='system/state-v1'
 const roles=['Administrador','Líder','Colaborador','RH/DHO','Diretoria']
@@ -99,7 +100,7 @@ function view(s,u){
  const praiseRecipients=s.users.filter(person=>person.active&&sameOrganization(s,u,person.id)).map(person=>[person.id,person.name])
  const sentFeedback=s.records.filter(record=>record.kind==='Feedback'&&record.author===u.id&&record.person!==u.id&&sameOrganization(s,u,record.person))
    .map(record=>({...record,recipient:names.get(record.person)||'Colaborador'}))
- return {missions,platform,praise,praiseRecipients,sentFeedback,me:clean(u),theme:s.theme,people:people.map(clean),courses:s.courses.filter(c=>['Administrador','RH/DHO'].includes(u.role)||enroll.some(e=>e.course===c.id)).map(({answer,...c})=>c),enroll:enroll.map(({cmi,...e})=>e),records:s.records.filter(r=>(u.role==='Diretoria'||u.role==='Administrador')&&r.person!==u.id?false:['Feedback','Pulse'].includes(r.kind)?r.person===u.id:r.kind!=='Elogio'&&ids.has(r.person)&&canReadPrivateRecord(r,u)),pulses,logs:admin?s.logs.filter(row=>row.event!=='Registro de Pulse atualizado').slice(0,200):[]}
+ return {missions,platform,praise,praiseRecipients,sentFeedback,me:clean(u),theme:s.theme,people:people.map(clean),courses:s.courses.filter(c=>['Administrador','RH/DHO'].includes(u.role)||courseStatus(c)!=='draft'&&enroll.some(e=>e.course===c.id)).map(({answer,history,...c})=>({...c,status:courseStatus(c),revision:courseRevision(c),...(['Administrador','RH/DHO'].includes(u.role)?{history}: {})})),enroll:enroll.map(({cmi,...e})=>e),records:s.records.filter(r=>(u.role==='Diretoria'||u.role==='Administrador')&&r.person!==u.id?false:['Feedback','Pulse'].includes(r.kind)?r.person===u.id:r.kind!=='Elogio'&&ids.has(r.person)&&canReadPrivateRecord(r,u)),pulses,logs:admin?s.logs.filter(row=>row.event!=='Registro de Pulse atualizado').slice(0,200):[]}
 }
 function starter(s,u){const c={id:id(),title:'Boas-vindas à Sanepav',type:'Leitura',track:'DNA do Desenvolvimento',body:'Sua integração começa com as pessoas. Conheça seu padrinho, converse com sua liderança e identifique os canais de apoio de Departamento Pessoal, DHO, SST e TI.\n\nNa primeira conversa com seu gestor, alinhe as prioridades da semana e registre uma ação no seu PDI.',minutes:5};s.courses.push(c);s.enroll.push({id:id(),person:u.id,course:c.id,progress:0})}
 const response=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json;charset=utf-8','cache-control':'no-store',...headers}})
@@ -230,14 +231,20 @@ function update(s,u,op,b){
  if(c.type==='Questionário'){requireOk(c.body&&Array.isArray(b.options)&&b.options.length>=2&&b.options.length<=8,'Informe pergunta e alternativas.');c.options=b.options.map(x=>str(x));requireOk(c.options.every(Boolean),'Alternativa vazia.');c.answer=number(b.answer,0,c.options.length-1)}
  c.description=str(b.description,500)
  c.cover=takeCover(s,u,b.cover)
+ c.status='draft';stampCourse(c,u,'created')
  s.courses.push(c)}
  else if(op==='courseEdit'){
    assertLearning(u)
    const course=s.courses.find(c=>c.id===b.id)
    requireOk(course&&str(b.title),'Selecione um curso e informe um título.')
+   checkCourseRevision(course,b.revision)
    if(b.upload)takeCourseMaterial(s,u,course,b)
    Object.assign(course,{title:str(b.title,150),track:str(b.track,100)||'Catálogo geral',description:str(b.description,500),minutes:number(b.minutes,1,10000),cover:takeCover(s,u,b.cover)||course.cover})
+   if(course.type==='Leitura'&&Object.hasOwn(b,'body')){requireOk(str(b.body,24000),'Escreva o conteúdo.');course.body=str(b.body,24000)}
+   if(course.type==='Link'&&Object.hasOwn(b,'url')){requireOk(/^https:\/\//i.test(b.url),'Informe um endereço HTTPS.');course.url=str(b.url,2000)}
+   stampCourse(course,u,'edited')
  }
+ else if(op==='courseState'){assertLearning(u);changeCourseState(s.courses.find(c=>c.id===b.id),u,b)}
  else if(op==='mission'){
    assertLearning(u)
    const missions=s.missions??=[]
@@ -251,6 +258,7 @@ function update(s,u,op,b){
    assertLearning(u)
    const mission=(s.missions||[]).find(m=>m.id===b.id)
    requireOk(mission&&group(s,u).some(p=>p.id===b.person&&p.active),'Selecione uma missão e uma pessoa ativa.')
+   for(const course of mission.courses)requirePublished(s.courses.find(c=>c.id===course))
    let assigned=false
    const due=b.date||''
    requireOk(!due||validDate(due),'Informe um prazo válido para a missão.')
@@ -262,10 +270,10 @@ function update(s,u,op,b){
    }
    if(assigned)notify(s,b.person,'Missões','Nova missão atribuída',mission.title,{target:mission.id,due})
  }
- else if(op==='assign'){requireOk(manager,'Permissão insuficiente.',403);member(s,u,b.person);requireOk(s.courses.some(c=>c.id===b.course)&&(admin||s.enroll.some(e=>e.course===b.course&&group(s,u).some(p=>p.id===e.person))),'Curso indisponível.');requireOk(!s.enroll.some(e=>e.course===b.course&&e.person===b.person),'Matrícula já existe.',409);const due=b.date||''
+ else if(op==='assign'){requireOk(manager,'Permissão insuficiente.',403);member(s,u,b.person);requireOk(s.courses.some(c=>c.id===b.course)&&(admin||u.role==='RH/DHO'||s.enroll.some(e=>e.course===b.course&&group(s,u).some(p=>p.id===e.person))),'Curso indisponível.');requirePublished(s.courses.find(c=>c.id===b.course));requireOk(!s.enroll.some(e=>e.course===b.course&&e.person===b.person),'Matrícula já existe.',409);const due=b.date||''
  requireOk(!due||validDate(due),'Informe um prazo válido para o curso.')
  s.enroll.push({id:id(),person:b.person,course:b.course,progress:0,due});if(b.person!==u.id)notify(s,b.person,'Catálogo LMS','Novo curso atribuído',s.courses.find(c=>c.id===b.course).title,{target:b.course,due})}
- else if(op==='progress'){const e=s.enroll.find(e=>e.id===b.id&&e.person===u.id);requireOk(e,'Matrícula indisponível.',403);const c=s.courses.find(c=>c.id===e.course);let progress=number(b.progress,0,100)
+ else if(op==='progress'){const e=s.enroll.find(e=>e.id===b.id&&e.person===u.id);requireOk(e,'Matrícula indisponível.',403);const c=s.courses.find(c=>c.id===e.course);requireOk(c&&courseStatus(c)!=='draft','Curso indisponível.',403);let progress=number(b.progress,0,100)
  if(c.type==='Questionário'){const correct=b.answer!=null&&Number(b.answer)===c.answer;e.score=correct?100:0;progress=correct?100:1}
  if(c.type==='SCORM'){requireOk(b.cmi&&JSON.stringify(b.cmi).length<90000,'Estado SCORM inválido.');e.cmi=Object.fromEntries(Object.entries(b.cmi).filter(([k,v])=>k.startsWith('cmi.')&&typeof v==='string'));const raw=e.cmi['cmi.score.raw']??e.cmi['cmi.core.score.raw'];if(raw!=null&&Number.isFinite(Number(raw)))e.score=Number(raw);progress=['completed','passed'].includes(e.cmi['cmi.core.lesson_status'])||e.cmi['cmi.completion_status']==='completed'?100:Math.min(99,Math.max(1,Math.round(Number(e.cmi['cmi.progress_measure']||0)*100)||1))}
  e.progress=Math.max(e.progress,progress);e.updated=iso();if(e.progress===100&&!e.completed)e.completed=e.updated
@@ -310,7 +318,7 @@ function update(s,u,op,b){
  }
  }
  else requireOk(false,'Operação desconhecida.',404)
- audit(s,u,({theme:'Identidade visual atualizada',user:'Cadastro atualizado · '+str(b.email),course:'Curso publicado · '+str(b.title),assign:'Matrícula registrada',courseEdit:'Informações do curso atualizadas',mission:'Missão atualizada',missionAssign:'Missão atribuída',progress:'Progresso registrado',record:'Registro de '+str(b.kind)+' atualizado'})[op])
+ audit(s,u,({theme:'Identidade visual atualizada',user:'Cadastro atualizado · '+str(b.email),course:'Rascunho de curso criado · '+str(b.title),courseState:'Status do curso atualizado · '+str(b.id)+' · '+str(b.status),assign:'Matrícula registrada',courseEdit:'Informações do curso atualizadas',mission:'Missão atualizada',missionAssign:'Missão atribuída',progress:'Progresso registrado',record:'Registro de '+str(b.kind)+' atualizado'})[op])
 }
 
 
@@ -671,13 +679,13 @@ async function handle(req,env){
    const item=kind==='course'?state.courses.find(c=>c.id===cid):(state.missions||[]).find(m=>m.id===cid)
    const enrolled=course=>state.enroll.some(e=>e.course===course&&e.person===u.id)
    const admin=['Administrador','RH/DHO'].includes(u.role)
-   requireOk(item?.cover&&(admin||(kind==='course'?enrolled(cid):item.courses.every(enrolled))),'Capa indisponível.',404)
+   requireOk(item?.cover&&(admin||courseStatus(item)!=='draft'&&(kind==='course'?enrolled(cid):item.courses.every(enrolled))),'Capa indisponível.',404)
    const obj=await env.BUCKET.get('files/'+item.cover.upload+'/'+item.cover.entry)
    requireOk(obj,'Capa indisponível.',404)
    return new Response(obj.body,{headers:{'content-type':media[item.cover.entry.split('.').pop()],'cache-control':'private, max-age=60','x-content-type-options':'nosniff'}})
  }
  if(['GET','HEAD'].includes(req.method)&&path.startsWith('/content/')){
- const [, ,cid,...parts]=path.split('/');const name=parts.map(decodeURIComponent).join('/'),c=state.courses.find(x=>x.id===cid),e=state.enroll.find(e=>e.course===cid&&e.person===u.id);requireOk(c&&c.upload&&filePath(name)&&(e||['Administrador','RH/DHO'].includes(u.role)),'Conteúdo indisponível.',403)
+ const [, ,cid,...parts]=path.split('/');const name=parts.map(decodeURIComponent).join('/'),c=state.courses.find(x=>x.id===cid),e=state.enroll.find(e=>e.course===cid&&e.person===u.id);requireOk(c&&c.upload&&filePath(name)&&(e&&courseStatus(c)!=='draft'||['Administrador','RH/DHO'].includes(u.role)),'Conteúdo indisponível.',403)
  const obj=await env.BUCKET.get('files/'+c.upload+'/'+name);requireOk(obj,'Arquivo inexistente.',404)
  const mime=media[name.split('.').pop().toLowerCase()]||'application/octet-stream'
  const headers={'content-type':mime,'cache-control':'private,no-store','x-content-type-options':'nosniff','content-security-policy':"sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'none'; frame-src 'self'; form-action 'none'; base-uri 'none'"}

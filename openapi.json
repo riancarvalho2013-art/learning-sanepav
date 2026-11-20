@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Sanepav Learning — fundação 2.0",
-    "version": "2.0-foundation.1",
+    "version": "2.0-learning.1",
     "description": "Todas as mutações exigem Origin igual ao endereço do serviço. Vínculos exigem a revisão atual retornada em organization."
   },
   "paths": {
@@ -356,6 +356,66 @@
             "description": "Conflito de revisão ou integridade"
           }
         }
+      }
+    },
+    "/api/courseState": {
+      "post": {
+        "summary": "Publica, arquiva ou reativa um curso, com revisão obrigatória",
+        "responses": {
+          "200": {
+            "description": "Operação concluída"
+          },
+          "400": {
+            "description": "Dados inválidos"
+          },
+          "401": {
+            "description": "Sessão ausente ou expirada"
+          },
+          "403": {
+            "description": "Acesso fora do escopo"
+          },
+          "409": {
+            "description": "Conflito de revisão ou integridade"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "revision",
+                  "status"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "published",
+                      "archived"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrador ou RH/DHO. Não exclui cursos nem matrículas. Curso legado sem status é publicado e tem revisão zero."
       }
     }
   },

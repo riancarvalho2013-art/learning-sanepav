@@ -8,7 +8,7 @@
   "scripts": {
     "build": "node build.mjs",
     "start": "node serve.mjs",
-    "test": "node build.mjs && node verify-privacy.mjs && node verify-backup.mjs && node verify-foundation.mjs && node verify-recovery.mjs && node verify-learning.mjs && node verify-bootstrap.mjs && node verify-user-company.mjs && node verify-journeys.mjs",
+    "test": "node build.mjs && node verify-privacy.mjs && node verify-backup.mjs && node verify-foundation.mjs && node verify-recovery.mjs && node verify-learning.mjs && node verify-bootstrap.mjs && node verify-user-company.mjs && node verify-journeys.mjs && node verify-learning-v2.mjs",
     "dev": "node serve.mjs"
   }
 }

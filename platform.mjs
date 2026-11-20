@@ -29,13 +29,18 @@ function group(s,u){if(u.role===roles[0])return s.users
  const ids=new Set([u.id]);if(u.role===roles[1])for(let i=0;i<s.users.length;i++){const prev=ids.size;for(const p of s.users)if(ids.has(p.manager))ids.add(p.id);if(prev===ids.size)break}
  return s.users.filter(p=>ids.has(p.id))}
 const clean=({salt,digest,...p})=>p
+function canReadPrivateRecord(record,user){
+ if(record.kind==='Pulse')return record.person===user.id
+ if(['Feedback','1:1'].includes(record.kind))return record.person===user.id||record.author===user.id
+ return true
+}
 function view(s,u){
  const people=group(s,u),ids=new Set(people.map(p=>p.id)),admin=u.role===roles[0],enroll=s.enroll.filter(e=>ids.has(e.person))
  const pulses=(s.pulses||[]).filter(p=>admin||p.people.some(id=>ids.has(id))).map(p=>{
    const people=p.people.filter(id=>ids.has(id))
    const allowed=new Set(people)
    const responses=s.records.filter(r=>r.kind==='Pulse'&&r.pulse===p.id&&allowed.has(r.person))
-   const mean=(admin||u.role===roles[1])&&responses.length>=3
+   const mean=(admin||u.role===roles[1])&&responses.length>=7
      ? Math.round(responses.reduce((sum,item)=>sum+item.rating,0)/responses.length*10)/10 : undefined
    return {...p,people,responseCount:responses.length,averageRating:mean}
  })
@@ -63,7 +68,7 @@ function view(s,u){
  const praiseRecipients=s.users.filter(person=>person.active).map(person=>[person.id,person.name])
  const sentFeedback=s.records.filter(record=>record.kind==='Feedback'&&record.author===u.id&&record.person!==u.id)
    .map(record=>({...record,recipient:names.get(record.person)||'Colaborador'}))
- return {missions,platform,praise,praiseRecipients,sentFeedback,me:clean(u),theme:s.theme,people:people.map(clean),courses:s.courses.filter(c=>admin||enroll.some(e=>e.course===c.id)).map(({answer,...c})=>c),enroll:enroll.map(({cmi,...e})=>e),records:s.records.filter(r=>['Feedback','Pulse'].includes(r.kind)?r.person===u.id:r.kind!=='Elogio'&&ids.has(r.person)),pulses,logs:admin?s.logs.filter(row=>row.event!=='Registro de Pulse atualizado').slice(0,200):[]}
+ return {missions,platform,praise,praiseRecipients,sentFeedback,me:clean(u),theme:s.theme,people:people.map(clean),courses:s.courses.filter(c=>admin||enroll.some(e=>e.course===c.id)).map(({answer,...c})=>c),enroll:enroll.map(({cmi,...e})=>e),records:s.records.filter(r=>['Feedback','Pulse'].includes(r.kind)?r.person===u.id:r.kind!=='Elogio'&&ids.has(r.person)&&canReadPrivateRecord(r,u)),pulses,logs:admin?s.logs.filter(row=>row.event!=='Registro de Pulse atualizado').slice(0,200):[]}
 }
 function starter(s,u){const c={id:id(),title:'Boas-vindas à Sanepav',type:'Leitura',track:'DNA do Desenvolvimento',body:'Sua integração começa com as pessoas. Conheça seu padrinho, converse com sua liderança e identifique os canais de apoio de Departamento Pessoal, DHO, SST e TI.\n\nNa primeira conversa com seu gestor, alinhe as prioridades da semana e registre uma ação no seu PDI.',minutes:5};s.courses.push(c);s.enroll.push({id:id(),person:u.id,course:c.id,progress:0})}
 const response=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json;charset=utf-8','cache-control':'no-store',...headers}})
@@ -242,7 +247,7 @@ function update(s,u,op,b){
  if(b.kind==='Desempenho')requireOk(manager,'Avaliação reservada à liderança.',403)
  if(b.kind==='Pulse')requireOk(b.person===u.id,'Cada pessoa responde a sua pesquisa.',403)
  if(b.course)requireOk(s.enroll.some(e=>e.person===b.person&&e.course===b.course),'Selecione um curso atribuído à pessoa.')
- if(b.link)requireOk(s.records.some(x=>x.person===b.person&&x.id===b.link&&x.id!==b.id),'Vínculo inválido.')
+ if(b.link)requireOk(s.records.some(x=>x.person===b.person&&x.id===b.link&&x.id!==b.id&&canReadPrivateRecord(x,u)),'Vínculo inválido.')
  const due=deadlineKinds.includes(b.kind)
  if(due){
    requireOk(validDate(b.date)||Boolean(r&&!r.date&&!b.date),'Informe uma data de prazo válida.')

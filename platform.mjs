@@ -1,7 +1,8 @@
 import {hashPassword,verifyPassword} from './credentials.mjs'
 import {recoveryConfigured} from './recovery.mjs'
 import {ASSETS} from './assets.mjs'
-import {courseStatus,courseRevision,requirePublished,checkCourseRevision,stampCourse,changeCourseState,missingPrerequisites,requireLearningAccess} from './learning.mjs'
+import {renderCertificatePdf} from './certificate-pdf.mjs'
+ import {upsertQuestion, resolveCourseQuestions, submitAssessment, ensureCertificate, upsertClass, enrollClass, recordClassAttendance, courseStatus,courseRevision,requirePublished,checkCourseRevision,stampCourse,changeCourseState,missingPrerequisites,requireLearningAccess} from './learning.mjs'
 const pulseContexts=["Orgulho do time", "Metas claras", "Semana muito produtiva", "Apoio de alguém", "Carga de trabalho alta", "Falta de clareza", "Metas pouco claras", "Problemas pessoais", "Precisando de apoio"];
 const stateKey='system/state-v1'
 const roles=['Administrador','Líder','Colaborador','RH/DHO','Diretoria']
@@ -101,7 +102,7 @@ function view(s,u){
  const praiseRecipients=s.users.filter(person=>person.active&&sameOrganization(s,u,person.id)).map(person=>[person.id,person.name])
  const sentFeedback=s.records.filter(record=>record.kind==='Feedback'&&record.author===u.id&&record.person!==u.id&&sameOrganization(s,u,record.person))
    .map(record=>({...record,recipient:names.get(record.person)||'Colaborador'}))
- return {missions,missionEnrollments,platform,praise,praiseRecipients,sentFeedback,me:clean(u),theme:s.theme,people:people.map(clean),courses:s.courses.filter(c=>['Administrador','RH/DHO'].includes(u.role)||courseStatus(c)!=='draft'&&enroll.some(e=>e.course===c.id)).map(({answer,history,...c})=>{const blockedBy=missingPrerequisites(s,s.enroll.find(e=>e.course===c.id&&e.person===u.id));if(blockedBy.length&&!['Administrador','RH/DHO'].includes(u.role))for(const key of ['body','url','options','entry'])delete c[key];return {...c,status:courseStatus(c),revision:courseRevision(c),blockedBy,...(['Administrador','RH/DHO'].includes(u.role)?{history}: {})}}),enroll:enroll.map(({cmi,...e})=>e),records:s.records.filter(r=>(u.role==='Diretoria'||u.role==='Administrador')&&r.person!==u.id?false:['Feedback','Pulse'].includes(r.kind)?r.person===u.id:r.kind!=='Elogio'&&ids.has(r.person)&&canReadPrivateRecord(r,u)),pulses,logs:admin?s.logs.filter(row=>row.event!=='Registro de Pulse atualizado').slice(0,200):[]}
+ return {missions,missionEnrollments,platform,praise,praiseRecipients,sentFeedback,me:clean(u),theme:s.theme,people:people.map(clean),courses:s.courses.filter(c=>['Administrador','RH/DHO'].includes(u.role)||courseStatus(c)!=='draft'&&enroll.some(e=>e.course===c.id)).map(({answer,history,...c})=>{const blockedBy=missingPrerequisites(s,s.enroll.find(e=>e.course===c.id&&e.person===u.id));if(blockedBy.length&&!['Administrador','RH/DHO'].includes(u.role))for(const key of ['body','url','options','entry'])delete c[key];return {...c,status:courseStatus(c),revision:courseRevision(c),blockedBy,...(['Administrador','RH/DHO'].includes(u.role)?{history}: {})},...(!blockedBy.length||['Administrador','RH/DHO'].includes(u.role)?{assessmentQuestions:resolveCourseQuestions(s,c).map(({id:qid,prompt,options})=>({id:qid,prompt,options})),passingScore:c.passingScore??70,maxAttempts:c.maxAttempts??3}:{})}),enroll:enroll.map(({cmi,...e})=>e),records:s.records.filter(r=>(u.role==='Diretoria'||u.role==='Administrador')&&r.person!==u.id?false:['Feedback','Pulse'].includes(r.kind)?r.person===u.id:r.kind!=='Elogio'&&ids.has(r.person)&&canReadPrivateRecord(r,u)),pulses,logs:admin?s.logs.filter(row=>row.event!=='Registro de Pulse atualizado').slice(0,200):[]},questionBank:['Administrador','RH/DHO'].includes(u.role)?(s.questionBank||[]):undefined,certificates:(s.certificates||[]).filter(c=>ids.has(c.person)),classes:(s.classes||[]).filter(cls=>['Administrador','RH/DHO'].includes(u.role)||(cls.participants||[]).some(p=>ids.has(p)))
 }
 function starter(s,u){const c={id:id(),title:'Boas-vindas à Sanepav',type:'Leitura',track:'DNA do Desenvolvimento',body:'Sua integração começa com as pessoas. Conheça seu padrinho, converse com sua liderança e identifique os canais de apoio de Departamento Pessoal, DHO, SST e TI.\n\nNa primeira conversa com seu gestor, alinhe as prioridades da semana e registre uma ação no seu PDI.',minutes:5};s.courses.push(c);s.enroll.push({id:id(),person:u.id,course:c.id,progress:0})}
 const response=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json;charset=utf-8','cache-control':'no-store',...headers}})
@@ -235,7 +236,8 @@ function update(s,u,op,b){
  if(c.type==='Leitura')requireOk(c.body,'Escreva o conteúdo.')
  if(c.type==='Questionário'){requireOk(c.body&&Array.isArray(b.options)&&b.options.length>=2&&b.options.length<=8,'Informe pergunta e alternativas.');c.options=b.options.map(x=>str(x));requireOk(c.options.every(Boolean),'Alternativa vazia.');c.answer=number(b.answer,0,c.options.length-1)}
  c.description=str(b.description,500)
- c.cover=takeCover(s,u,b.cover)
+ c.cover=takeCover(s,u,b.cover);if(Array.isArray(b.questionIds))c.questionIds=b.questionIds.filter(qid=>(s.questionBank||[]).some(q=>q.id===qid));if(b.passingScore!==undefined)c.passingScore=number(b.passingScore,0,100);if(b.maxAttempts!==undefined)c.maxAttempts=number(b.maxAttempts,0,20)
+                        
  c.status='draft';stampCourse(c,u,'created')
  s.courses.push(c)}
  else if(op==='courseEdit'){
@@ -246,7 +248,7 @@ function update(s,u,op,b){
    if(b.upload)takeCourseMaterial(s,u,course,b)
    Object.assign(course,{title:str(b.title,150),track:str(b.track,100)||'Catálogo geral',description:str(b.description,500),minutes:number(b.minutes,1,10000),cover:takeCover(s,u,b.cover)||course.cover})
    if(course.type==='Leitura'&&Object.hasOwn(b,'body')){requireOk(str(b.body,24000),'Escreva o conteúdo.');course.body=str(b.body,24000)}
-   if(course.type==='Link'&&Object.hasOwn(b,'url')){requireOk(/^https:\/\//i.test(b.url),'Informe um endereço HTTPS.');course.url=str(b.url,2000)}
+   if(course.type==='Link'&&Object.hasOwn(b,'url')){requireOk(/^https:\/\//i.test(b.url),'Informe um endereço HTTPS.');course.url=str(b.url,2000)};if(Array.isArray(b.questionIds))course.questionIds=b.questionIds.filter(qid=>(s.questionBank||[]).some(q=>q.id===qid));if(b.passingScore!==undefined)course.passingScore=number(b.passingScore,0,100);if(b.maxAttempts!==undefined)course.maxAttempts=number(b.maxAttempts,0,20)
    stampCourse(course,u,'edited')
  }
  else if(op==='courseState'){assertLearning(u);changeCourseState(s.courses.find(c=>c.id===b.id),u,b)}
@@ -290,7 +292,8 @@ function update(s,u,op,b){
  else if(op==='progress'){const e=s.enroll.find(e=>e.id===b.id&&e.person===u.id);requireOk(e,'Matrícula indisponível.',403);requireLearningAccess(s,e);const c=s.courses.find(c=>c.id===e.course);requireOk(c&&courseStatus(c)!=='draft','Curso indisponível.',403);let progress=number(b.progress,0,100)
  if(c.type==='Questionário'){const correct=b.answer!=null&&Number(b.answer)===c.answer;e.score=correct?100:0;progress=correct?100:1}
  if(c.type==='SCORM'){requireOk(b.cmi&&JSON.stringify(b.cmi).length<90000,'Estado SCORM inválido.');e.cmi=Object.fromEntries(Object.entries(b.cmi).filter(([k,v])=>k.startsWith('cmi.')&&typeof v==='string'));const raw=e.cmi['cmi.score.raw']??e.cmi['cmi.core.score.raw'];if(raw!=null&&Number.isFinite(Number(raw)))e.score=Number(raw);progress=['completed','passed'].includes(e.cmi['cmi.core.lesson_status'])||e.cmi['cmi.completion_status']==='completed'?100:Math.min(99,Math.max(1,Math.round(Number(e.cmi['cmi.progress_measure']||0)*100)||1))}
- e.progress=Math.max(e.progress,progress);e.updated=iso();if(e.progress===100&&!e.completed)e.completed=e.updated
+ e.progress=Math.max(e.progress,progress);e.updated=iso();if(e.progress===100&&!e.completed)e.completed=e.updated;if(e.progress===100)ensureCertificate(s,e,c,s.users.find(x=>x.id===e.person),u,s.theme?.title||'Sanepav Learning')
+                          
  }
  else if(op==='pulse'){requireOk(['Líder','RH/DHO'].includes(u.role),'Permissão insuficiente.',403);requireOk(str(b.title)&&validDate(b.date)&&b.date>=saoPauloDate(),'Informe pergunta e prazo válido.');const people=group(s,u).filter(p=>p.active&&(!b.person||p.id===b.person)).map(p=>p.id);requireOk(people.length,'Público vazio.');const pulse={id:id(),title:str(b.title,150),date:b.date,people,author:u.id};(s.pulses??=[]).push(pulse);for(const recipient of people)notify(s,recipient,'Pulse','Nova pesquisa de Pulse',pulse.title,{target:pulse.id,due:pulse.date});audit(s,u,'Pesquisa pulse publicada');return}
  else if(op==='record'){
@@ -330,9 +333,10 @@ function update(s,u,op,b){
    notify(s,r.person,r.kind,recordNotification(r.kind,Boolean(b.id)),subject,{target:r.id,due:deadlineKinds.includes(r.kind)?r.date:undefined})
    r.notifyDelivered=true
  }
- }
+ } else if(op==='questionBank'){assertLearning(u);upsertQuestion(s,u,b,id)} else if(op==='assessmentSubmit'){const e=s.enroll.find(x=>x.id===b.id&&x.person===u.id);requireOk(e,'Matrícula indisponível.',403);const c=s.courses.find(x=>x.id===e.course);submitAssessment(s,u,e,c,b,u,s.theme?.title||'Sanepav Learning')} else if(op==='certificateIssue'){const e=s.enroll.find(x=>x.id===b.id);requireOk(e&&(e.person===u.id||['Administrador','RH/DHO'].includes(u.role)),'Matrícula indisponível.',403);const c=s.courses.find(x=>x.id===e.course);ensureCertificate(s,e,c,s.users.find(x=>x.id===e.person),u,s.theme?.title||'Sanepav Learning')} else if(op==='classCreate'){assertLearning(u);upsertClass(s,u,b,id)} else if(op==='classEnroll'){assertLearning(u);const ppl=Array.isArray(b.people)?b.people:(b.person?[b.person]:[]);ppl.forEach(pid=>member(s,u,pid));enrollClass(s,b,id)} else if(op==='classAttendance'){requireOk(manager,'Permissão insuficiente.',403);recordClassAttendance(s,u,b,pid=>s.users.find(x=>x.id===pid))}
+  
  else requireOk(false,'Operação desconhecida.',404)
- audit(s,u,({theme:'Identidade visual atualizada',user:'Cadastro atualizado · '+str(b.email),course:'Rascunho de curso criado · '+str(b.title),courseState:'Status do curso atualizado · '+str(b.id)+' · '+str(b.status),assign:'Matrícula registrada',courseEdit:'Informações do curso atualizadas',mission:'Missão atualizada',missionAssign:'Missão atribuída',progress:'Progresso registrado',record:'Registro de '+str(b.kind)+' atualizado'})[op])
+ audit(s,u,({theme:'Identidade visual atualizada',user:'Cadastro atualizado · '+str(b.email),course:'Rascunho de curso criado · '+str(b.title),courseState:'Status do curso atualizado · '+str(b.id)+' · '+str(b.status),assign:'Matrícula registrada',courseEdit:'Informações do curso atualizadas',mission:'Missão atualizada',missionAssign:'Missão atribuída',progress:'Progresso registrado',record:'Registro de '+str(b.kind)+' atualizado',questionBank:'Banco de questões atualizado',assessmentSubmit:'Avaliação enviada',certificateIssue:'Certificado emitido',classCreate:'Turma presencial atualizada',classEnroll:'Participantes matriculados na turma',classAttendance:'Lista de presença registrada'})[op])
 }
 
 
@@ -671,7 +675,8 @@ async function handle(req,env){
   const company=url.searchParams.get('company')
   if(company){requireOk(env.DOMAIN?.allowedCompanies(state,u).includes(company),'Empresa fora do seu escopo.',403);Object.defineProperty(state,'requestCompany',{value:company})}
   return response({...view(state,u),permissions:env.DOMAIN?.permissions(u)})
- }
+ } if(req.method==='GET'&&path==='/api/certificateVerify'){const code=str(url.searchParams.get('code'),64).toUpperCase();const cert=(state.certificates||[]).find(c=>c.code===code&&c.status!=='revoked');requireOk(cert,'Certificado não encontrado ou inválido.',404);return response({valid:true,code:cert.code,personName:cert.personName,companyName:cert.companyName,courseTitle:cert.courseTitle,minutes:cert.minutes,score:cert.score,issuedAt:cert.issuedAt,status:cert.status})}
+ if(req.method==='GET'&&path==='/api/certificatePdf'){const certId=str(url.searchParams.get('id'),64),code=str(url.searchParams.get('code'),64).toUpperCase();const cert=(state.certificates||[]).find(c=>(certId&&c.id===certId)||(code&&c.code===code));requireOk(cert&&(cert.person===u.id||group(state,u).some(p=>p.id===cert.person)),'Certificado indisponível.',404);const pdf=renderCertificatePdf(cert);return new Response(pdf,{headers:{'content-type':'application/pdf','content-disposition':'inline; filename="certificado-'+cert.code+'.pdf"','cache-control':'private, no-store','x-content-type-options':'nosniff'}})}
  if(req.method==='POST'&&path==='/api/logout'){await change(env,s=>{s.sessions=s.sessions.filter(x=>x.digest!==digest);audit(s,u,'Saída da plataforma')});return response({ok:true},200,{'set-cookie':'learning=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0'})}
  if(req.method==='POST'&&path==='/api/upload'){assertLearning(u);const key=url.searchParams.get('id')||id(),name=url.searchParams.get('path')
  requireOk(/^[\da-f-]{36}$/.test(key)&&filePath(name),'Arquivo inválido.')

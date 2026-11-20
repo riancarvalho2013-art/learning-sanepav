@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Sanepav Learning — fundação 2.0",
-    "version": "2.0-learning.1",
+    "version": "2.0-learning.2",
     "description": "Todas as mutações exigem Origin igual ao endereço do serviço. Vínculos exigem a revisão atual retornada em organization."
   },
   "paths": {
@@ -516,6 +516,133 @@
             "description": "Revisão alterada ou cadastro duplicado"
           }
         }
+      }
+    },
+    "/api/mission": {
+      "post": {
+        "summary": "Cria ou edita trilha",
+        "responses": {
+          "200": {
+            "description": "Operação concluída"
+          },
+          "400": {
+            "description": "Dados inválidos"
+          },
+          "401": {
+            "description": "Sessão ausente ou expirada"
+          },
+          "403": {
+            "description": "Acesso fora do escopo"
+          },
+          "409": {
+            "description": "Conflito de revisão ou integridade"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title",
+                  "courses"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "courses": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 30,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "sequential": {
+                    "type": "boolean"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "A ordem e o modo de estudo ficam preservados após a primeira atribuição explícita. Edição exige revisão."
+      }
+    },
+    "/api/missionAssign": {
+      "post": {
+        "summary": "Atribui trilha a uma pessoa ou grupo",
+        "responses": {
+          "200": {
+            "description": "Operação concluída"
+          },
+          "400": {
+            "description": "Dados inválidos"
+          },
+          "401": {
+            "description": "Sessão ausente ou expirada"
+          },
+          "403": {
+            "description": "Acesso fora do escopo"
+          },
+          "409": {
+            "description": "Conflito de revisão ou integridade"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "person": {
+                    "type": "string"
+                  },
+                  "people": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "date": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrador ou RH/DHO. Todas as pessoas devem estar ativas e no escopo. Atribuição atômica e idempotente; novas matrículas recebem os pré-requisitos da trilha."
       }
     }
   },

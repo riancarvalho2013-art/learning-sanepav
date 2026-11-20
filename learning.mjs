@@ -1,6 +1,13 @@
 // Missing lifecycle fields identify courses published before Learning 2.0.
 export const courseStatus = course => course.status || 'published'
 export const courseRevision = course => course.revision || 0
+export function missingPrerequisites(state,enrollment) {
+  if(!enrollment)return []
+  return (enrollment.prerequisites||[]).filter(course=>!state.enroll.some(item=>item.person===enrollment.person&&item.course===course&&item.progress===100))
+}
+export function requireLearningAccess(state,enrollment) {
+  check(enrollment&&!missingPrerequisites(state,enrollment).length,'Conclua as etapas anteriores para acessar este conteúdo.',403)
+}
 const check = (condition, message, status=400) => {
   if (!condition) throw Object.assign(new Error(message), {status})
 }

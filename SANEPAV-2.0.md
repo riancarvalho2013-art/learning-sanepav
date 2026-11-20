@@ -104,3 +104,16 @@ Criar usuário e editar cadastro agora incluem empresa, unidade, área, cargo, d
 Usuário e vínculo organizacional são gravados na mesma transação SQLite. Uma empresa inválida, unidade de outra empresa, hierarquia incompatível ou revisão antiga reverte também o cadastro, as credenciais e a revogação de sessões. Não há novas tabelas: person_organizations continua sendo a fonte única do vínculo. Chamadas legadas sem organization permanecem compatíveis; o formulário novo exige empresa ativa. Apenas Administrador técnico altera cadastro e empresa.
 
 verify-user-company.mjs cobre criação, alteração, rollback, revisão concorrente, mudança conjunta de gestor e empresa, permissões e auditoria. O visual usa diretório, indicadores e perfil integrado originais da Sanepav. A referência pública Qulture Rocks foi consultada como orientação funcional, sem copiar layouts ou identidade.
+
+
+## Incremento Learning 02 — trilhas sequenciais
+
+Missões existentes são reaproveitadas como trilhas com estudo livre ou sequencial. Atribuições explícitas ficam em missionEnrollments, referenciando a missão e a pessoa. Os cursos continuam na fonte única existente; as matrículas novas guardam os IDs de seus pré-requisitos e a missão de origem. Não foram criadas tabelas nem duplicados conteúdos. A migração relacional completa da aprendizagem continua pendente.
+
+Atribuição individual ou coletiva (até 200 pessoas) é atômica, valida o escopo de todas as pessoas e evita duplicação em tentativas repetidas. Matrículas anteriores preservam acesso e progresso; o bloqueio sequencial se aplica somente às novas matrículas geradas pela trilha. Missões legadas sem modo de estudo continuam livres e com sua visibilidade anterior. Para elas, a lista explícita de participantes começa quando se registra uma nova atribuição, sem inventar datas ou responsáveis antigos.
+
+Conteúdo de leitura, alternativas e URLs de etapas bloqueadas são omitidos do retorno ao aluno. Arquivos e progresso são bloqueados pelo servidor, incluindo SCORM. A conclusão das etapas anteriores libera automaticamente o próximo conteúdo. Depois de uma atribuição explícita, a ordem e o modo de estudo da trilha ficam preservados; novas estruturas exigem outra trilha. Título, descrição e capa continuam editáveis com controle de revisão.
+
+A interface apresenta cartões de progresso, próxima etapa, duração, estados de conclusão/bloqueio e participantes no escopo do gestor de aprendizagem. O editor reutiliza cursos já cadastrados e permite ordenar etapas. Empresas continuam disponíveis ao criar e editar usuários.
+
+verify-journeys.mjs testa atribuição coletiva e rollback, idempotência, escopo, omissão de conteúdo, bloqueio de progresso/SCORM, desbloqueio, revisão e compatibilidade com matrículas anteriores. As oito suítes passaram. A interface isolada foi testada com duas leituras: a segunda começou bloqueada e foi liberada após a conclusão da primeira, com progresso de 50%. Os dados de teste ficam fora do repositório e não são publicados. Certificados verificáveis, turmas, tentativas e um domínio relacional completo de aulas continuam pendentes.

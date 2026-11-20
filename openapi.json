@@ -417,6 +417,106 @@
         },
         "description": "Administrador ou RH/DHO. Não exclui cursos nem matrículas. Curso legado sem status é publicado e tem revisão zero."
       }
+    },
+    "/api/user": {
+      "post": {
+        "summary": "Cria ou edita usuário e vínculo profissional em uma transação",
+        "description": "Somente Administrador. organization é opcional para compatibilidade com clientes legados; quando enviado, company_id e revision são obrigatórios. Qualquer erro reverte acesso, credenciais e vínculo.",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "email",
+                  "role",
+                  "active"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "Administrador",
+                      "Líder",
+                      "Colaborador",
+                      "RH/DHO",
+                      "Diretoria"
+                    ]
+                  },
+                  "active": {
+                    "type": "boolean"
+                  },
+                  "manager": {
+                    "type": "string"
+                  },
+                  "organization": {
+                    "type": "object",
+                    "required": [
+                      "company_id",
+                      "revision"
+                    ],
+                    "properties": {
+                      "company_id": {
+                        "type": "string"
+                      },
+                      "unit_id": {
+                        "type": "string"
+                      },
+                      "department_id": {
+                        "type": "string"
+                      },
+                      "position": {
+                        "type": "string"
+                      },
+                      "hired_at": {
+                        "type": "string"
+                      },
+                      "ended_at": {
+                        "type": "string"
+                      },
+                      "revision": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cadastro e vínculo salvos"
+          },
+          "400": {
+            "description": "Dados ou hierarquia incompatíveis"
+          },
+          "403": {
+            "description": "Sem autorização"
+          },
+          "409": {
+            "description": "Revisão alterada ou cadastro duplicado"
+          }
+        }
+      }
     }
   },
   "components": {

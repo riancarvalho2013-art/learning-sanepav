@@ -42,5 +42,13 @@
   "/favicon-32.png": {
     "file": "web-favicon-32.png",
     "mime": "image/png"
+  },
+  "/lxp-v2.css": {
+    "file": "web-lxp-v2.css",
+    "mime": "text/css;charset=utf-8"
+  },
+  "/lxp-v2.js": {
+    "file": "web-lxp-v2.js",
+    "mime": "text/javascript;charset=utf-8"
   }
 }

@@ -4,6 +4,7 @@ import {createHash, timingSafeEqual} from 'node:crypto'
 import app from './platform.mjs'
 import {BUCKET,DOMAIN} from './storage.mjs'
 import {handleEvolution} from './learning-evolution.mjs'
+import {handleLxpV2} from './lxp-v2.mjs'
 
 const portArgument=process.argv.indexOf('--port')
 const devMode=process.env.NODE_ENV!=='production'&&portArgument>=0
@@ -63,7 +64,7 @@ http.createServer(async (req,res) => {
       }
     }
     const request = new Request(url,options)
-    const result = await handleEvolution(request,{BUCKET,DOMAIN}) || await app.fetch(request,{BUCKET,DOMAIN})
+    const result = await handleLxpV2(request,{BUCKET,DOMAIN}) || await handleEvolution(request,{BUCKET,DOMAIN}) || await app.fetch(request,{BUCKET,DOMAIN})
     if(req.method==='GET'&&url.pathname==='/api/access'&&result.ok){
       const data=await result.json()
       if(data.setup){

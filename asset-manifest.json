@@ -66,5 +66,13 @@
   "/reports-v3.css": {
     "file": "web-reports-v3.css",
     "mime": "text/css;charset=utf-8"
+  },
+  "/discovery-v4.css": {
+    "file": "web-discovery-v4.css",
+    "mime": "text/css;charset=utf-8"
+  },
+  "/discovery-v4.js": {
+    "file": "web-discovery-v4.js",
+    "mime": "text/javascript;charset=utf-8"
   }
 }

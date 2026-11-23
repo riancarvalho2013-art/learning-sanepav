@@ -1,0 +1,12 @@
+FAVICON DNA — LEARNING SANEPAV
+
+ATUALIZAR SOMENTE NA BRANCH homologacao-dna
+
+1. GitHub > learning-sanepav > selecionar homologacao-dna.
+2. Add file > Upload files.
+3. Enviar estes 4 arquivos (sem a pasta): web-index.html, asset-manifest.json, web-favicon-256.png, web-favicon-32.png.
+4. Confirmar a atualização dos dois arquivos existentes e adicionar os dois PNG.
+5. Commit changes e acompanhar o deploy em homologacao no Railway.
+6. Abrir o site e pressionar Ctrl+Shift+R para limpar a aparência antiga da aba.
+
+Nota: o projeto usa build.mjs e asset-manifest.json para incorporar assets na inicialização. Os novos PNG estão registrados no manifesto. A alteração NÃO deve ser feita em main até ser testada.

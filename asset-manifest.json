@@ -1,11 +1,46 @@
 {
-  "/": { "file": "web-index.html", "mime": "text/html;charset=utf-8" },
-  "/marca.png": { "file": "web-marca.png", "mime": "image/png" },
-  "/waves.webp": { "file": "web-waves.webp", "mime": "image/webp" },
-  "/style.css": { "file": "web-style.css", "mime": "text/css;charset=utf-8" },
-  "/evolution.css": { "file": "web-evolution.css", "mime": "text/css;charset=utf-8" },
-  "/zip.js": { "file": "web-zip.js", "mime": "text/javascript" },
-  "/app.js": { "file": "web-app.js", "mime": "text/javascript;charset=utf-8" },
-  "/foundation.js": { "file": "web-foundation.js", "mime": "text/javascript;charset=utf-8" },
-  "/evolution.js": { "file": "web-evolution.js", "mime": "text/javascript;charset=utf-8" }
+  "/": {
+    "file": "web-index.html",
+    "mime": "text/html;charset=utf-8"
+  },
+  "/marca.png": {
+    "file": "web-marca.png",
+    "mime": "image/png"
+  },
+  "/waves.webp": {
+    "file": "web-waves.webp",
+    "mime": "image/webp"
+  },
+  "/style.css": {
+    "file": "web-style.css",
+    "mime": "text/css;charset=utf-8"
+  },
+  "/evolution.css": {
+    "file": "web-evolution.css",
+    "mime": "text/css;charset=utf-8"
+  },
+  "/zip.js": {
+    "file": "web-zip.js",
+    "mime": "text/javascript"
+  },
+  "/app.js": {
+    "file": "web-app.js",
+    "mime": "text/javascript;charset=utf-8"
+  },
+  "/foundation.js": {
+    "file": "web-foundation.js",
+    "mime": "text/javascript;charset=utf-8"
+  },
+  "/evolution.js": {
+    "file": "web-evolution.js",
+    "mime": "text/javascript;charset=utf-8"
+  },
+  "/favicon.png": {
+    "file": "web-favicon-256.png",
+    "mime": "image/png"
+  },
+  "/favicon-32.png": {
+    "file": "web-favicon-32.png",
+    "mime": "image/png"
+  }
 }

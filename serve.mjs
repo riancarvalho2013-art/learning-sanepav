@@ -3,6 +3,7 @@ import {Readable} from 'node:stream'
 import {createHash, timingSafeEqual} from 'node:crypto'
 import app from './platform.mjs'
 import {BUCKET,DOMAIN} from './storage.mjs'
+import {handleEvolution} from './learning-evolution.mjs'
 
 const portArgument=process.argv.indexOf('--port')
 const devMode=process.env.NODE_ENV!=='production'&&portArgument>=0
@@ -48,7 +49,7 @@ http.createServer(async (req,res) => {
     headers.set('cf-connecting-ip',req.socket.remoteAddress || 'local')
     const options = {method:req.method,headers}
     if (!['GET','HEAD'].includes(req.method)) {
-      const upload = ['/api/upload','/api/socialUpload'].includes(url.pathname)
+      const upload = ['/api/upload','/api/socialUpload','/api/evo/brand/logo','/api/evo/certificate/background'].includes(url.pathname)
       if (upload) Object.assign(options,{body:Readable.toWeb(req),duplex:'half'})
       else {
         let bytes=0
@@ -61,7 +62,8 @@ http.createServer(async (req,res) => {
         options.body=Buffer.concat(chunks)
       }
     }
-    const result = await app.fetch(new Request(url,options),{BUCKET,DOMAIN})
+    const request = new Request(url,options)
+    const result = await handleEvolution(request,{BUCKET,DOMAIN}) || await app.fetch(request,{BUCKET,DOMAIN})
     if(req.method==='GET'&&url.pathname==='/api/access'&&result.ok){
       const data=await result.json()
       if(data.setup){

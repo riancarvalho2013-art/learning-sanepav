@@ -50,5 +50,13 @@
   "/lxp-v2.js": {
     "file": "web-lxp-v2.js",
     "mime": "text/javascript;charset=utf-8"
+  },
+  "/scorm-v3.css": {
+    "file": "web-scorm-v3.css",
+    "mime": "text/css;charset=utf-8"
+  },
+  "/scorm-v3.js": {
+    "file": "web-scorm-v3.js",
+    "mime": "text/javascript;charset=utf-8"
   }
 }

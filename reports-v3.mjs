@@ -8,6 +8,7 @@ import {workbook} from './report-xlsx-v12.mjs'
 import {historicalReport,HISTORICAL_DEFINITIONS} from './historical-analytics-v12.mjs'
 import {REPORT_DEFINITIONS,semanticDefinitions,semanticProjection} from './metric-registry-v13.mjs'
 import {okrMetrics} from './okr-v13.mjs'
+import {projectPdiRows} from './lxp-v2.mjs'
 import {handleIntelligenceV6} from './people-intelligence-v6.mjs'
 export {REPORT_DEFINITIONS}
 import {completionClassification} from './completion-v11.mjs'
@@ -82,7 +83,7 @@ function lxpRows(legacy,lxp,scope){
   (scope.role!=='Líder'||arr(c.participants).some(id=>scope.ids.has(id)))&&inPeriod(c.createdAt,scope))
  const cycleIds=new Set(cycles.map(c=>c.id))
  const reviews=arr(lxp.reviews).filter(r=>cycleIds.has(r.cycleId)&&ids.has(r.subjectId)&&(!scope.from&&!scope.to||inPeriod(r.submittedAt||r.updatedAt,scope)))
- const pdi=arr(lxp.pdiActions).filter(a=>ids.has(a.personId)&&inPeriod(a.createdAt,scope))
+ const pdi=projectPdiRows(legacy,arr(lxp.pdiActions).filter(a=>ids.has(a.personId)&&(!a.companyId||companyFor(legacy,a.personId)===a.companyId)&&inPeriod(a.createdAt,scope)))
  const meetings=arr(lxp.meetings).filter(m=>arr(m.participants).some(id=>ids.has(id))&&inPeriod(m.createdAt||m.date,scope))
  const feedback=arr(lxp.feedbackRequests).filter(r=>(ids.has(r.fromId)||ids.has(r.toId))&&inPeriod(r.createdAt,scope))
  return {cycles,reviews,pdi,meetings,feedback}

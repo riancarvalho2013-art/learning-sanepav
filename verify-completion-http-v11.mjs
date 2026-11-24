@@ -25,18 +25,23 @@ try{
  await call('courseState',admin,{id:course.id,revision:course.revision,status:'published'})
  await call('assign',admin,{course:course.id,person:person.id})
  const enrollment=(await data(learner)).enroll.find(e=>e.course===course.id);assert.ok(enrollment)
+ const linked=(await call('lxp/v2/growth',learner,{personId:person.id,title:'PDI QA vinculado',mix:'10',status:'done',learningLink:{kind:'course',id:enrollment.id}},201)).data
+ assert.equal(linked.status,'todo');assert.equal((await call('lxp/v2/profile',learner)).data.counts.completedPdi,0)
+ await call('lxp/v2/profile?person='+person.id,'',undefined,401)
  const f=(await call('assessment/v6/create',admin,{companyId:company,courseId:course.id,title:'Final QA V11',kind:'final',minScore:70,maxAttempts:2,durationMinutes:20,startsOn:'2020-01-01',endsOn:'2099-12-31',questions:[{prompt:'Selecione a alternativa correta',options:['A','B'],correctIndex:1,weight:1}]})).data
  await call('assessment/v6/publish',admin,{id:f.id,revision:f.revision})
  await call('progress',admin,{id:enrollment.id,progress:100},403)
  const pending=(await call('progress',learner,{id:enrollment.id,progress:100,score:100})).data;assert.equal(pending.progress,99);assert.equal(pending.pendingAssessment,true)
  await call('evo/certificates/issue',learner,{enrollmentId:enrollment.id},409)
+ assert.equal((await call('lxp/v2/growth',learner)).data.items.find(x=>x.id===linked.id).status,'doing')
  const s=(await call('assessment/v6/start',learner,{id:f.id})).data
  const attempt=(await call('assessment/v6/submit',learner,{id:f.id,attemptId:s.attemptId,answers:[1]})).data;assert.equal(attempt.passed,true);assert.equal(attempt.completion.items[0].progress,100)
  assert.equal((await data(learner)).enroll.find(e=>e.id===enrollment.id).progress,100)
  const cert=(await call('evo/certificates/issue',learner,{enrollmentId:enrollment.id})).data;assert.ok(cert.code)
+ const profile=(await call('lxp/v2/profile?person='+person.id,admin)).data;assert.equal(profile.counts.completedPdi,1);assert.equal(profile.counts.certificates,1);assert.equal(profile.counts.nominalMinutes,5);assert.equal(profile.pdi.find(x=>x.id===linked.id).learning.progress,100)
  const hist=(await call('organization/v11/history?person='+person.id,admin)).data;assert.equal(hist.assignments[0].company_id,company)
  await call('organization/v11/history',learner,undefined,403)
- const report=(await call('reports/v3/summary?company='+company,admin)).data;assert.equal(report.metrics.find(m=>m.code==='learning.completion_assessed').value,1)
+ const report=(await call('reports/v3/summary?company='+company,admin)).data;assert.equal(report.metrics.find(m=>m.code==='learning.completion_assessed').value,1);assert.equal(report.metrics.find(m=>m.code==='dho.pdi_completion').value,100)
  await call('logout',learner,{});await call('progress',learner,{id:enrollment.id,progress:100},401)
  console.log('PASSOU: jornada HTTP V11 com núcleo real, '+checks+' requisições verificadas, SQLite, avaliação, certificado, histórico e escopo.')
 }catch(e){console.error(log.slice(-2500));throw e}finally{if(child&&child.exitCode===null){child.kill();await once(child,'exit')}await rm(dir,{recursive:true,force:true})}

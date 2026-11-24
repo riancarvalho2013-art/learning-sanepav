@@ -209,17 +209,64 @@ const cycleView=(c,db,state,user,domain)=>{
   results:c.releaseResults?subjectResults(c,tasks,user.id):undefined,
   finalScore:c.releaseResults?(calibrationFor(c,user.id)?.approvedAt?calibrationFor(c,user.id).proposed:originalScore(c,tasks,user.id)):undefined}
 }
-function pdiVisible(state,domain,user,entry){return canViewPerson(state,domain,user,entry.personId)}
+function pdiVisible(state,domain,user,entry){return user.role==='Líder'?profileScope(state,domain,user,entry.personId):canViewPerson(state,domain,user,entry.personId)}
 function meetingVisible(user,x){return x.participants.includes(user.id)}
 function feedbackVisible(user,x){return x.fromId===user.id||x.toId===user.id}
 function findCompanyForAction(state,domain,user,personId){err(own(state,personId),'Pessoa não encontrada.',404);err(canEditPerson(state,domain,user,personId),'Pessoa fora do seu escopo de desenvolvimento.',403);const companyId=company(state,personId);err(companyId,'A pessoa precisa estar vinculada a uma empresa.',409);ensureCompany(state,domain,user,companyId);return companyId}
 function performanceDates(b){err(isDate(b.startDate)&&isDate(b.endDate)&&b.startDate<=b.endDate,'Informe um período válido.')}
+// V16 — integrated development profile and LMS-linked PDI. Read models only;
+// the existing enrollment/completion engine remains the single source of truth.
+function profileScope(s,d,u,p){
+ const target=own(s,p);if(!target)return false
+ if(u.id===p||u.role==='Administrador')return true
+ const tenant=company(s,p);if(u.role!=='Líder'||!tenant||company(s,u.id)!==tenant||!allowed(s,d,u).includes(tenant))return false
+ const seen=new Set();let next=target;while(next&&!seen.has(next.id)&&company(s,next.id)===tenant){if(next.id===u.id)return true;seen.add(next.id);next=own(s,next.manager)}return false
+}
+export function linkedOptions(s,p){
+ const courses=new Map((s.courses||[]).filter(c=>(c.status||'published')!=='draft').map(c=>[c.id,c]))
+ const enroll=(s.enroll||[]).filter(e=>e.person===p&&courses.has(e.course));const byCourse=new Map(enroll.map(e=>[e.course,e]))
+ const opts=enroll.map(e=>({kind:'course',id:e.id,title:courses.get(e.course).title,minutes:Number(courses.get(e.course).minutes)||0,progress:Math.max(0,Math.min(100,Number(e.progress)||0)),completed:e.progress===100}))
+ const assigned=new Set((s.missionEnrollments||[]).filter(m=>m.person===p).map(m=>m.mission))
+ for(const m of s.missions||[]){if(!assigned.has(m.id)||!Array.isArray(m.courses)||!m.courses.length||!m.courses.every(c=>byCourse.has(c)))continue
+  const unique=[...new Set(m.courses)],es=unique.map(c=>byCourse.get(c)),completed=es.every(e=>e.progress===100),progress=completed?100:Math.min(99,Math.round(es.reduce((n,e)=>n+Math.max(0,Math.min(100,Number(e.progress)||0)),0)/es.length));opts.push({kind:'mission',id:m.id,title:m.title,minutes:unique.reduce((n,c)=>n+(Number(courses.get(c).minutes)||0),0),progress,completed})}
+ return opts
+}
+export function projectPdiLearning(s,a,options=null){
+ if(!a.learningLink)return a
+ const link=a.learningLink,eligible=company(s,a.personId)===a.companyId&&!!own(s,a.personId),item=eligible?(options||linkedOptions(s,a.personId)).find(x=>x.kind===link.kind&&x.id===link.id):null
+ return {...a,status:item?.completed?'done':item?.progress>0?'doing':'todo',learning:{kind:link.kind,id:link.id,title:item?.title||'Treinamento indisponível',progress:item?.progress??null,available:!!item,completed:!!item?.completed}}
+}
+export function projectPdiRows(s,rows){const cache=new Map();return rows.map(a=>{if(!a.learningLink)return a;if(!cache.has(a.personId))cache.set(a.personId,linkedOptions(s,a.personId));return projectPdiLearning(s,a,cache.get(a.personId))})}
+function pdiInCompany(s,a){return !!own(s,a.personId)&&(!a.companyId||company(s,a.personId)===a.companyId)}
+async function integratedProfile(s,d,u,db,bucket,p){
+ err(profileScope(s,d,u,p),'Perfil de desenvolvimento fora do escopo.',403)
+ const target=own(s,p),a=assignment(s,p)||{},tenant=company(s,p),opts=linkedOptions(s,p),courses=opts.filter(o=>o.kind==='course'),missions=opts.filter(o=>o.kind==='mission'),courseIds=new Set(courses.map(o=>o.id)),enroll=(s.enroll||[]).filter(e=>e.person===p&&courseIds.has(e.id))
+ const actions=db.pdiActions.filter(x=>x.personId===p&&pdiInCompany(s,x)).map(x=>projectPdiLearning(s,x,opts)).map(({id,title,mix,status,dueDate,learning})=>({id,title,mix,status,dueDate,learning}))
+ const okrs=listOKR(db,s,d,u).items.filter(o=>o.scope==='individual'&&o.ownerId===p&&o.status!=='draft').map(({id,title,progress,status,startsOn,endsOn})=>({id,title,progress,status,startsOn,endsOn}))
+ const cycles=db.cycles.filter(c=>c.status==='closed'&&c.releaseResults&&c.companyId===tenant&&c.participants.includes(p)).sort((a,b)=>String(b.endDate).localeCompare(String(a.endDate))).map(c=>{const tasks=db.reviews.filter(t=>t.cycleId===c.id),cal=calibrationFor(c,p);return {id:c.id,title:c.title,endDate:c.endDate,score:cal?.approvedAt?cal.proposed:originalScore(c,tasks,p),competencies:competencyResults(c,tasks,p).map(({label,observed,expected,gap,suppressed})=>({label,observed,expected,gap,suppressed}))}})
+ const keys=enroll.filter(e=>e.progress===100).map(e=>'evolution/v1/issued/'+e.id);let certificates=null
+ if(typeof bucket.countExisting==='function')certificates=await bucket.countExisting(keys);else if(keys.length<=2000)certificates=(await Promise.all(keys.map(k=>bucket.get(k)))).filter(Boolean).length
+ const limit=100,cap=rows=>rows.slice(0,limit)
+ // No feedback bodies, peer identities, private 1:1 notes or Pulse answers in this projection.
+ return {person:{id:p,name:target.name,position:a.position||'',companyName:s.organization?.companies?.find(x=>x.id===tenant)?.name||'',departmentName:s.organization?.departments?.find(x=>x.id===a.department_id)?.name||'',managerName:company(s,target.manager)===tenant?own(s,target.manager)?.name||'':''},self:u.id===p,counts:{courses:courses.length,completed:courses.filter(x=>x.completed).length,missions:missions.length,completedMissions:missions.filter(x=>x.completed).length,nominalMinutes:courses.filter(x=>x.completed).reduce((n,x)=>n+x.minutes,0),certificates,pdi:actions.length,completedPdi:actions.filter(x=>x.status==='done').length,okrs:okrs.length,cycles:cycles.length,meetings:u.id===p?db.meetings.filter(m=>m.participants.includes(p)).length:null,pendingFeedback:u.id===p?db.feedbackRequests.filter(f=>f.toId===p&&f.status==='requested').length:null},courses:cap(courses),missions:cap(missions),pdi:cap(actions),okrs:cap(okrs),cycles:cap(cycles),limit,method:'Carteira atual; carga horária nominal dos conteúdos concluídos, não tempo efetivamente estudado.'}
+}
+
 async function endpoint(req,ctx){
  const {BUCKET,DOMAIN}=ctx, url=new URL(req.url),path=url.pathname.slice('/api/lxp/v2/'.length),method=req.method
  const state=await source(BUCKET),user=getUser(req,state)
  if(method==='POST')err(req.headers.get('origin')===url.origin,'Origem inválida.',403)
  const current=await data(BUCKET),db=current.state
  const request=async()=>{try{return await req.json()}catch{err(false,'Dados JSON inválidos.')}}
+ if(path==='profile'&&method==='GET'){
+  const p=url.searchParams.get('person')||user.id;err(uuid(p),'Pessoa inválida.')
+  const result=await integratedProfile(state,DOMAIN,user,db,BUCKET,p)
+  const latest=await source(BUCKET),actor=getUser(req,latest);err(profileScope(latest,DOMAIN,actor,p)&&actor.id===user.id&&actor.role===user.role&&company(latest,p)===company(state,p)&&latest.organization?.revision===state.organization?.revision,'O escopo mudou. Atualize a página.',409)
+  return reply(result)
+ }
+ if(path==='growth/learning-options'&&method==='GET'){
+  const p=url.searchParams.get('person')||user.id;err(uuid(p)&&profileScope(state,DOMAIN,user,p),'Pessoa fora do escopo.',403)
+  return reply({items:linkedOptions(state,p).slice(0,2000)})
+ }
  if(path==='okr'&&method==='GET')return reply(listOKR(db,state,DOMAIN,user))
  if(path.startsWith('okr/')&&method==='POST'){
    const b=await request(),action=path.slice(4)
@@ -239,7 +286,7 @@ async function endpoint(req,ctx){
    canCreatePulse:canCreate(user),canConfigurePerformance:isManage(user),
    allowedCompanies:allowed(state,DOMAIN,user),requiresCompanyLink:!ownCompany,
    counts:{assignedCourses:state.enroll.filter(e=>e.person===user.id).length,completedCourses:state.enroll.filter(e=>e.person===user.id&&e.progress===100).length,
-    activePDIs:db.pdiActions.filter(x=>x.personId===user.id&&x.status!=='done').length,pendingReviews:db.reviews.filter(x=>x.reviewerId===user.id&&x.status!=='submitted').length,
+    activePDIs:projectPdiRows(state,db.pdiActions.filter(x=>x.personId===user.id&&pdiInCompany(state,x))).filter(x=>x.status!=='done').length,pendingReviews:db.reviews.filter(x=>x.reviewerId===user.id&&x.status!=='submitted').length,
     pendingFeedback:db.feedbackRequests.filter(x=>x.toId===user.id&&x.status==='requested').length}})
  }
  if(path==='pulse'&&method==='GET')return reply({items:listPulses(state,user,db,DOMAIN),today:today()})
@@ -380,18 +427,26 @@ async function endpoint(req,ctx){
   return reply({ok:true,status:draft?'draft':'submitted'})
  }
  if(path==='growth'&&method==='GET'){
-  return reply({items:db.pdiActions.filter(a=>pdiVisible(state,DOMAIN,user,a)).map(a=>({...a,person:publicUser(state,a.personId)})).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))})
+  return reply({items:projectPdiRows(state,db.pdiActions.filter(a=>pdiVisible(state,DOMAIN,user,a)&&pdiInCompany(state,a))).map(a=>({...a,person:publicUser(state,a.personId)})).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))})
  }
  if(path==='growth'&&method==='POST'){
-  const b=await request();const personId=b.personId||user.id;findCompanyForAction(state,DOMAIN,user,personId)
+  const b=await request();err(b&&typeof b==='object'&&!Array.isArray(b),'Dados inválidos.')
   err(['70','20','10'].includes(b.mix),'Informe a modalidade 70, 20 ou 10.')
   err(['todo','doing','done'].includes(b.status),'Situação inválida.')
   err(!b.dueDate||isDate(b.dueDate),'Prazo inválido.')
   const payload={title:text(b.title,150),description:text(b.description,1500,{optional:true}),mix:b.mix,status:b.status,dueDate:b.dueDate||'',evidence:text(b.evidence,1500,{optional:true})}
-  const result=await change(BUCKET,s=>{
-   if(b.id){const a=s.pdiActions.find(x=>x.id===b.id);err(a&&a.personId===personId,'Ação não encontrada.',404);err(Number(b.revision)===a.revision,'A ação foi alterada.',409);Object.assign(a,payload,{revision:a.revision+1,updatedAt:now()});audit(s,user,'pdi.update',a.id);return a}
-   checkCapacity(s,'pdiActions');const a={id:id(),personId,companyId:company(state,personId),...payload,createdAt:now(),updatedAt:now(),createdBy:user.id,revision:1};s.pdiActions.push(a);audit(s,user,'pdi.create',a.id);return a
-  });return reply({id:result.id},b.id?200:201)
+  for(let attempt=0;attempt<4;attempt++){
+   const raw=await BUCKET.get(LEGACY);err(raw,'Ambiente não inicializado.',503);const fresh=await raw.json(),actor=getUser(req,fresh),personId=b.personId||actor.id,tenant=findCompanyForAction(fresh,DOMAIN,actor,personId)
+   err(actor.role!=='Líder'||profileScope(fresh,DOMAIN,actor,personId),'Pessoa fora da sua liderança.',403)
+   const {etag,state:s}=await data(BUCKET);let a=b.id?s.pdiActions.find(x=>x.id===b.id):null
+   if(b.id){err(a&&a.personId===personId&&pdiInCompany(fresh,a),'Ação não encontrada.',404);err(Number(b.revision)===a.revision,'A ação foi alterada.',409)}
+   const link=a?.learningLink||b.learningLink||null
+   if(link){err(profileScope(fresh,DOMAIN,actor,personId),'Vínculo de aprendizagem fora do escopo.',403);err(payload.mix==='10','Vincule treinamentos somente a ações de estudo.');err(link&&['course','mission'].includes(link.kind)&&uuid(link.id),'Vínculo inválido.');if(a?.learningLink)err(!b.learningLink||b.learningLink.kind===link.kind&&b.learningLink.id===link.id,'Um vínculo já registrado não pode ser trocado.',409);else {err(!a||a.status!=='done','Ações concluídas não podem receber novo vínculo.',409);err(linkedOptions(fresh,personId).some(x=>x.kind===link.kind&&x.id===link.id),'Treinamento não atribuído à pessoa.',403)}}
+   if(a){Object.assign(a,payload,{revision:a.revision+1,updatedAt:now()});audit(s,actor,'pdi.update',a.id)}else{checkCapacity(s,'pdiActions');a={id:id(),personId,companyId:tenant,...payload,createdAt:now(),updatedAt:now(),createdBy:actor.id,revision:1};s.pdiActions.push(a);audit(s,actor,'pdi.create',a.id)}
+   if(link){a.learningLink={kind:link.kind,id:link.id};a.status='todo'}
+   if(await BUCKET.put(STORE,JSON.stringify(s),{onlyIf:etag?{etagMatches:etag}:{etagDoesNotMatch:'*'},requireStateEtag:raw.etag,requireOrganizationRevision:fresh.organization?.revision}))return reply({id:a.id,status:projectPdiLearning(fresh,a).status},b.id?200:201)
+  }
+  err(false,'A estrutura ou o plano foi alterado. Atualize a página.',409)
  }
  if(path==='meetings'&&method==='GET')return reply({items:db.meetings.filter(x=>meetingVisible(user,x)).map(m=>({...m,privateNote:m.privateNotes?.[user.id]||'',privateNotes:undefined})).sort((a,b)=>b.date.localeCompare(a.date))})
  if(path==='meetings'&&method==='POST'){
@@ -421,7 +476,7 @@ async function endpoint(req,ctx){
   const applicable=db.cycles.filter(x=>!companyId||x.companyId===companyId)
   const responses=db.pulseResponses.filter(x=>db.pulses.some(p=>p.id===x.surveyId&&(!companyId||p.companyId===companyId)))
   return reply({role:user.role,companyId,canManage:isManage(user),
-    personal:{pendingReviews:db.reviews.filter(t=>t.reviewerId===user.id&&t.status!=='submitted').length,openPdis:db.pdiActions.filter(x=>x.personId===user.id&&x.status!=='done').length,meetings:db.meetings.filter(x=>x.participants.includes(user.id)).length,pendingFeedback:db.feedbackRequests.filter(x=>x.toId===user.id&&x.status==='requested').length},
+    personal:{pendingReviews:db.reviews.filter(t=>t.reviewerId===user.id&&t.status!=='submitted').length,openPdis:projectPdiRows(state,db.pdiActions.filter(x=>x.personId===user.id&&pdiInCompany(state,x))).filter(x=>x.status!=='done').length,meetings:db.meetings.filter(x=>x.participants.includes(user.id)).length,pendingFeedback:db.feedbackRequests.filter(x=>x.toId===user.id&&x.status==='requested').length},
     management:isManage(user)?{activeCycles:applicable.filter(c=>c.status==='published').length,totalReviews:db.reviews.filter(t=>applicable.some(c=>c.id===t.cycleId)).length,completedReviews:db.reviews.filter(t=>t.status==='submitted'&&applicable.some(c=>c.id===t.cycleId)).length,pulseSurveys:db.pulses.filter(p=>!companyId||p.companyId===companyId).length,answersCount:responses.length}:undefined})
  }
  return reply({error:'Recurso inexistente.'},404)

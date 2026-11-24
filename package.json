@@ -22,7 +22,7 @@
     "test:historical": "node verify-historical-v12.mjs",
     "test:scorm-linear": "node verify-scorm-linear-v12.mjs",
     "test:enterprise-v13": "node verify-okr-v13.mjs && node verify-semantic-v13.mjs && node verify-scorm-2004-v13.mjs && node verify-recovery-v13.mjs",
-    "backup:operational": "node ops/recovery-v13.mjs scheduled",
+    "backup:operational": "node recovery-v13.mjs scheduled",
     "test:recovery": "node verify-recovery-v13.mjs"
   }
 }

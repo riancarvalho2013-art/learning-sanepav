@@ -73,7 +73,7 @@ with tempfile.TemporaryDirectory(prefix='learning-e2e-v13-') as tmp:
                     assert not errors,errors;ctx.close();print(f'PASS navegador real {width}px: OKR, relatórios, Pulse, Kirkpatrick')
                 browser.close()
             stored,_=request(origin,'/api/lxp/v2/okr',cookie=cookie);assert stored['items'][0]['progress']==50
-            env=dict(os.environ,LEARNING_DB=str(primary),NODE_ENV='test');subprocess.run([NODE,'ops/recovery-v13.mjs','create',str(external),'--test-same-device'],cwd=ROOT,env=env,check=True)
+            env=dict(os.environ,LEARNING_DB=str(primary),NODE_ENV='test');subprocess.run([NODE,'recovery-v13.mjs','create',str(external),'--test-same-device'],cwd=ROOT,env=env,check=True)
             stop(child);child=None
             restored=p/'restored'/'learning.sqlite';restored.parent.mkdir();shutil.copyfile(external,restored)
             child,origin=start(restored,key,logs)

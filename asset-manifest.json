@@ -90,5 +90,13 @@
   "/assessments-v6.js": {
     "file": "web-assessments-v6.js",
     "mime": "text/javascript;charset=utf-8"
+  },
+  "/kirkpatrick-v7.js": {
+    "file": "web-kirkpatrick-v7.js",
+    "mime": "text/javascript;charset=utf-8"
+  },
+  "/kirkpatrick-v7.css": {
+    "file": "web-kirkpatrick-v7.css",
+    "mime": "text/css;charset=utf-8"
   }
 }

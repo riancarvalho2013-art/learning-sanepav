@@ -4,6 +4,8 @@
  * Legacy learning state remains the source of truth for courses/enrollments.
  * Assessments and attempts are persisted in separate normalized SQLite tables.
  * No automatic LMS completion or certificates are inferred from the exam result.
+ * V7: server-enforced timed sessions, resumable drafts and consumption of attempts.
+ * Existing assessment_v6 tables and API paths remain unchanged.
  */
 import {DatabaseSync} from 'node:sqlite'
 import {randomUUID,createHash} from 'node:crypto'
@@ -76,6 +78,29 @@ function schema(db){
    db.exec('COMMIT')
   }catch(e){db.exec('ROLLBACK');throw e}
  }
+ // Additive V7 schema: preserves every V6 form, answer and existing submitted attempt.
+ if(!db.prepare('SELECT 1 FROM assessment_v6_schema WHERE version=2').get()){
+  db.exec('BEGIN IMMEDIATE')
+  try{
+   db.exec(`CREATE TABLE IF NOT EXISTS assessment_v7_sessions(
+    id TEXT PRIMARY KEY,
+    form_id TEXT NOT NULL REFERENCES assessment_v6_forms(id) ON DELETE RESTRICT,
+    user_id TEXT NOT NULL,
+    started_at_ms INTEGER NOT NULL,
+    expires_at_ms INTEGER NOT NULL,
+    draft_json TEXT NOT NULL DEFAULT '[]',
+    revision INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','expired','submitted')),
+    submitted_at_ms INTEGER,
+    CHECK(expires_at_ms>started_at_ms)
+   );
+   CREATE INDEX IF NOT EXISTS assessment_v7_session_user ON assessment_v7_sessions(form_id,user_id,status,expires_at_ms);
+   CREATE INDEX IF NOT EXISTS assessment_v7_session_expiry ON assessment_v7_sessions(status,expires_at_ms);
+   `)
+   db.prepare('INSERT INTO assessment_v6_schema(version,applied_at) VALUES(2,?)').run(new Date().toISOString())
+   db.exec('COMMIT')
+  }catch(error){db.exec('ROLLBACK');throw error}
+ }
  prepared.add(db)
 }
 function tx(db,fn){db.exec('BEGIN IMMEDIATE');try{const result=fn();db.exec('COMMIT');return result}catch(e){db.exec('ROLLBACK');throw e}}
@@ -137,9 +162,25 @@ function canAccess(state,domain,user,form){
 }
 function canEdit(state,domain,user,form){return manager(user)&&hasCompany(state,domain,user,form.company_id)}
 function myAttempts(db,formId,uid){return db.prepare('SELECT id,score,passed,submitted_at FROM assessment_v6_attempts WHERE form_id=? AND user_id=? ORDER BY submitted_at DESC').all(formId,uid).map(x=>({id:x.id,score:x.score,passed:!!x.passed,submittedAt:x.submitted_at}))}
+function activeSession(db,fid,uid,now=Date.now()){
+ return db.prepare("SELECT * FROM assessment_v7_sessions WHERE form_id=? AND user_id=? AND status='active' AND expires_at_ms>? ORDER BY started_at_ms DESC LIMIT 1").get(fid,uid,now)
+}
+function consumedSlots(db,fid,uid){
+ // Submitted V7 sessions must not be counted twice; pre-V7 attempts still count.
+ const sessions=db.prepare('SELECT COUNT(*) AS n FROM assessment_v7_sessions WHERE form_id=? AND user_id=?').get(fid,uid).n
+ const legacy=db.prepare('SELECT COUNT(*) AS n FROM assessment_v6_attempts a WHERE a.form_id=? AND a.user_id=? AND NOT EXISTS (SELECT 1 FROM assessment_v7_sessions s WHERE s.id=a.id)').get(fid,uid).n
+ return sessions+legacy
+}
+function validateDraft(input,qs,complete=false){
+ guard(Array.isArray(input)&&input.length===qs.length,'A quantidade de respostas é inválida.',400)
+ input.forEach((a,i)=>guard((!complete&&a===null)||(Number.isInteger(a)&&a>=0&&a<qs[i].options.length),'Resposta inválida na pergunta '+(i+1)+'.',400))
+ return input
+}
 function formCard(db,f,user,manage,student=false){
  const attempts=myAttempts(db,f.id,user.id)
- return {id:f.id,companyId:f.company_id,courseId:f.course_id,title:f.title,kind:f.kind,minScore:f.min_score,maxAttempts:f.max_attempts,durationMinutes:f.duration_minutes,startsOn:f.starts_on,endsOn:f.ends_on,status:f.status,revision:f.revision,createdAt:f.created_at,publishedAt:f.published_at,questionsCount:db.prepare('SELECT COUNT(*) AS n FROM assessment_v6_questions WHERE form_id=?').get(f.id).n,canManage:manage,canAnswer:student&&f.status==='published'&&datesOpen(f)&&attempts.length<f.max_attempts,attempts}
+ const active=activeSession(db,f.id,user.id)
+ const consumed=consumedSlots(db,f.id,user.id)
+ return {id:f.id,companyId:f.company_id,courseId:f.course_id,title:f.title,kind:f.kind,minScore:f.min_score,maxAttempts:f.max_attempts,durationMinutes:f.duration_minutes,startsOn:f.starts_on,endsOn:f.ends_on,status:f.status,revision:f.revision,createdAt:f.created_at,publishedAt:f.published_at,questionsCount:db.prepare('SELECT COUNT(*) AS n FROM assessment_v6_questions WHERE form_id=?').get(f.id).n,canManage:manage,canAnswer:student&&f.status==='published'&&datesOpen(f)&&(Boolean(active)||consumed<f.max_attempts),activeAttempt:active?{id:active.id,expiresAt:new Date(active.expires_at_ms).toISOString()}:null,remainingAttempts:Math.max(0,f.max_attempts-consumed),attempts}
 }
 const csvEscape=x=>{let v=String(x??'');if(/^[\s\uFEFF]*[=+@\-\t\r]/u.test(v))v="'"+v;return '"'+v.replaceAll('"','""')+'"'}
 function csvResults(rows){const columns=['personId','name','attempts','bestScore','passed','lastAttemptAt'];return '\ufeff'+[columns.join(';'),...rows.map(row=>columns.map(k=>csvEscape(row[k])).join(';'))].join('\r\n')}
@@ -218,6 +259,46 @@ async function operation(req,{BUCKET,DOMAIN,...ctx}){
   })
   return json({id,status:'draft',revision:1})
  }
+ if(path==='start'&&req.method==='POST'){
+  const b=await body(),f=getForm(db,b.id)
+  guard(f.status==='published'&&datesOpen(f),'A avaliação não está aberta.',409)
+  guard(companyFor(state,user.id)===f.company_id&&hasCompany(state,DOMAIN,user,f.company_id),'Empresa não autorizada.',403)
+  guard(currentCourse(state,f.course_id)&&hasEnroll(state,user.id,f.course_id),'Matrícula inexistente ou curso indisponível.',403)
+  guard(learningUnlocked(state,user.id,f.course_id),'Pré-requisitos pendentes.',403)
+  const info=tx(db,()=>{
+   const now=Date.now()
+   db.prepare("UPDATE assessment_v7_sessions SET status='expired' WHERE form_id=? AND user_id=? AND status='active' AND expires_at_ms<=?").run(f.id,user.id,now)
+   let session=activeSession(db,f.id,user.id,now)
+   const resumed=Boolean(session)
+   if(!session){
+    guard(consumedSlots(db,f.id,user.id)<f.max_attempts,'Você atingiu o limite de tentativas (inclusive expiradas).',409)
+    const token=randomUUID(),end=now+f.duration_minutes*60000
+    db.prepare('INSERT INTO assessment_v7_sessions(id,form_id,user_id,started_at_ms,expires_at_ms,draft_json) VALUES(?,?,?,?,?,?)').run(token,f.id,user.id,now,end,JSON.stringify(questions(db,f.id).map(()=>null)))
+    audit(db,f.id,user,'session_started',{sessionId:token})
+    session=activeSession(db,f.id,user.id,now)
+   }
+   return {attemptId:session.id,expiresAt:new Date(session.expires_at_ms).toISOString(),serverNow:new Date(now).toISOString(),answers:JSON.parse(session.draft_json),revision:session.revision,resumed,remainingAttempts:Math.max(0,f.max_attempts-consumedSlots(db,f.id,user.id))}
+  })
+  return json(info)
+ }
+ if(path==='save'&&req.method==='POST'){
+  const b=await body(),f=getForm(db,b.id)
+  guard(f.status==='published'&&datesOpen(f),'Avaliação encerrada.',409)
+  guard(companyFor(state,user.id)===f.company_id&&hasCompany(state,DOMAIN,user,f.company_id),'Empresa não autorizada.',403)
+  guard(learningUnlocked(state,user.id,f.course_id),'Pré-requisitos pendentes.',403)
+  guard(ID.test(b.attemptId||''),'Sessão inválida.',400)
+  const qs=questions(db,f.id,true),answers=validateDraft(b.answers,qs)
+  const saved=tx(db,()=>{
+   const session=db.prepare('SELECT * FROM assessment_v7_sessions WHERE id=?').get(b.attemptId)
+   guard(session&&session.form_id===f.id&&session.user_id===user.id,'Sessão não autorizada.',403)
+   guard(session.status==='active'&&session.expires_at_ms>Date.now(),'Tempo da avaliação esgotado.',409)
+   guard(session.revision===b.revision,'A avaliação mudou em outra aba. Reabra para recuperar as respostas.',409)
+   const updated=db.prepare("UPDATE assessment_v7_sessions SET draft_json=?,revision=revision+1 WHERE id=? AND revision=? AND status='active' AND expires_at_ms>?").run(JSON.stringify(answers),session.id,session.revision,Date.now())
+   guard(updated.changes===1,'Não foi possível salvar este rascunho.',409)
+   return {ok:true,revision:session.revision+1,expiresAt:new Date(session.expires_at_ms).toISOString()}
+  })
+  return json(saved)
+ }
  if(path==='submit'&&req.method==='POST'){
   const b=await body(),f=getForm(db,b.id)
   guard(f.status==='published'&&datesOpen(f),'A avaliação não está aberta.',409)
@@ -232,16 +313,32 @@ async function operation(req,{BUCKET,DOMAIN,...ctx}){
   const right=qs.reduce((n,q,i)=>n+(q.correctIndex===values[i]?q.weight:0),0)
   const score=Math.round(100*right/total),passed=score>=f.min_score
   const outcome=tx(db,()=>{
+   const session=db.prepare('SELECT * FROM assessment_v7_sessions WHERE id=?').get(b.attemptId)
+   guard(session&&session.form_id===f.id&&session.user_id===user.id,'Inicie uma sessão de avaliação autorizada.',403)
    const prior=db.prepare('SELECT form_id,user_id,score,passed,submitted_at FROM assessment_v6_attempts WHERE id=?').get(b.attemptId)
    if(prior){guard(prior.form_id===f.id&&prior.user_id===user.id,'Identificador de tentativa não pertence a esta avaliação.',409);return {ok:true,score:prior.score,passed:!!prior.passed,id: b.attemptId,submittedAt:prior.submitted_at,idempotent:true}}
-   const count=db.prepare('SELECT COUNT(*) AS n FROM assessment_v6_attempts WHERE form_id=? AND user_id=?').get(f.id,user.id).n
-   guard(count<f.max_attempts,'Você atingiu o limite de tentativas.',409)
-   const when=new Date().toISOString()
+   const now=Date.now()
+   guard(session.status==='active'&&session.expires_at_ms>now,'Tempo da avaliação esgotado.',409)
+   const when=new Date(now).toISOString()
    db.prepare('INSERT INTO assessment_v6_attempts VALUES(?,?,?,?,?,?,?)').run(b.attemptId,f.id,user.id,score,passed?1:0,JSON.stringify(values),when)
+   db.prepare("UPDATE assessment_v7_sessions SET status='submitted',submitted_at_ms=?,draft_json='[]' WHERE id=?").run(now,session.id)
    audit(db,f.id,user,'submitted',{attemptId:b.attemptId,score,passed})
-   return {ok:true,score,passed,id:b.attemptId,submittedAt:when,idempotent:false,attemptNumber:count+1}
+   return {ok:true,score,passed,id:b.attemptId,submittedAt:when,idempotent:false,attemptNumber:consumedSlots(db,f.id,user.id)}
   })
   return json({...outcome,note:'O resultado educacional não altera automaticamente o progresso oficial do LMS ou a emissão de certificados.'})
+ }
+ if(path==='question-analysis'&&req.method==='GET'){
+  const f=getForm(db,url.searchParams.get('id'))
+  guard(canEdit(state,DOMAIN,user,f),'Análises por questão restritas ao RH autorizado.',403)
+  const qs=questions(db,f.id,true),attempts=db.prepare('SELECT answers_json FROM assessment_v6_attempts WHERE form_id=?').all(f.id)
+  const stats=qs.map((q,index)=>({position:q.position,prompt:q.prompt,weight:q.weight,respondents:0,correct:0,incorrect:0,accuracy:null}))
+  for(const attempt of attempts){
+   let answers=[];try{answers=JSON.parse(attempt.answers_json)}catch{continue}
+   if(!Array.isArray(answers))continue
+   stats.forEach((x,i)=>{if(Number.isInteger(answers[i])){x.respondents++;if(answers[i]===qs[i].correctIndex)x.correct++;else x.incorrect++}})
+  }
+  stats.forEach(x=>{x.accuracy=x.respondents?Math.round(x.correct*10000/x.respondents)/100:null})
+  return json({formId:f.id,formTitle:f.title,totalAttempts:attempts.length,questions:stats,source:'assessment_v6_attempts',generatedAt:new Date().toISOString()})
  }
  if(['results','export.csv'].includes(path)&&req.method==='GET'){
   const f=getForm(db,url.searchParams.get('id'))

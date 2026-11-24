@@ -37,7 +37,7 @@ const annotations=()=>'<aside class="r3-disclaimer"><b>Como interpretar:</b> '+e
 
 function dnaSource(source,title,rows){
  if(!source?.available)return card(title,info(source?.reason||'Fonte indisponível.'))
- return card(title,'<div class="r3-metrics">'+rows.map(([k,label,unit])=>'<article class="r3-card"><div class="r3-card-label">'+esc(label)+'</div><strong class="r3-number">'+n(source.metrics?.[k])+(unit||'')+'</strong><p>Fonte: '+esc(source.source||'Dados autorizados')+'</p></article>').join('')+'</div>')
+ return card(title,'<div class="r3-metrics">'+rows.map(([k,label,unit])=>'<article class="r3-card"><div class="r3-card-label">'+esc(label)+'</div><strong class="r3-number">'+(source.metrics?.[k]===null||source.metrics?.[k]===undefined?'—':n(source.metrics[k])+(unit||''))+'</strong><p>Fonte: '+esc(source.source||'Dados autorizados')+'</p></article>').join('')+'</div>')
 }
 function integratedView(){
  if(reportState.department||reportState.person||reportState.course)return info('Esta visão apresenta apenas agregados autorizados por empresa e período. Limpe os filtros de departamento, pessoa e curso para consultar Pulse com segurança.')
@@ -47,6 +47,7 @@ function integratedView(){
  dnaSource(src.lxp,'Descoberta e engajamento LXP',[["activePeople","Pessoas com interações"],["catalogViews","Visitas ao catálogo"],["searches","Pesquisas realizadas"],["launchRequests","Solicitações de abertura de aula"],["bookmarks","Favoritos atuais"],["ratings","Avaliações de conteúdo"],["averageRating","Nota média"," / 5"]])+ 
  dnaSource(src.assessments,'Avaliações educacionais',[["publishedOrArchivedForms","Avaliações publicadas ou arquivadas"],["participantAssessments","Avaliações respondidas por pessoa"],["attempts","Tentativas no período"],["passed","Aprovações por pessoa e formulário"],["passRate","Taxa de aprovação","%"],["averageBestScore","Maior nota média","%"]])+ 
  dnaSource(src.pulseSafe,'Pulse Seguro V5 · Dados agregados',[["qualifiedSurveys","Pesquisas elegíveis encerradas"],["suppressedSurveys","Pesquisas protegidas / em andamento"],["invited","Convites das pesquisas elegíveis"],["respondents","Participações elegíveis"],["responseRate","Taxa de participação","%"]])+ 
+ dnaSource(src.kirkpatrick,'Kirkpatrick · Eficácia dos treinamentos',[["qualifiedReactionCohorts","Turmas N1 elegíveis"],["reactionResponses","Respostas N1 agregáveis"],["meanClarity","Clareza média"," / 5"],["meanRelevance","Relevância média"," / 5"],["nps","NPS"],["qualifiedTransferCohorts","Turmas N3 elegíveis"],["transferResponses","Avaliações N3 agregáveis"],["meanApplication","Aplicação média"," / 5"],["recordedBusinessObservations","Registros N4 de resultados"]])+ 
  card('Definições e limites',(integrated.caveats||[]).map(x=>'<p>'+esc(x)+'</p>').join(''),'Período e empresa são respeitados no backend')
 }
 

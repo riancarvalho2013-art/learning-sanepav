@@ -66,6 +66,22 @@ function pulse(db,scope){
  }
  return {available:true,source:'pulse_v5_surveys e pulse_v5_invites (somente agregação)',metrics:{eligibleSurveys:surveyRows.length,qualifiedSurveys:qualified,suppressedSurveys:suppressed,invited:qualified?invited:null,respondents:qualified?respondents:null,responseRate:qualified&&invited?Math.round(respondents*10000/invited)/100:null},privacy:'Apenas pesquisas encerradas e com pelo menos sete participações são agregadas; sem respostas ou filtros individuais.'}
 }
+/** Kirkpatrick V7: only original audience-level cohorts, never individual answers. */
+function kirkpatrick(db,s){
+ if(s.role==='Líder')return {available:false,reason:'A visão de eficácia corporativa exige autorização de RH/DHO ou Diretoria.',metrics:null}
+ if(!exists(db,'kirkpatrick_reactions_v7')||!exists(db,'kirkpatrick_transfer_v7')||!exists(db,'kirkpatrick_outcomes_v7'))return {available:false,reason:'Instrumentos Kirkpatrick V7 ainda não inicializados.',metrics:null}
+ // A company/course cohort is eligible only after seven valid responses; do not
+ // combine small cohorts into a larger-looking aggregate or expose small cells.
+ const args=[JSON.stringify(s.companies),s.from,s.to]
+ const n1=db.prepare(`SELECT company_id,course_id,COUNT(*) AS n,SUM(clarity) AS clarity,SUM(relevance) AS relevance,SUM(applicability) AS applicability, SUM(CASE WHEN recommendation>=9 THEN 1 ELSE 0 END) AS promoters,SUM(CASE WHEN recommendation<=6 THEN 1 ELSE 0 END) AS detractors FROM kirkpatrick_reactions_v7 WHERE company_id IN (SELECT value FROM json_each(?)) AND substr(submitted_at,1,10) BETWEEN ? AND ? GROUP BY company_id,course_id`).all(...args)
+ const qualified=n1.filter(x=>x.n>=7)
+ const total=qualified.reduce((n,x)=>n+x.n,0)
+ const sum=k=>qualified.reduce((n,x)=>n+x[k],0)
+ const n3=db.prepare(`SELECT company_id,course_id,COUNT(*) AS n,SUM(application) AS application FROM kirkpatrick_transfer_v7 WHERE company_id IN (SELECT value FROM json_each(?)) AND status='submitted' AND substr(submitted_at,1,10) BETWEEN ? AND ? GROUP BY company_id,course_id`).all(...args)
+ const eligibleN3=n3.filter(x=>x.n>=7),n3Total=eligibleN3.reduce((n,x)=>n+x.n,0)
+ const outcomes=db.prepare(`SELECT COUNT(*) AS n FROM kirkpatrick_outcomes_v7 WHERE company_id IN (SELECT value FROM json_each(?)) AND substr(created_at,1,10) BETWEEN ? AND ?`).get(...args).n
+ return {available:true,source:'kirkpatrick_reactions_v7, kirkpatrick_transfer_v7, kirkpatrick_outcomes_v7',privacy:'Médias de N1 e N3 apenas de coortes empresa/curso com no mínimo sete respostas; dados legados e notas individuais não são acessíveis nesta visão.',metrics:{qualifiedReactionCohorts:qualified.length,reactionResponses:total||null,meanClarity:total?Math.round(sum('clarity')*100/total)/100:null,meanRelevance:total?Math.round(sum('relevance')*100/total)/100:null,meanApplicability:total?Math.round(sum('applicability')*100/total)/100:null,nps:total?Math.round((sum('promoters')-sum('detractors'))*10000/total)/100:null,qualifiedTransferCohorts:eligibleN3.length,transferResponses:n3Total||null,meanApplication:n3Total?Math.round(eligibleN3.reduce((n,x)=>n+x.application,0)*100/n3Total)/100:null,recordedBusinessObservations:outcomes}};
+}
 async function main(req,ctx){
  const raw=await ctx.BUCKET.get('system/state-v1');check(raw,'Ambiente não inicializado.',503)
  const state=await raw.json(),user=userFrom(req,state),url=new URL(req.url)
@@ -73,8 +89,8 @@ async function main(req,ctx){
  const s=scope(state,ctx.DOMAIN,user,url.searchParams),db=getDb(ctx)
  if(url.pathname===ROOT+'summary'){
   const result={version:'6.0',generatedAt:new Date().toISOString(),filters:{company:s.company,from:s.from,to:s.to},mode:'estrutura_atual',peopleInScope:s.people.length,
-   sources:{lxp:events(db,s),assessments:assessments(db,s),pulseSafe:pulse(db,s)},
-   caveats:['Eventos de descoberta não são progresso nem conclusão comprovada.','Resultados de avaliação são classificados por formulário e pessoa (maior nota no período).','Pulse só aparece agregado após encerramento e limiar mínimo; não há corte individual.','Os vínculos organizacionais refletem a estrutura atual.']}
+   sources:{lxp:events(db,s),assessments:assessments(db,s),pulseSafe:pulse(db,s),kirkpatrick:kirkpatrick(db,s)},
+   caveats:['Eventos de descoberta não são progresso nem conclusão comprovada.','Resultados de avaliação são classificados por formulário e pessoa (maior nota no período).','Pulse só aparece agregado após encerramento e limiar mínimo; não há corte individual.','Os vínculos organizacionais refletem a estrutura atual.','N1 e N3 agregam apenas coortes de sete ou mais participantes; N4 é observação e não prova causalidade.']}
   return reply(result)
  }
  return reply({error:'Rota de inteligência não encontrada.'},404)

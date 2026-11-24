@@ -29,6 +29,7 @@ try{
  assert.equal(zero.status,200);assert.equal(zero.body.sources.lxp.available,false)
  assert.equal(zero.body.sources.assessments.available,false)
  assert.equal(zero.body.sources.pulseSafe.available,false)
+ assert.equal(zero.body.sources.kirkpatrick.available,false)
  db.exec(`CREATE TABLE lxp_discovery_events (id TEXT, user_id TEXT, company_id TEXT, course_id TEXT,event_type TEXT,event_date TEXT);
  CREATE TABLE lxp_discovery_bookmarks(user_id TEXT,course_id TEXT);
  CREATE TABLE lxp_discovery_ratings(user_id TEXT,course_id TEXT,score INTEGER);
@@ -46,6 +47,17 @@ try{
  db.prepare('INSERT INTO assessment_v6_attempts VALUES(?,?,?,?,?)').run(form,users[3].id,90,1,new Date().toISOString())
  db.prepare('INSERT INTO pulse_v5_surveys VALUES(?,?,?,?,?)').run(survey,companyA,'2020-01-01',today,'closed')
  for(let i=0;i<7;i++)db.prepare('INSERT INTO pulse_v5_invites VALUES(?,?,?)').run(survey,users[i].id,1)
+ db.exec(`CREATE TABLE kirkpatrick_reactions_v7(company_id TEXT,course_id TEXT,clarity INTEGER,relevance INTEGER,applicability INTEGER,recommendation INTEGER,submitted_at TEXT);
+ CREATE TABLE kirkpatrick_transfer_v7(company_id TEXT,course_id TEXT,application INTEGER,status TEXT,submitted_at TEXT);
+ CREATE TABLE kirkpatrick_outcomes_v7(company_id TEXT,course_id TEXT,created_at TEXT);`)
+ const shortCourse=randomUUID()
+ // Six responses MUST remain invisible even if a different course has seven.
+ for(let i=0;i<6;i++)db.prepare('INSERT INTO kirkpatrick_reactions_v7 VALUES(?,?,?,?,?,?,?)').run(companyA,shortCourse,1,1,1,0,new Date().toISOString())
+ for(let i=0;i<7;i++){
+  db.prepare('INSERT INTO kirkpatrick_reactions_v7 VALUES(?,?,?,?,?,?,?)').run(companyA,course,5,4,3,i<5?10:8,new Date().toISOString())
+  db.prepare('INSERT INTO kirkpatrick_transfer_v7 VALUES(?,?,?,?,?)').run(companyA,course,4,'submitted',new Date().toISOString())
+ }
+ db.prepare('INSERT INTO kirkpatrick_outcomes_v7 VALUES(?,?,?)').run(companyA,course,new Date().toISOString())
  const report=await call(users[0],'?company='+companyA)
  assert.equal(report.status,200,JSON.stringify(report.body))
  assert.equal(report.body.sources.lxp.metrics.catalogViews,1)
@@ -58,14 +70,22 @@ try{
  assert.equal(report.body.sources.assessments.metrics.averageBestScore,90)
  assert.equal(report.body.sources.pulseSafe.metrics.respondents,7)
  assert.equal(report.body.sources.pulseSafe.metrics.qualifiedSurveys,1)
+ assert.equal(report.body.sources.kirkpatrick.metrics.qualifiedReactionCohorts,1)
+ assert.equal(report.body.sources.kirkpatrick.metrics.reactionResponses,7)
+ assert.equal(report.body.sources.kirkpatrick.metrics.meanClarity,5)
+ assert.equal(report.body.sources.kirkpatrick.metrics.qualifiedTransferCohorts,1)
+ assert.equal(report.body.sources.kirkpatrick.metrics.transferResponses,7)
+ assert.equal(report.body.sources.kirkpatrick.metrics.recordedBusinessObservations,1)
  assert.ok(!JSON.stringify(report.body.sources.pulseSafe).includes(users[3].id),'Pulse não pode retornar IDs de pessoas')
  const leader=await call(users[1])
  assert.equal(leader.status,200)
  assert.equal(leader.body.sources.pulseSafe.available,false)
+ assert.equal(leader.body.sources.kirkpatrick.available,false)
  assert.equal(leader.body.sources.lxp.available,true,'Líder com cinco pessoas no escopo pode consultar agregados');assert.equal(leader.body.sources.lxp.metrics.catalogViews,1)
  const empty=await call(users[0],'?company='+companyB)
  assert.equal(empty.status,200)
  assert.equal(empty.body.sources.lxp.available,false,'Empresa com menos de 5 pessoas deve ser suprimida')
+ assert.equal(empty.body.sources.kirkpatrick.metrics.reactionResponses,null)
  db.close()
  console.log('PASSOU: Intelligence V6 — '+calls+' chamadas; fontes reais, multiempresa, limiares de confidencialidade, valores e períodos.')
 }catch(e){try{db.close()}catch{};throw e}

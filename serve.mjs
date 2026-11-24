@@ -1,6 +1,6 @@
 import http from 'node:http'
 import {Readable} from 'node:stream'
-import {createHash, timingSafeEqual} from 'node:crypto'
+import {createHash, timingSafeEqual, randomUUID} from 'node:crypto'
 import app from './platform.mjs'
 import {BUCKET,DOMAIN} from './storage.mjs'
 import {handleEvolution} from './learning-evolution.mjs'
@@ -11,6 +11,7 @@ import {handleDiscoveryV4} from './learning-discovery-v4.mjs'
 import {handlePulseV5} from './pulse-secure-v5.mjs'
 import {handleAssessmentsV6} from './learning-assessments-v6.mjs'
 import {handleIntelligenceV6} from './people-intelligence-v6.mjs'
+import {handleKirkpatrickV7} from './kirkpatrick-v7.mjs'
 
 const portArgument=process.argv.indexOf('--port')
 const devMode=process.env.NODE_ENV!=='production'&&portArgument>=0
@@ -23,13 +24,42 @@ const activationDigest = typeof configuredCode==='string'&&validSetupKey.test(co
 const matches = value => Boolean(activationDigest && value && timingSafeEqual(digest(value), activationDigest))
 const cookieName = '__Host-learning-activation'
 const cookieFlags = '; Path=/; Secure; HttpOnly; SameSite=Strict'
+// Never place user-controlled path segments, SCORM tickets or personal IDs in logs.
+const safeLogRoute=raw=>{
+ const segments=String(raw||'/').split('?')[0].split('/').filter(Boolean)
+ const allowed=segments[0]==='api'?2:1
+ return '/'+segments.slice(0,allowed).map(x=>x.slice(0,32)).join('/')+(segments.length>allowed?'/*':'')
+}
 const setupPage = '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Ativar Learning Sanepav</title><form action="/ativar" method="post"><label>Código de ativação <input required type="password" name="code" autocomplete="off"></label><button>Ativar</button></form></html>'
 http.createServer(async (req,res) => {
+  const requestId=randomUUID()
+  const requestAt=Date.now()
+  res.setHeader('X-Request-ID',requestId)
+  res.on('finish',()=>{
+    const durationMs=Date.now()-requestAt
+    if(process.env.LEARNING_LOG_REQUESTS==='true'||res.statusCode>=500){
+      // Do not log query strings, request bodies, cookies, tokens, IP addresses or personal data.
+      console.info(JSON.stringify({type:'http_access',at:new Date().toISOString(),requestId,method:req.method,
+        route:safeLogRoute(req.url),status:res.statusCode,durationMs}))
+    }
+  })
   try {
     const host = req.headers.host
     if (!host || !/^[a-zA-Z0-9.:-]+$/.test(host)) {res.writeHead(400);return res.end()}
     const url = new URL(req.url, protocol+'//' + host)
     if(url.pathname==='/healthz'&&req.method==='GET'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});return res.end('{"ok":true}')}
+    if(url.pathname==='/readyz'&&req.method==='GET'){
+      // Readiness checks an actual SQLite query via the existing storage adapter.
+      // No user data or sensitive environmental configuration is returned.
+      try{
+        await BUCKET.get('__readiness_check_v1__')
+        res.writeHead(200,{'Content-Type':'application/json;charset=utf-8','Cache-Control':'no-store'})
+        return res.end('{"ok":true,"checks":{"sqlite":"ready"}}')
+      }catch{
+        res.writeHead(503,{'Content-Type':'application/json;charset=utf-8','Cache-Control':'no-store'})
+        return res.end('{"ok":false,"checks":{"sqlite":"unavailable"}}')
+      }
+    }
     if (url.pathname === '/ativar') {
       res.setHeader('Cache-Control','no-store')
       if(!activationDigest){res.writeHead(503,{'Content-Type':'text/plain;charset=utf-8'});return res.end('A ativação requer SETUP_KEY própria deste ambiente. Configure uma chave de 32 a 128 caracteres, usando letras, números, hífen ou sublinhado, nas variáveis do serviço.')}
@@ -70,7 +100,7 @@ http.createServer(async (req,res) => {
       }
     }
     const request = new Request(url,options)
-    const result = await handleAssessmentsV6(request,{BUCKET,DOMAIN}) || await handleIntelligenceV6(request,{BUCKET,DOMAIN}) || await handlePulseV5(request,{BUCKET,DOMAIN}) || await handleDiscoveryV4(request,{BUCKET,DOMAIN}) || await handleReportsV3(request,{BUCKET,DOMAIN}) || await handleScormV3(request,{BUCKET,DOMAIN}) || await handleLxpV2(request,{BUCKET,DOMAIN}) || await handleEvolution(request,{BUCKET,DOMAIN}) || await app.fetch(request,{BUCKET,DOMAIN})
+    const result = await handleKirkpatrickV7(request,{BUCKET,DOMAIN}) || await handleAssessmentsV6(request,{BUCKET,DOMAIN}) || await handleIntelligenceV6(request,{BUCKET,DOMAIN}) || await handlePulseV5(request,{BUCKET,DOMAIN}) || await handleDiscoveryV4(request,{BUCKET,DOMAIN}) || await handleReportsV3(request,{BUCKET,DOMAIN}) || await handleScormV3(request,{BUCKET,DOMAIN}) || await handleLxpV2(request,{BUCKET,DOMAIN}) || await handleEvolution(request,{BUCKET,DOMAIN}) || await app.fetch(request,{BUCKET,DOMAIN})
     if(req.method==='GET'&&url.pathname==='/api/access'&&result.ok){
       const data=await result.json()
       if(data.setup){
@@ -83,5 +113,9 @@ http.createServer(async (req,res) => {
     res.writeHead(result.status,Object.fromEntries(result.headers))
     if (result.body) Readable.fromWeb(result.body).pipe(res)
     else res.end()
-  } catch {if(!res.headersSent)res.writeHead(500);res.end()}
+  } catch(error) {
+    console.error(JSON.stringify({type:'unhandled_request_error',at:new Date().toISOString(),requestId,name:error?.name||'Error'}))
+    if(!res.headersSent)res.writeHead(500,{'Content-Type':'application/json;charset=utf-8','Cache-Control':'no-store'})
+    res.end(JSON.stringify({error:'Falha interna inesperada.',requestId}))
+  }
 }).listen(listenPort,devMode?'127.0.0.1':'0.0.0.0')

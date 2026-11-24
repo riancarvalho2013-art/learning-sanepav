@@ -9,6 +9,7 @@ import {handlePulseV5} from './pulse-secure-v5.mjs'
 const directory=await mkdtemp(join(tmpdir(),'sanepav-pulse-v5-'))
 const dbPath=join(directory,'pulse-test.sqlite')
 const db=new DatabaseSync(dbPath)
+process.env.LEARNING_DB=dbPath
 const origin='https://learning.local.test'
 const A=randomUUID(),B=randomUUID()
 const users=Array.from({length:12},(_,i)=>({id:randomUUID(),name:'Colaborador '+i,email:`p${i}@example.test`,role:i===0?'Administrador':i===1?'RH/DHO':i===11?'Líder':'Colaborador',active:true,manager:i>1&&i<10?null:null}))
@@ -17,12 +18,12 @@ const tokens=new Map(users.map(u=>[u.id,randomUUID()]))
 const sessions=users.map(u=>({digest:createHash('sha256').update(tokens.get(u.id)).digest('hex'),identity:'learning-test',person:u.id,until:Date.now()+3600000}))
 const state={users,sessions,organization:{assignments:assignment,companies:[{id:A,name:'Sanepav',active:true},{id:B,name:'Beta Clean',active:true}]}}
 const BUCKET={async get(key){return key==='system/state-v1'?{async json(){return state}}:null}}
-const DOMAIN={allowedCompanies(_,user){return user.role==='Administrador'?[A,B]:[assignment.get(user.id)?.company_id].filter(Boolean)}}
+const DOMAIN={allowedCompanies(received,user){assert.equal(received,state,'O domínio precisa receber o estado organizacional completo');return user.role==='Administrador'?[A,B]:[assignment.get(user.id)?.company_id].filter(Boolean)}}
 let total=0
 async function call(route,actor,body,method){
  const m=method|| (body===undefined?'GET':'POST')
  const req=new Request(origin+'/api/pulse/v5/'+route,{method:m,headers:{origin,'content-type':'application/json','oai-authenticated-user-id':'learning-test',...(actor?{cookie:'learning='+tokens.get(actor.id)}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})})
- const response=await handlePulseV5(req,{BUCKET,DOMAIN,pulseDb:db})
+ const response=await handlePulseV5(req,{BUCKET,DOMAIN})
  assert.ok(response,'O endpoint deve ser reconhecido.');total++
  return {status:response.status,body:await response.json()}
 }

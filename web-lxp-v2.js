@@ -1,7 +1,7 @@
 /* DNA do Desenvolvimento — LXP V2 interface, layered on existing app, no frameworks. */
 (() => {
 'use strict'
-const routeLabels={'Pulse':'Pulso do time','Desempenho':'Avaliações de desempenho','PDI':'Plano de desenvolvimento','1:1':'Conversas 1:1','Feedback':'Feedback e conexões','Minha jornada':'Minha jornada','Meu acesso':'Meu acesso'}
+const routeLabels={'Pulse':'Pulse de sentimentos e pesquisas identificadas','Desempenho':'Avaliações de desempenho','PDI':'Plano de desenvolvimento','1:1':'Conversas 1:1','Feedback':'Feedback e conexões','Minha jornada':'Minha jornada','Meu acesso':'Meu acesso'}
 const svgPath={pulse:'<path d="M2 12h4l3-6 5 12 3-6h5"/>',performance:'<path d="m4 16 5-5 4 3 7-9M15 5h5v5M4 21h16"/>',growth:'<path d="M12 22v-8M12 14C4 15 3 7 3 4c4 0 8 1 9 7 1-6 5-7 9-7 0 5-2 10-9 10Z"/>',calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/>',feedback:'<path d="M21 11a8 8 0 0 1-8 8h-5l-4 3v-6A8 8 0 1 1 21 11Z"/><path d="M8 10h8M8 14h5"/>',learning:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/>',arrow:'<path d="M5 12h14m-6-6 6 6-6 6"/>',check:'<path d="m4 12 5 5 11-11"/>',person:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',edit:'<path d="m4 20 4-.7L20 7a2 2 0 0 0-3-3L5 16Z"/>'}
 const ic=k=>'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+(svgPath[k]||svgPath.learning)+'</svg>'
 const e=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
@@ -34,7 +34,7 @@ const personOptions=()=>[...(organizationData?.people||d.people||[])].filter(p=>
 const safe=async(fn)=>{try{return await fn()}catch(ex){notify(ex.message||'Falha na solicitação.');throw ex}}
 let renderToken=0,subpage='',perfCycleId='',taskId='',lxpPerfDraft=null,lxpCurrentPulse=''
 function enterScreen(html){const el=root();if(el){el.innerHTML=html;el.scrollIntoView({block:'start',behavior:'instant'});window.scrollTo({top:0,behavior:'instant'})}}
-async function asyncScreen(loadHtml,fn){const token=++renderToken;enterScreen(loadHtml);try{const r=await fn();if(token!==renderToken)return;return r}catch(ex){if(token===renderToken&&root())root().insertAdjacentHTML('beforeend',error(ex.message));return null}}
+async function asyncScreen(loadHtml,fn){const token=++renderToken,route=page,anchor=root();enterScreen(loadHtml);const current=()=>token===renderToken&&page===route&&root()===anchor&&Boolean(d?.me);try{return await fn(current)}catch(ex){if(current()){anchor.querySelector('.lxp-progress')?.remove();anchor.insertAdjacentHTML('beforeend',error(ex.message))};return null}}
 function names(id){return (organizationData?.people||d?.people||[]).find(x=>x.id===id)?.name||'Colaborador'}
 function enhanceMenu(){
  const nav=document.querySelector('aside nav');if(!nav)return
@@ -44,13 +44,14 @@ function enhanceMenu(){
  cluster.innerHTML='<small>Experiência e autonomia</small>'+entries.map(([name,type])=>'<button type="button" data-act="nav" data-id="'+e(name)+'" class="'+(page===name?'sel':'')+'"><span class="ico">'+ic(type)+'</span>'+e(name)+'</button>').join('')
  for(const [name,icon] of [['Pulse','pulse'],['Desempenho','performance'],['PDI','growth'],['1:1','calendar'],['Feedback','feedback']]){
   const item=[...nav.querySelectorAll('button[data-id]')].find(b=>b.dataset.id===name)
-  if(item){const ico=item.querySelector('.ico');if(ico)ico.innerHTML=ic(icon);item.title=routeLabels[name]}
+  if(item){const ico=item.querySelector('.ico');if(ico)ico.innerHTML=ic(icon);item.title=routeLabels[name];if(name==='Pulse'){const label=[...item.childNodes].filter(n=>n.nodeType===Node.TEXT_NODE).at(-1);if(label)label.textContent='Pulse de sentimentos'}}
  }
 }
 const priorDraw=draw
 draw=function(...args){const result=priorDraw(...args);enhanceMenu();return result}
 const priorBody=body
 body=function(...args){
+ ++renderToken
  if(page==='Pulse'){void renderPulse();return}
  if(page==='Desempenho'){void renderPerformance();return}
  if(page==='PDI'){void renderGrowth();return}
@@ -64,8 +65,9 @@ body=function(...args){
 // ───── Pulse: create, answer, view privacy-preserving aggregates ─────
 async function renderPulse(){
  const selectedPage=page
- await asyncScreen(screen('Clima e escuta','Pulso do time','Acompanhe o sentimento das pessoas e transforme escuta em ação.',load(),canCreatePulse()?button('Criar pesquisa','pulse-new','','primary'):'') ,async()=>{
-  const result=await apiLxp('pulse')
+ const weekly=typeof weeklyPulseCard==='function'?weeklyPulseCard():''
+ await asyncScreen(screen('Clima e escuta','Pulse de sentimentos','Check-in semanal identificado e pesquisas da equipe.',weekly+load(),canCreatePulse()?button('Criar pesquisa','pulse-new','','primary'):'') ,async current=>{
+  const result=await apiLxp('pulse');if(!current())return
   if(page!==selectedPage)return
   const items=result.items||[]
   const open=items.filter(x=>x.status==='open').length
@@ -73,7 +75,7 @@ async function renderPulse(){
   let content='<div class="lxp-metrics">'+metric('Pesquisas acessíveis',items.length,'visíveis no seu escopo')+metric('Pesquisas abertas',open,'em período de resposta')+metric('Suas respostas pendentes',pending,'para responder hoje')+'</div>'
   if(items.length)content+='<div class="lxp-grid">'+items.map(x=>'<article class="lxp-card"><div class="lxp-card-icon">'+ic('pulse')+'</div><div class="lxp-card-meta">'+status(x.status)+(x.answered?'<span class="lxp-pill">Você respondeu</span>':'')+'</div><h2>'+e(x.title)+'</h2><p>'+e(x.description||'Como está o nosso ambiente de trabalho?')+'</p><small>'+shortDate(x.startDate)+' a '+shortDate(x.endDate)+'</small>'+(x.summary?'<div class="lxp-card-summary"><b>'+e(x.summary.responses)+' de '+e(x.summary.invited)+'</b> respostas'+(x.summary.canShowAggregate?' · Média '+e(x.summary.mean):' · Resultado protegido até 7 respostas')+'</div>':'')+'<div class="lxp-card-actions">'+(x.isParticipant&&!x.answered&&x.status==='open'?button('Responder pesquisa','pulse-answer',x.id,'primary'):'')+(x.isOrganizer?button('Ver resultados','pulse-details',x.id):'')+'</div></article>').join('')+'</div>'
   else content+=empty('Nenhuma pesquisa disponível','Crie uma pesquisa ou aguarde uma atribuição do RH.')
-  enterScreen(screen('Clima e escuta','Pulso do time','Uma escuta segura, com atenção às pessoas e aos resultados.',content+linkLegacy('Pulse'),canCreatePulse()?button('Criar pesquisa','pulse-new','','primary'):''))
+  enterScreen(screen('Clima e escuta','Pulse de sentimentos','Check-in semanal e pesquisas identificadas. Para respostas agregadas, use Pulse Seguro.',weekly+content+linkLegacy('Pulse'),canCreatePulse()?button('Criar pesquisa','pulse-new','','primary'):''))
  })
 }
 function populationForm(companyId){return '<div class="lxp-form-grid">'+select('Empresa','companyId',companies().map(c=>[c.id,c.name]),companyId)+'<div class="lxp-select-depts"><span>Departamentos participantes</span><p>Sem seleção: todos os departamentos da empresa.</p><div id="lxpDepartmentItems"></div></div></div><details class="lxp-select-people"><summary>Selecionar pessoas específicas (opcional)</summary><p>A seleção individual prevalecerá sobre os departamentos se houver pessoas marcadas.</p><div id="lxpPersonItems"></div></details><label class="lxp-check"><input type="checkbox" name="includeCreator" checked> Incluir meu próprio perfil, quando permitido</label>'}
@@ -103,8 +105,8 @@ function showPulseAnswer(id){
  $('lxpPulseAnswer').onsubmit=async ev=>{ev.preventDefault();const form=ev.currentTarget,submit=form.querySelector('button[type=submit]');submit.disabled=true;try{await apiLxp('pulse/answer',{id,rating:Number(form.elements.rating.value),comment:form.elements.comment.value});notify('Sua resposta foi recebida. Obrigado pela contribuição!');void renderPulse()}catch(ex){notify(ex.message)}finally{submit.disabled=false}}
 }
 async function showPulseDetails(id){
- await asyncScreen(screen('Pesquisa de pulso','Resultado da escuta','Indicadores preservam a privacidade individual.',load(),button('Voltar','pulse-back')),async()=>{
-  const r=await apiLxp('pulse'),item=r.items.find(x=>x.id===id);if(!item||!item.summary){enterScreen(error('Pesquisa indisponível.'));return}
+ await asyncScreen(screen('Pesquisa de pulso','Resultado da escuta','Indicadores preservam a privacidade individual.',load(),button('Voltar','pulse-back')),async current=>{
+  const r=await apiLxp('pulse'),item=r.items.find(x=>x.id===id);if(!current())return;if(!item||!item.summary){enterScreen(error('Pesquisa indisponível.'));return}
   let content='<div class="lxp-metrics">'+metric('Respostas recebidas',item.summary.responses,'de '+item.summary.invited+' convidados')+metric('Participação',item.summary.invited?Math.round(100*item.summary.responses/item.summary.invited)+'%':'—','sobre convidados')+metric('Média de sentimento',item.summary.mean??'Protegida','resultado com 7+ respostas')+'</div>'
   if(item.summary.canShowAggregate){content+=panel('Distribuição das respostas','<div class="lxp-bars">'+item.summary.distribution.map((n,i)=>'<div class="lxp-bar-row"><span>'+['Muito ruim','Ruim','Regular','Bem','Muito bem'][i]+'</span><div><i style="width:'+Math.round(100*n/item.summary.responses)+'%"></i></div><strong>'+n+'</strong></div>').join('')+'</div>')}
   else content+=boxInfo('Aguardando volume mínimo de respostas','Para evitar identificação de pessoas, as médias e distribuições só ficam disponíveis a partir de sete participantes respondentes.')
@@ -115,8 +117,8 @@ async function showPulseDetails(id){
 
 // ───── Performance cycles: authoring, publication, reviewer tasks ─────
 async function renderPerformance(){
- await asyncScreen(screen('Desenvolvimento por competências','Avaliação de desempenho','Crie ciclos, defina perguntas e acompanhe o desenvolvimento com critérios transparentes.',load(),canManage()?button('Criar ciclo','perf-new','','primary'):''),async()=>{
-  const data=await apiLxp('performance'),cycles=data.items||[]
+ await asyncScreen(screen('Desenvolvimento por competências','Avaliação de desempenho','Crie ciclos, defina perguntas e acompanhe o desenvolvimento com critérios transparentes.',load(),canManage()?button('Criar ciclo','perf-new','','primary'):''),async current=>{
+  const data=await apiLxp('performance'),cycles=data.items||[];if(!current())return
   const active=cycles.filter(c=>c.status==='published').length,pending=cycles.reduce((n,c)=>n+(c.mine||[]).filter(t=>t.status!=='submitted').length,0)
   const metrics='<div class="lxp-metrics">'+metric('Ciclos',cycles.length,'no escopo autorizado')+metric('Em andamento',active,'ciclos publicados')+metric('Suas avaliações pendentes',pending,'autorrelato ou liderança')+'</div>'
   const list=cycles.length?'<div class="lxp-grid">'+cycles.map(c=>'<article class="lxp-card"><div class="lxp-card-icon">'+ic('performance')+'</div><div>'+status(c.status)+' <span class="lxp-pill">'+(c.includeSelf?'Autoavaliação ':'')+(c.includeLeader?'/ Liderança':'')+'</span></div><h2>'+e(c.title)+'</h2><p>'+e(c.description||'Ciclo de desenvolvimento e desempenho.')+'</p><small>'+shortDate(c.startDate)+' a '+shortDate(c.endDate)+'</small>'+(c.isManager?'<div class="lxp-card-summary">'+e(c.submitted||0)+' de '+e(c.assigned||0)+' avaliações concluídas</div>':'')+'<div class="lxp-card-actions">'+button('Abrir ciclo','perf-open',c.id,'primary')+(c.canTake?button('Responder','perf-open',c.id):'')+'</div></article>').join('')+'</div>':empty('Nenhum ciclo disponível','Crie um ciclo de desempenho para sua organização.')
@@ -156,8 +158,8 @@ async function savePerformance(){
  try{const r=await apiLxp('performance',b);notify('Ciclo salvo como rascunho. Revise e publique quando estiver pronto.');void openPerformance(r.id)}catch(ex){notify(ex.message)}
 }
 async function openPerformance(id){perfCycleId=id
- await asyncScreen(screen('Ciclo de desempenho','Painel do ciclo','Acompanhe participantes e respostas com segurança.',load(),button('Voltar','perf-back')),async()=>{
- const c=await apiLxp('performance/cycle?id='+encodeURIComponent(id));if(perfCycleId!==id)return
+ await asyncScreen(screen('Ciclo de desempenho','Painel do ciclo','Acompanhe participantes e respostas com segurança.',load(),button('Voltar','perf-back')),async current=>{
+ const c=await apiLxp('performance/cycle?id='+encodeURIComponent(id));if(!current())return;if(perfCycleId!==id)return
  const pending=c.mine.filter(t=>t.status!=='submitted');let content='<div class="lxp-metrics">'+metric('Avaliações atribuídas',c.assigned??c.mine.length,'no escopo de gestão')+metric('Concluídas',c.submitted??c.mine.filter(x=>x.status==='submitted').length,'respostas finalizadas')+metric('Suas pendências',pending.length,'solicitadas ao seu perfil')+'</div>'
  if(c.mine.length)content+=panel('Minhas avaliações','<div class="lxp-stack">'+c.mine.map(t=>'<div class="lxp-line"><div><strong>'+e(t.perspective==='self'?'Minha autoavaliação':'Avaliação da liderança')+'</strong><small>'+e(names(t.subjectId))+' · '+e(t.status==='submitted'?'Concluída':'Aguardando resposta')+'</small></div>'+status(t.status)+(t.status!=='submitted'&&c.status==='published'?button('Responder','perf-task',t.id,'primary'):'')+'</div>').join('')+'</div>')
  if(c.isManager){
@@ -170,8 +172,8 @@ async function openPerformance(id){perfCycleId=id
  enterScreen(screen('Ciclo de desempenho',c.title,c.description||'De '+shortDate(c.startDate)+' a '+shortDate(c.endDate),content,actions))
  })}
 async function openTask(id){taskId=id
- await asyncScreen(screen('Sua avaliação','Responder avaliação','Responda com atenção aos critérios apresentados.',load(),button('Voltar','perf-open',perfCycleId)),async()=>{
- const x=await apiLxp('performance/task?id='+encodeURIComponent(id));if(taskId!==id)return
+ await asyncScreen(screen('Sua avaliação','Responder avaliação','Responda com atenção aos critérios apresentados.',load(),button('Voltar','perf-open',perfCycleId)),async current=>{
+ const x=await apiLxp('performance/task?id='+encodeURIComponent(id));if(!current())return;if(taskId!==id)return
  const fields=x.form.map((q,i)=>'<fieldset class="lxp-answer" data-question="'+e(q.id)+'" data-type="'+e(q.type)+'"><legend><span>Questão '+(i+1)+'</span><strong>'+e(q.title)+'</strong></legend>'+(q.description?'<p>'+e(q.description)+'</p>':'')+(q.competency?'<small>Competência: '+e(q.competency)+'</small>':'')+
  (q.type==='rating'?'<div class="lxp-rate">'+[1,2,3,4,5].map(n=>'<label><input type="radio" name="'+e(q.id)+'" value="'+n+'" '+(x.answers?.[q.id]===n?'checked':'')+'><span>'+n+'</span></label>').join('')+'</div><small>1 = precisa desenvolver · 5 = destaque</small>':q.type==='text'?'<textarea name="'+e(q.id)+'" rows="5" maxlength="3500">'+e(x.answers?.[q.id]||'')+'</textarea>':q.type==='single'?'<div class="lxp-choice-stack">'+q.choices.map(choice=>'<label><input type="radio" name="'+e(q.id)+'" value="'+e(choice)+'" '+(x.answers?.[q.id]===choice?'checked':'')+'> '+e(choice)+'</label>').join('')+'</div>':'<div class="lxp-choice-stack"><label><input type="radio" name="'+e(q.id)+'" value="yes" '+(x.answers?.[q.id]===true?'checked':'')+'> Sim</label><label><input type="radio" name="'+e(q.id)+'" value="no" '+(x.answers?.[q.id]===false?'checked':'')+'> Não</label></div>')+'</fieldset>').join('')
  enterScreen(screen('Avaliação de '+(x.task.perspective==='self'?'autopercepção':'liderança'),x.cycle.title,'Pessoa avaliada: '+x.subject.name, '<div class="lxp-workspace"><aside class="lxp-workspace-side"><span>Período</span><h3>'+shortDate(x.cycle.startDate)+' – '+shortDate(x.cycle.endDate)+'</h3><p>Suas respostas são usadas no ciclo e ficam protegidas pelas permissões do Learning.</p><div>'+status(x.task.status)+'</div></aside><form id="lxpTaskAnswers" class="lxp-workspace-main">'+fields+'<div class="lxp-form-actions">'+button('Salvar rascunho','perf-task-save')+button('Concluir avaliação','perf-task-submit','','primary')+'</div></form></div>',button('Voltar','perf-open',perfCycleId)))
@@ -183,8 +185,8 @@ async function submitTask(submit){const form=$('lxpTaskAnswers');if(!form)return
 
 // ───── Growth 70-20-10 and daily development ─────
 async function renderGrowth(){
- await asyncScreen(screen('PDI na prática','Meu desenvolvimento','Planos simples, com evidências e experiências para o cotidiano.',load(),button('Nova ação','growth-new','','primary')),async()=>{
-  const r=await apiLxp('growth'),items=r.items||[],ownActions=items.filter(x=>x.personId===d.me.id)
+ await asyncScreen(screen('PDI na prática','Meu desenvolvimento','Planos simples, com evidências e experiências para o cotidiano.',load(),button('Nova ação','growth-new','','primary')),async current=>{
+  const r=await apiLxp('growth');if(!current())return;const items=r.items||[],ownActions=items.filter(x=>x.personId===d.me.id)
   const metrics='<div class="lxp-metrics">'+metric('Ações no escopo',items.length,'em todo o programa')+metric('Em andamento',items.filter(x=>x.status==='doing').length,'práticas de desenvolvimento')+metric('Suas conquistas',ownActions.filter(x=>x.status==='done').length,'ações concluídas')+'</div>'
   const buckets=[['70','Aprender fazendo','Projetos, desafios e experimentação'],['20','Aprender com pessoas','Mentorias, colaboração e feedback'],['10','Aprender estudando','Cursos, leituras e trilhas']]
   const content=metrics+'<div class="lxp-grid">'+buckets.map(([mix,title,desc])=>'<section class="lxp-panel"><div class="lxp-learning-ribbon">'+mix+'%</div><h2>'+title+'</h2><p>'+desc+'</p><div class="lxp-stack">'+items.filter(x=>x.mix===mix).map(x=>'<article class="lxp-line"><div><strong>'+e(x.title)+'</strong><small>'+e(x.person.name)+' · '+e(x.dueDate?shortDate(x.dueDate):'Sem prazo')+'</small></div>'+status(x.status)+button('Editar','growth-edit',x.id)+'</article>').join('')+'</div>'+(items.some(x=>x.mix===mix)?'':empty('Sem ações','Adicione práticas para evoluir.'))+'</section>').join('')+'</div>'
@@ -200,8 +202,8 @@ async function openGrowthEditor(id=''){
 }
 // ───── 1:1 private conversations ─────
 async function renderMeetings(){
- await asyncScreen(screen('Presença e conexão','Conversas 1:1','Registre combinados e acompanhe as conversas com sua liderança.',load(),button('Agendar conversa','meeting-new','','primary')),async()=>{
-  const response=await apiLxp('meetings'),items=response.items||[]
+ await asyncScreen(screen('Presença e conexão','Conversas 1:1','Registre combinados e acompanhe as conversas com sua liderança.',load(),button('Agendar conversa','meeting-new','','primary')),async current=>{
+  const response=await apiLxp('meetings'),items=response.items||[];if(!current())return
   const summary='<div class="lxp-metrics">'+metric('Conversas',items.length,'no seu histórico')+metric('Próximas',items.filter(m=>m.date>=iso()).length,'a partir de hoje')+'</div>'
   const list=items.length?'<div class="lxp-grid">'+items.map(m=>'<article class="lxp-card"><div class="lxp-card-icon">'+ic('calendar')+'</div><small>'+shortDate(m.date)+'</small><h2>'+e(m.agenda)+'</h2><p>'+e(m.action||'Sem combinados definidos.')+'</p><p><small>Participantes: '+m.participants.map(names).map(e).join(' e ')+'</small></p>'+button('Abrir conversa','meeting-edit',m.id)+'</article>').join('')+'</div>':empty('Nenhuma conversa registrada','Comece uma conversa de desenvolvimento com um colega ou sua liderança.')
   enterScreen(screen('Relações de confiança','Conversas 1:1','Apenas participantes têm acesso às suas conversas. Notas pessoais permanecem separadas.',summary+list+linkLegacy('1:1'),button('Agendar conversa','meeting-new','','primary')))
@@ -216,8 +218,8 @@ async function openMeetingEditor(id=''){
 }
 // ───── Feedback: request and reply without exposing messages to administrators ─────
 async function renderFeedback(){
- await asyncScreen(screen('Cultura de feedback','Feedback e conexões','Converse sobre comportamentos, contribuições e oportunidades.',load(),button('Pedir feedback','feedback-new','','primary')),async()=>{
-  const response=await apiLxp('feedback'),items=response.items||[]
+ await asyncScreen(screen('Cultura de feedback','Feedback e conexões','Converse sobre comportamentos, contribuições e oportunidades.',load(),button('Pedir feedback','feedback-new','','primary')),async current=>{
+  const response=await apiLxp('feedback'),items=response.items||[];if(!current())return
   const incoming=items.filter(x=>x.toId===d.me.id&&x.status==='requested').length
   const summary='<div class="lxp-metrics">'+metric('Conversas de feedback',items.length,'solicitações relacionadas a você')+metric('Solicitações a responder',incoming,'seu retorno é importante')+'</div>'
   const list=items.length?'<div class="lxp-stack">'+items.map(item=>'<article class="lxp-line"><div><strong>'+e(item.topic)+'</strong><small>'+e(item.from.name)+' pediu a '+e(item.to.name)+'</small>'+(item.status==='answered'?'<p>'+e(item.answer)+'</p>':'')+'</div>'+status(item.status)+(item.toId===d.me.id&&item.status==='requested'?button('Responder','feedback-answer',item.id,'primary'):'')+'</article>').join('')+'</div>':empty('Nenhuma solicitação registrada','Um pedido de feedback pode iniciar uma conversa transformadora.')
@@ -238,14 +240,14 @@ async function showFeedbackAnswer(id){
 }
 // ───── LXP landing and self-service administration ─────
 async function renderJourney(){
- await asyncScreen(screen('Você no centro','Minha jornada','Sua trilha de evolução é feita de experiências, pessoas e conquistas.',load()),async()=>{
-  const [data,overview]=await Promise.all([apiLxp('me'),apiLxp('overview')])
+ await asyncScreen(screen('Você no centro','Minha jornada','Sua trilha de evolução é feita de experiências, pessoas e conquistas.',load()),async current=>{
+  const data=await apiLxp('me');if(!current())return
   const links=[['Catálogo LMS','Catálogo de cursos','Explore conteúdos atribuídos a você','learning'],['Missões','Trilhas de aprendizagem','Missões que conectam etapas de desenvolvimento','growth'],['PDI','Meu PDI','Ações 70–20–10 e evidências','growth'],['1:1','Conversas 1:1','Alinhamentos e acompanhamento humano','calendar'],['Feedback','Feedback','Peça opiniões e amplie sua consciência','feedback'],['Pulse','Pulso do time','Participe de pesquisas e contribua com o clima','pulse'],['Desempenho','Avaliação de desempenho','Autoavaliações e avaliações de liderança','performance'],['Certificados','Minhas conquistas','Certificados das suas conclusões','check']]
   enterScreen(screen('Experiência de desenvolvimento','Minha jornada','Aprender é combinar conhecimento, prática e boas conversas.','<div class="lxp-hero-personal"><div><span>SEU DNA</span><h2>Bem-vindo de volta, '+e(data.user.name.split(' ')[0])+'.</h2><p>Seu desenvolvimento acontece em cada decisão, conversa e desafio.</p></div>'+ic('growth')+'</div><div class="lxp-metrics">'+metric('Cursos atribuídos',data.counts.assignedCourses,'na sua trajetória')+metric('Cursos concluídos',data.counts.completedCourses,'conquistas alcançadas')+metric('Avaliações para responder',data.counts.pendingReviews,'neste período')+metric('PDI em aberto',data.counts.activePDIs,'ações práticas')+'</div><div class="lxp-grid">'+links.map(([to,title,desc,icon])=>'<button class="lxp-module-card" data-lxp="goto" data-id="'+e(to)+'"><span>'+ic(icon)+'</span><strong>'+e(title)+'</strong><small>'+e(desc)+'</small>'+ic('arrow')+'</button>').join('')+'</div>'))
  })}
 async function renderAccess(){
- await asyncScreen(screen('Seu papel no Learning','Meu acesso','Transparência de permissões, vínculo empresarial e caminhos de administração.',load()),async()=>{
-  const data=await apiLxp('me'),mine=data.user
+ await asyncScreen(screen('Seu papel no Learning','Meu acesso','Transparência de permissões, vínculo empresarial e caminhos de administração.',load()),async current=>{
+  const data=await apiLxp('me'),mine=data.user;if(!current())return
   let content='<div class="lxp-metrics">'+metric('Meu perfil',mine.role,'permissão atual')+metric('Empresas disponíveis',data.allowedCompanies.length,'no meu escopo')+metric('Vínculo empresarial',mine.companyId?'Ativo':'Pendente','definido no cadastro')+'</div>'+panel('Configuração de acesso','<div class="lxp-stack"><div class="lxp-line"><div><strong>'+e(mine.name)+'</strong><small>ID: '+e(mine.id)+'</small></div>'+status(data.requiresCompanyLink?'pending':'done')+'</div><div class="lxp-line"><div><strong>Pesquisa de Pulse</strong><small>Permissão para criar e publicar pesquisas</small></div><strong>'+(data.canCreatePulse?'Permitido':'Não autorizado')+'</strong></div><div class="lxp-line"><div><strong>Ciclos de desempenho</strong><small>Configuração e publicação de formulários</small></div><strong>'+(data.canConfigurePerformance?'Permitido':'Não autorizado')+'</strong></div></div>'+(data.requiresCompanyLink?boxInfo('Vínculo da empresa pendente','Vincule seu próprio usuário a uma empresa em Pessoas → Editar cadastro e empresa. Isso é necessário para participar de alguns processos.'):'')+(data.user.role==='Administrador'?button('Editar meu cadastro','self-admin'):'') )
   if(data.canManage)content+=panel('Ferramentas de gestão','<div class="lxp-shortcuts">'+button('Gerenciar Pessoas','goto','Pessoas')+button('Estrutura organizacional','goto','Estrutura organizacional')+button('Nova pesquisa de Pulse','pulse-new')+button('Criar avaliação','perf-new')+'</div>')
   enterScreen(screen('Meu perfil e permissões','Meu acesso','Seu perfil administrativo pode configurar a plataforma conforme as regras corporativas.',content))

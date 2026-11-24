@@ -5,7 +5,7 @@
 (() => {
  'use strict'
  const PAGE='Pulse Seguro'
- let optionsCache=null,current=[],busy=false
+ let optionsCache=null,current=[],busy=false,renderSequence=0
  const html=v=>esc(String(v??''))
  const isManager=()=>['Administrador','RH/DHO','Líder'].includes(d?.me?.role)
  const button=(label,act,id='',extra='')=>'<button type="button" data-p5="'+act+'" data-id="'+html(id)+'" class="p5-button '+extra+'">'+html(label)+'</button>'
@@ -19,7 +19,7 @@
     legacy.dataset.p5Labeled='true'
     // Keep data-id intact; explicitly distinguish legacy identified survey history.
     const textNodes=[...legacy.childNodes].filter(node=>node.nodeType===Node.TEXT_NODE)
-    if(textNodes.length)textNodes.at(-1).textContent='Pulse (legado identificado)'
+    if(textNodes.length)textNodes.at(-1).textContent='Pulse de sentimentos'
   }
   if(root.querySelector('button[data-id="'+PAGE+'"]'))return
   const el=document.createElement('button');el.type='button';el.dataset.act='nav';el.dataset.id=PAGE;el.className=page===PAGE?'sel':''
@@ -38,10 +38,11 @@
   (s.canManage?button('Consultar resultados','result',s.id)+ (s.status!=='closed'?button('Encerrar pesquisa','close',s.id,'p5-danger'):''):'')+'</div></article>'
  async function render(){
   const root=document.getElementById('inside');if(!root)return
+  const ticket=++renderSequence
   root.innerHTML='<section class="p5-screen">'+intro()+notice()+'<div class="p5-loading">Carregando pesquisas…</div></section>'
   try{
    const result=await api('pulse/v5/list')
-   if(page!==PAGE)return
+   if(page!==PAGE||!root.isConnected||ticket!==renderSequence)return
    current=result.items||[]
    const mine=current.filter(x=>x.mine),managed=current.filter(x=>x.canManage)
    root.innerHTML='<section class="p5-screen">'+intro()+notice()+
@@ -50,7 +51,7 @@
     (isManager()?'<div class="p5-topline p5-space"><h2>Pesquisas sob gestão</h2><small>Resultados apenas agregados</small></div>'+
       (managed.length?'<div class="p5-grid">'+managed.map(surveyCard).join('')+'</div>':'<div class="p5-empty">Crie uma pesquisa para começar.</div>'):'')+
     '<div id="p5-workspace" aria-live="polite"></div></section>'
-  }catch(e){if(page===PAGE)root.innerHTML='<section class="p5-screen">'+intro()+'<div class="p5-error">Falha ao abrir as pesquisas: '+html(e.message)+'</div></section>'}
+  }catch(e){if(page===PAGE&&root.isConnected&&ticket===renderSequence)root.innerHTML='<section class="p5-screen">'+intro()+'<div class="p5-error">Falha ao abrir as pesquisas: '+html(e.message)+'</div></section>'}
  }
  async function showCreate(){
   const box=document.getElementById('p5-workspace');if(!box)return
@@ -59,7 +60,7 @@
    const companies=optionsCache.companies||[],people=optionsCache.people||[]
    if(!companies.length)throw Error('Seu perfil não possui uma empresa ativa para configurar pesquisas.')
    const defaultCompany=typeof organizationCompany==='string'&&companies.some(x=>x.id===organizationCompany)?organizationCompany:companies[0].id
-   box.innerHTML='<section class="p5-editor" id="p5-editor"><div class="p5-work-head"><h2>Configurar pesquisa anônima</h2>'+button('Fechar','dismiss')+'</div><p class="p5-muted">Os participantes são convidados nominalmente, mas as respostas são armazenadas sem ligação com a identidade. Disponível para públicos de 7 a 3.000 pessoas.</p><form id="p5-create-form" class="p5-form"><div class="p5-form-grid"><label>Nome da pesquisa<input name="title" maxlength="150" minlength="3" placeholder="Ex.: Clima e bem-estar — dezembro" required></label><label>Empresa<select name="companyId" id="p5-company">'+companies.map(x=>'<option value="'+html(x.id)+'" '+(x.id===defaultCompany?'selected':'')+'>'+html(x.name)+'</option>').join('')+'</select></label><label>Início<input name="startDate" type="date" value="'+today()+'" min="'+today()+'" required></label><label>Encerramento<input name="endDate" type="date" value="'+future(7)+'" min="'+today()+'" required></label></div><label>Objetivo ou contexto<textarea name="description" maxlength="500" rows="2" placeholder="Qual decisão esta pesquisa vai apoiar?"></textarea></label><div class="p5-section-head"><h3>Público-alvo</h3><small>Selecione pelo menos 7 participantes</small></div><div class="p5-audience-tools">'+button('Selecionar todos da empresa','select-all')+button('Limpar seleção','clear-all')+'</div><div class="p5-people" id="p5-people"></div><div class="p5-section-head"><h3>Perguntas</h3>'+button('Adicionar pergunta','add-question')+'</div><div id="p5-questions"></div><div class="p5-footer"><span>Sem respostas abertas nesta versão: reduz riscos de identificação por texto.</span><button class="p5-button p5-primary" type="submit">Publicar pesquisa</button></div></form></section>'
+   box.innerHTML='<section class="p5-editor" id="p5-editor"><div class="p5-work-head"><h2>Configurar pesquisa com agregação protegida</h2>'+button('Fechar','dismiss')+'</div><p class="p5-muted">Os participantes são convidados nominalmente, mas as respostas são armazenadas sem ligação com a identidade. Disponível para públicos de 7 a 3.000 pessoas.</p><form id="p5-create-form" class="p5-form"><div class="p5-form-grid"><label>Nome da pesquisa<input name="title" maxlength="150" minlength="3" placeholder="Ex.: Clima e bem-estar — dezembro" required></label><label>Empresa<select name="companyId" id="p5-company">'+companies.map(x=>'<option value="'+html(x.id)+'" '+(x.id===defaultCompany?'selected':'')+'>'+html(x.name)+'</option>').join('')+'</select></label><label>Início<input name="startDate" type="date" value="'+today()+'" min="'+today()+'" required></label><label>Encerramento<input name="endDate" type="date" value="'+future(7)+'" min="'+today()+'" required></label></div><label>Objetivo ou contexto<textarea name="description" maxlength="500" rows="2" placeholder="Qual decisão esta pesquisa vai apoiar?"></textarea></label><div class="p5-section-head"><h3>Público-alvo</h3><small>Selecione pelo menos 7 participantes</small></div><div class="p5-audience-tools">'+button('Selecionar todos da empresa','select-all')+button('Limpar seleção','clear-all')+'</div><div class="p5-people" id="p5-people"></div><div class="p5-section-head"><h3>Perguntas</h3>'+button('Adicionar pergunta','add-question')+'</div><div id="p5-questions"></div><div class="p5-footer"><span>Sem respostas abertas nesta versão: reduz riscos de identificação por texto.</span><button class="p5-button p5-primary" type="submit">Publicar pesquisa</button></div></form></section>'
    function showPeople(){const list=people.filter(p=>p.companyId===document.getElementById('p5-company').value);document.getElementById('p5-people').innerHTML=list.map(p=>'<label class="p5-person"><input type="checkbox" name="participant" value="'+html(p.id)+'"> '+html(p.name)+'</label>').join('')||'<p>Nenhuma pessoa ativa nesta empresa.</p>'}
    document.getElementById('p5-company').onchange=showPeople;showPeople();addQuestion()
    box.scrollIntoView({behavior:'smooth',block:'start'})

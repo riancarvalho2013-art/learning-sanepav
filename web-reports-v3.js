@@ -6,7 +6,7 @@ const n=x=>x==null||!Number.isFinite(Number(x))?'Não disponível':Number(x).toL
 const tabs=[['Geral','Visão Geral'],['LMS','Aprendizagem'],['DHO','DHO e LXP'],['DNA','Inteligência integrada'],['Pessoas','Pessoas e áreas'],['Matrículas','Detalhamento'],['Dicionário','Dicionário']]
 const groups={Geral:['people.active','learning.enrollments','learning.completed','learning.completion_rate','learning.courses','learning.certificates','dho.reviews_submitted','dho.pdi_actions','dho.pulse_mean'],LMS:['learning.enrollments','learning.completed','learning.completion_rate','learning.courses','learning.avg_progress','learning.score_avg','learning.expired','learning.certificates','learning.tracks'],DHO:['dho.pdi_actions','dho.pdi_completion','dho.cycles','dho.reviews_assigned','dho.reviews_submitted','dho.review_adherence','dho.meetings','dho.feedback_requests','dho.pulse_surveys','dho.pulse_mean','dho.pulse_response_rate']}
 let savedViews=null,reportContextInitialized=false,lastHeaderCompany=''
-let integrated=null;let section='Geral', reportState={company:'',department:'',person:'',course:'',from:'',to:''},catalog=null,last=null,offset=0,token=0
+let integrated=null,integratedError='';let section='Geral', reportState={company:'',department:'',person:'',course:'',from:'',to:''},catalog=null,last=null,offset=0,token=0
 const $r=()=>document.getElementById('inside')
 const query=()=>new URLSearchParams(Object.entries(reportState).filter(([k,v])=>v)).toString()
 const filters=()=>query()?'?'+query():''
@@ -41,6 +41,7 @@ function dnaSource(source,title,rows){
 }
 function integratedView(){
  if(reportState.department||reportState.person||reportState.course)return info('Esta visão apresenta apenas agregados autorizados por empresa e período. Limpe os filtros de departamento, pessoa e curso para consultar Pulse com segurança.')
+ if(integratedError)return info('Inteligência integrada temporariamente indisponível: '+integratedError+' . Os relatórios principais continuam disponíveis.')
  if(!integrated)return info('Consultando dados de interação, avaliações e pesquisas…')
  const src=integrated.sources||{}
  return '<aside class="r3-disclaimer"><strong>Critério de privacidade:</strong> fontes não disponíveis e amostras pequenas não são transformadas em zeros. Nenhuma resposta individual de pesquisa será exibida.</aside>'+ 
@@ -65,8 +66,8 @@ async function render(){const el=$r();if(!el)return
  const currentHeader=firstCompany();if(!reportContextInitialized||currentHeader!==lastHeaderCompany){reportState.company=currentHeader;reportState.department='';lastHeaderCompany=currentHeader;reportContextInitialized=true}
  const job=++token;el.innerHTML=skeleton()
  try{
-  const out=await Promise.all([api('reports/v3/summary'+filters()),catalog?Promise.resolve(catalog):api('reports/v3/catalog'),savedViews?Promise.resolve({items:savedViews}):api('reports/v3/views'),section==='DNA'&&!reportState.department&&!reportState.person&&!reportState.course?api('intelligence/v6/summary'+filters()):Promise.resolve(null)]);if(job!==token||page!=='Relatórios')return
-  last=out[0];catalog=out[1];savedViews=out[2].items||[];integrated=out[3]
+  const out=await Promise.all([api('reports/v3/summary'+filters()),catalog?Promise.resolve(catalog):api('reports/v3/catalog'),savedViews?Promise.resolve({items:savedViews}):api('reports/v3/views'),section==='DNA'&&!reportState.department&&!reportState.person&&!reportState.course?api('intelligence/v6/summary'+filters()).then(value=>({value})).catch(error=>({error:error.message})):Promise.resolve(null)]);if(job!==token||page!=='Relatórios')return
+  last=out[0];catalog=out[1];savedViews=out[2].items||[];integrated=out[3]?.value||null;integratedError=out[3]?.error||''
   el.innerHTML='<section class="r3-wrapper">'+top('Indicadores rastreáveis, permissões por empresa e recortes consistentes.')+content()+'</section>'
   if(section==='Matrículas')void loadRows()
  }catch(ex){if(job===token&&page==='Relatórios')el.innerHTML='<section class="r3-wrapper">'+top()+'<div class="r3-error" role="alert">'+esc(ex.message||'Não foi possível carregar a central de relatórios.')+'</div></section>'}

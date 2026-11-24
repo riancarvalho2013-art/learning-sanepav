@@ -118,7 +118,7 @@ function summary(db,state,domain,user,companyId,courseId){
  const outcomes=db.prepare('SELECT id,metric_name,unit,baseline,observed,period_start,period_end,source,method,caveat,created_at FROM kirkpatrick_outcomes_v7 WHERE company_id=? AND course_id=? ORDER BY created_at DESC LIMIT 50').all(companyId,courseId)
  return {companyId,courseId,generatedAt:now(),n1:{state:ratingsAvailable?'available':'insufficient_data',threshold,responseCount:ratingsAvailable?reaction.n:null,meanClarity:ratingsAvailable?Math.round(reaction.clarity*100)/100:null,meanRelevance:ratingsAvailable?Math.round(reaction.relevance*100)/100:null,meanApplicability:ratingsAvailable?Math.round(reaction.applicability*100)/100:null,nps},n2:educational,n3:{state:transferAvailable?'available':'insufficient_data',assigned:transfers.n,submitted:transfers.submitted||0,meanApplication:transferAvailable?Math.round(transfers.mean*100)/100:null},n4:{state:outcomes.length?'recorded_observations':'not_measured',observations:outcomes,warning:'Observações operacionais não estabelecem causalidade com o treinamento.'},privacy:'N1 é uma pesquisa identificada, mas o relatório apresenta apenas agregados com 7+ respostas. Notas individuais não são disponibilizadas por esta API.'}
 }
-async function process(req,{BUCKET,DOMAIN,...ctx}){
+async function handleOperation(req,{BUCKET,DOMAIN,...ctx}){
  const db=connect(ctx);setup(db)
  const raw=await BUCKET.get('system/state-v1');guard(raw,'Ambiente não inicializado.',503)
  const state=await raw.json(),user=actor(req,state),url=new URL(req.url),route=url.pathname.slice(ROOT.length)
@@ -126,8 +126,8 @@ async function process(req,{BUCKET,DOMAIN,...ctx}){
  const body=async()=>{guard(Number(req.headers.get('content-length')||0)<=16000,'Corpo acima do limite.',413);let value;try{value=await req.json()}catch{guard(false,'JSON inválido.')}guard(value&&typeof value==='object'&&!Array.isArray(value),'Dados inválidos.');return value}
  if(route==='options'&&req.method==='GET'){
   const companies=array(state.organization?.companies).filter(c=>availableCompany(state,DOMAIN,user,c.id)&&c.active!==false).map(c=>({id:c.id,name:c.name}))
-  const courses=array(state.courses).filter(c=>c.status!=='draft').map(c=>({id:c.id,title:c.title,track:c.track||''}))
   const enrolled=array(state.enroll).filter(e=>e.person===user.id&&e.progress===100&&e.completed).map(e=>({id:e.id,courseId:e.course}))
+  const visibleCourses=new Set(enrolled.map(e=>e.courseId));const courses=array(state.courses).filter(c=>c.status!=='draft'&&(isManager(user)||visibleCourses.has(c.id))).map(c=>({id:c.id,title:c.title,track:c.track||''}))
   return respond({companies,courses,enrollments:enrolled,canManage:isManager(user)})
  }
  if(route==='reaction'&&req.method==='POST'){
@@ -200,5 +200,5 @@ async function process(req,{BUCKET,DOMAIN,...ctx}){
 }
 export async function handleKirkpatrickV7(req,ctx){
  if(!new URL(req.url).pathname.startsWith(ROOT))return null
- try{return await process(req,ctx)}catch(e){const status=Number.isInteger(e.status)?e.status:500;return respond({error:status===500?'Falha interna no módulo Kirkpatrick.':e.message},status)}
+ try{return await handleOperation(req,ctx)}catch(e){const status=Number.isInteger(e.status)?e.status:500;return respond({error:status===500?'Falha interna no módulo Kirkpatrick.':e.message},status)}
 }

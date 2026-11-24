@@ -110,8 +110,8 @@ function canManageSurvey(state,user,domain,company,owner){
 }
 function publicStatus(s){return s.status==='closed'||s.ends_on<today()?'closed':s.starts_on>today()?'scheduled':'open'}
 const surveyQuestions=(db,id)=>db.prepare('SELECT id,title,type,position FROM pulse_v5_questions WHERE survey_id=? ORDER BY position').all(id)
-function overview(db,s,user,domain){
- const manage=canManageSurvey(s,user,domain,s.company_id,s.created_by)
+function overview(db,s,state,user,domain){
+ const manage=canManageSurvey(state,user,domain,s.company_id,s.created_by)
  const invite=db.prepare('SELECT responded FROM pulse_v5_invites WHERE survey_id=? AND user_id=?').get(s.id,user.id)
  if(!manage&&!invite)return null
  return {id:s.id,title:s.title,description:s.description,companyId:s.company_id,startDate:s.starts_on,endDate:s.ends_on,status:publicStatus(s),mine:Boolean(invite),answered:Boolean(invite?.responded),canManage:manage,
@@ -136,11 +136,11 @@ function detail(db,id,user,state,domain){
  error(ID.test(id||''),'Pesquisa inválida.',400)
  const s=db.prepare('SELECT * FROM pulse_v5_surveys WHERE id=?').get(id)
  error(s,'Pesquisa não encontrada.',404)
- const visible=overview(db,s,user,domain)
+ const visible=overview(db,s,state,user,domain)
  error(visible,'Pesquisa não encontrada.',404)
  return {s,visible}
 }
-async function process(req,context){
+async function handleOperation(req,context){
  const {BUCKET,DOMAIN}=context
  const db=connection(context);schema(db)
  const raw=await BUCKET.get('system/state-v1')
@@ -153,14 +153,14 @@ async function process(req,context){
  const body=async()=>{
   const contentLength=Number(req.headers.get('content-length')||0)
   error(contentLength<=32768,'Formulário excede o limite.',413)
-  const b=await req.json()
+  let b;try{b=await req.json()}catch{error(false,'Dados JSON inválidos.')}
   error(b&&typeof b==='object'&&!Array.isArray(b),'Dados inválidos.')
   return b
  }
  if(route==='options'&&method==='GET')return reply(options(state,user,DOMAIN))
  if(route==='list'&&method==='GET'){
   const rows=db.prepare('SELECT * FROM pulse_v5_surveys ORDER BY created_at DESC LIMIT 200').all()
-  return reply({items:rows.map(s=>overview(db,s,user,DOMAIN)).filter(Boolean)})
+  return reply({items:rows.map(s=>overview(db,s,state,user,DOMAIN)).filter(Boolean)})
  }
  if(route==='create'&&method==='POST'){
   const b=await body(),available=options(state,user,DOMAIN)
@@ -233,5 +233,5 @@ async function process(req,context){
 }
 export async function handlePulseV5(req,context){
  if(!new URL(req.url).pathname.startsWith(ROOT))return null
- try{return await process(req,context)}catch(e){const status=Number.isInteger(e.status)?e.status:500;return reply({error:status===500?'Falha interna ao processar pesquisa.':e.message},status)}
+ try{return await handleOperation(req,context)}catch(e){const status=Number.isInteger(e.status)?e.status:500;return reply({error:status===500?'Falha interna ao processar pesquisa.':e.message},status)}
 }

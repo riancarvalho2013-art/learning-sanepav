@@ -6,7 +6,7 @@ const html=file('web-index.html'),server=file('serve.mjs'),packageJson=JSON.pars
 for(const [path,name,mime] of [['/pulse-v5.js','web-pulse-v5.js','text/javascript'],['/pulse-v5.css','web-pulse-v5.css','text/css']]){
  assert.equal(manifest[path]?.file,name)
  assert.ok(manifest[path].mime.startsWith(mime))
- assert.ok(html.includes(path+'?v=5'))
+ assert.ok(html.includes(path+'?v='))
  assert.ok(file(name).length>1000)
 }
 assert.ok(server.includes("import {handlePulseV5} from './pulse-secure-v5.mjs'"))

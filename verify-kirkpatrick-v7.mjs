@@ -7,6 +7,7 @@ import {join} from 'node:path'
 import {handleKirkpatrickV7} from './kirkpatrick-v7.mjs'
 const dir=await mkdtemp(join(tmpdir(),'sanepav-kirkpatrick-'))
 const path=join(dir,'data.sqlite'),db=new DatabaseSync(path)
+process.env.LEARNING_DB=path
 const a=randomUUID(),b=randomUUID(),course=randomUUID(),otherCourse=randomUUID()
 const users=[{id:randomUUID(),role:'Administrador',active:true,name:'Admin'}, {id:randomUUID(),role:'RH/DHO',active:true,name:'RH'}, {id:randomUUID(),role:'Líder',active:true,name:'Líder'},...Array.from({length:7},(_,i)=>({id:randomUUID(),role:'Colaborador',active:true,name:'Pessoa '+i})),{id:randomUUID(),role:'Colaborador',active:true,name:'Outra empresa'}]
 const [admin,hr,leader,...others]=users
@@ -16,14 +17,14 @@ const assignments=new Map(users.map((u,i)=>[u.id,{company_id:i===users.length-1?
 for(const u of others.slice(0,7))u.manager=leader.id
 const state={users,sessions:users.map(u=>({digest:createHash('sha256').update(tokens.get(u.id)).digest('hex'),identity:'fixture',person:u.id,until:Date.now()+1000000})),organization:{companies:[{id:a,name:'Sanepav',active:1},{id:b,name:'Beta Clean',active:1}],assignments},courses:[{id:course,title:'Integração de Segurança',status:'published'},{id:otherCourse,title:'Curso Teste',status:'published'}],enroll:others.slice(0,7).map(u=>({id:randomUUID(),person:u.id,course,progress:100,completed:'2026-10-01T10:00:00.000Z'}))}
 const BUCKET={async get(key){return key==='system/state-v1'?{async json(){return state}}:null}}
-const DOMAIN={allowedCompanies(_,user){return user.role==='Administrador'?[a,b]:user.role==='RH/DHO'?[a]:[assignments.get(user.id).company_id]}}
+const DOMAIN={allowedCompanies(received,user){assert.equal(received,state,'O domínio precisa receber o estado organizacional completo');return user.role==='Administrador'?[a,b]:user.role==='RH/DHO'?[a]:[assignments.get(user.id).company_id]}}
 const origin='https://learning.example'
 let calls=0
 async function call(route,user,body){calls++
  const headers={origin,'oai-authenticated-user-id':'fixture','content-type':'application/json'}
  if(user)headers.cookie='learning='+tokens.get(user.id)
  const req=new Request(origin+'/api/kirkpatrick/v7/'+route,{method:body===undefined?'GET':'POST',headers,...(body===undefined?{}:{body:JSON.stringify(body)})})
- const res=await handleKirkpatrickV7(req,{BUCKET,DOMAIN,kirkpatrickDb:db})
+ const res=await handleKirkpatrickV7(req,{BUCKET,DOMAIN})
  return {status:res.status,data:await res.json()}
 }
 try{

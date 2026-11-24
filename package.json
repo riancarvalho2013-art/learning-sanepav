@@ -8,9 +8,10 @@
   "scripts": {
     "build": "node build.mjs",
     "start": "node serve.mjs",
-    "test": "node build.mjs && node verify-privacy.mjs && node verify-backup.mjs && node verify-foundation.mjs && node verify-recovery.mjs && node verify-learning.mjs && node verify-bootstrap.mjs && node verify-user-company.mjs && node verify-journeys.mjs && node verify-evolution.mjs && node verify-lxp-v2.mjs && node verify-scorm-v3.mjs && node verify-reports-v3.mjs && node verify-discovery-v4.mjs && node verify-pulse-v5.mjs && node verify-pulse-integration.mjs && node verify-assessments-v6.mjs && node verify-intelligence-v6.mjs && node verify-release-v6.mjs && node verify-ops-v7.mjs && node verify-server-v7.mjs && node verify-kirkpatrick-v7.mjs && node verify-release-v7.mjs",
+    "test": "node build.mjs && node verify-privacy.mjs && node verify-backup.mjs && node verify-foundation.mjs && node verify-recovery.mjs && node verify-learning.mjs && node verify-bootstrap.mjs && node verify-user-company.mjs && node verify-journeys.mjs && node verify-evolution.mjs && node verify-lxp-v2.mjs && node verify-scorm-v3.mjs && node verify-reports-v3.mjs && node verify-discovery-v4.mjs && node verify-pulse-v5.mjs && node verify-pulse-integration.mjs && node verify-assessments-v6.mjs && node verify-intelligence-v6.mjs && node verify-release-v6.mjs && node verify-ops-v7.mjs && node verify-server-v7.mjs && node verify-kirkpatrick-v7.mjs && node verify-release-v7.mjs && node verify-runtime-v8.mjs",
     "dev": "node serve.mjs",
     "test:security": "node verify-privacy.mjs && node verify-pulse-v5.mjs && node verify-assessments-v6.mjs",
-    "backup:verify": "node ops/backup-verify.mjs --verify"
+    "backup:verify": "node ops/backup-verify.mjs --verify",
+    "test:runtime": "node verify-runtime-v8.mjs"
   }
 }

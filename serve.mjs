@@ -16,6 +16,8 @@ import {handleOrganizationChart} from './organization-chart-v9.mjs'
 import {handleCompletionV11,reconcileCompletion} from './completion-v11.mjs'
 import {createRouteRegistry} from './http-router-v11.mjs'
 import {handleOrganizationHistory} from './organization-history-v11.mjs'
+import {guardLegacyOKR} from './okr-v13.mjs'
+import {handleUserImport} from './user-import-v14.mjs'
 
 const portArgument=process.argv.indexOf('--port')
 const devMode=process.env.NODE_ENV!=='production'&&portArgument>=0
@@ -49,9 +51,10 @@ const routeRequest=createRouteRegistry([
  {prefix:'/api/reports/v3/',handler:request=>handleReportsV3(request,context)},
  {prefix:'/api/scorm/v3/',handler:request=>handleScormV3(request,context)},
  {prefix:'/scorm/v3/',handler:request=>handleScormV3(request,context)},
+ {prefix:'/api/users/v14/import/',handler:request=>handleUserImport(request,context)},
  {prefix:'/api/lxp/v2/',handler:request=>handleLxpV2(request,context)},
  {prefix:'/api/evo/',handler:request=>handleEvolution(request,context)}
-],request=>app.fetch(request,context))
+],request=>guardLegacyOKR(request,context,r=>app.fetch(r,context)))
 const setupPage = '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Ativar Learning Sanepav</title><form action="/ativar" method="post"><label>Código de ativação <input required type="password" name="code" autocomplete="off"></label><button>Ativar</button></form></html>'
 http.createServer(async (req,res) => {
   const requestId=randomUUID()

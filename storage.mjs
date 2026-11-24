@@ -3,7 +3,7 @@ import {migrate} from './migrations.mjs'
 import {installOrganizationHistory,recordManagerHistory,readOrganizationHistory} from './organization-history-v11.mjs'
 import {createDomain} from './domain.mjs'
 import {DatabaseSync,backup} from 'node:sqlite'
-import {randomUUID} from 'node:crypto'
+import {randomUUID,createHash} from 'node:crypto'
 import {mkdirSync,existsSync,chmodSync,renameSync} from 'node:fs'
 import {dirname,join} from 'node:path'
 const databasePath=process.env.LEARNING_DB||'data/learning.sqlite'
@@ -32,6 +32,8 @@ installOrganizationHistory(db,initialState)
 DOMAIN.organizationHistory=filters=>readOrganizationHistory(db,filters)
 DOMAIN.historicalIndex=ids=>readHistoricalIndex(db,ids)
 
+// Includes direct v2 organizational edits which do not necessarily change the legacy ETag.
+function organizationRevision(){const h=createHash('sha256');for(const table of ['companies','units','departments','person_organizations','company_access'])h.update(JSON.stringify(db.prepare(`SELECT * FROM ${table} ORDER BY ${table==='company_access'?'person_id,company_id':table==='person_organizations'?'person_id':'id'}`).all()));return h.digest('hex')}
 export const BUCKET = {
  // Internal read-only batch check; callers must first derive authorized object keys.
  async countExisting(keys){
@@ -46,7 +48,8 @@ export const BUCKET = {
   const body = Buffer.from(row.body)
   return {etag:row.etag,body,text:async()=>body.toString(),json:async()=>{
    const value=JSON.parse(body.toString())
-   return key==='system/state-v1' ? DOMAIN.decorateState(value) : value
+   if(key==='system/state-v1'){DOMAIN.decorateState(value);value.organization.departments=db.prepare('SELECT id,company_id,name,active FROM departments WHERE active=1 ORDER BY name').all();value.organization.units=db.prepare('SELECT id,company_id,name,active FROM units WHERE active=1 ORDER BY name').all();value.organization.revision=organizationRevision()}
+   return value
   }}
  },
  async put(key,value,options) {
@@ -54,14 +57,17 @@ export const BUCKET = {
   const expected=options?.onlyIf?.etagMatches
   db.exec('BEGIN IMMEDIATE')
   try {
+   // OKR authorization is tied to the organization/session snapshot, not just the LXP revision.
+   if(options?.requireStateEtag!==undefined&&db.prepare('SELECT etag FROM objects WHERE key=?').get('system/state-v1')?.etag!==options.requireStateEtag){db.exec('ROLLBACK');return null}
+   if(options?.requireOrganizationRevision!==undefined&&organizationRevision()!==options.requireOrganizationRevision){db.exec('ROLLBACK');return null}
    const result=expected
     ? db.prepare('UPDATE objects SET etag=?,body=? WHERE key=? AND etag=?').run(etag,body,key,expected)
     : db.prepare('INSERT OR IGNORE INTO objects VALUES(?,?,?)').run(key,etag,body)
    if(result.changes && key==='system/state-v1') {
     const state=JSON.parse(body.toString())
     DOMAIN.syncPeople(state,false)
-    const assignment=options?.organizationAssignment
-    if(assignment){
+    const assignments=options?.organizationAssignments|| (options?.organizationAssignment?[options.organizationAssignment]:[])
+    for(const assignment of assignments){
      const actor=state.users.find(person=>person.id===assignment.actorId&&person.active)
      if(!actor)throw Object.assign(new Error('Sessão administrativa indisponível.'),{status:403})
      DOMAIN.assignPerson(state,actor,assignment.body)

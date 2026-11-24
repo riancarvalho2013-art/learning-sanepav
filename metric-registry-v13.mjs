@@ -27,11 +27,11 @@ export const REPORT_DEFINITIONS=Object.freeze({
  'dho.feedback_requests':source('Solicitações de feedback','Solicitações registradas originadas ou recebidas por pessoas do escopo; não inclui texto privado.'),
  'dho.pulse_surveys':source('Pesquisas Pulse','Pesquisas publicadas com público autorizado; não representa taxa de respostas.'),
  'dho.pulse_mean':source('Percepção média Pulse','Média de pesquisas com pelo menos 7 respostas na audiência original, sem filtros capazes de identificar pessoas.','1 a 5'),
- 'okr.objectives':source('Objetivos OKR','Objetivos registrados com vigência sobreposta ao recorte.'),
- 'okr.active':source('OKRs ativos','Objetivos publicados atualmente ativos.'),
- 'okr.closed':source('OKRs encerrados','Objetivos atualmente encerrados.'),
- 'okr.checkins':source('Check-ins de OKR','Atualizações registradas durante o recorte.'),
- 'okr.average':source('Progresso médio dos OKRs ativos','Média do progresso ponderado por objetivo ativo, com base no último check-in.','%'),
+ 'okr.objectives':source('Objetivos OKR','Objetivos visíveis ao solicitante, por empresa, departamento ou pessoa, com vigência sobreposta ao recorte.'),
+ 'okr.active':source('OKRs ativos','Objetivos visíveis ao solicitante e atualmente ativos.'),
+ 'okr.closed':source('OKRs encerrados','Objetivos visíveis ao solicitante e atualmente encerrados.'),
+ 'okr.checkins':source('Check-ins de OKR','Atualizações de OKRs visíveis ao solicitante durante o recorte.'),
+ 'okr.average':source('Progresso médio dos OKRs ativos','Média do progresso ponderado dos objetivos ativos visíveis ao solicitante, com base no último check-in.','%'),
  'dho.pulse_response_rate':source('Taxa de participação Pulse','Somente pesquisas com pelo menos 7 respostas, calculada por convites da audiência original.','%')
 })
 export const HISTORICAL_DEFINITIONS=Object.freeze({

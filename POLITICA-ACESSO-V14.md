@@ -1,0 +1,18 @@
+# Política de acesso e atribuições — V14
+Baseline homologacao-dna: 5f3a736721d7a0aeac6bdb70f1cb08a8f58033fb (deploy success).
+
+## Regra de negócio para evoluções futuras
+- Negar por padrão; validar autorização e escopo organizacional no servidor, nunca apenas na interface. Administração global tem visão completa de OKRs e seus históricos. Acesso a dados confidenciais de outros módulos continua sujeito às respectivas regras de finalidade e privacidade.
+- OKR corporativo: apenas Administrador configura, publica e encerra; colaboradores da empresa consultam o objetivo publicado, sem histórico de evidências reservado; um responsável explicitamente designado pode registrar check-in.
+- OKR departamental: Administrador ou Líder cuja hierarquia abranja todos os integrantes ativos do departamento e ao menos um liderado; líder não assume automaticamente o departamento só por estar lotado nele. Em departamento compartilhado, líder delega OKRs individuais aos próprios liderados; o administrador configura o objetivo departamental. Membros consultam objetivos publicados relevantes. Responsável opcional é validado no escopo.
+- OKR individual: Administrador ou Líder do colaborador (direto/indireto, mesma empresa, departamento válido). Colaborador consulta e registra check-ins dos objetivos individuais atribuídos; não cria, publica ou encerra. RH/DHO e Diretoria não têm permissão de configuração por papel, nem visão global.
+- O objetivo tem um alvo organizacional por registro. Para várias áreas, criar objetivos distintos; para área com responsável individual, selecionar Departamento e o responsável opcional.
+- Objetivos V13 são individuais; reclassificação disponível a gestores autorizados antes de check-ins e fechamento, preservando histórico da alteração. Registros legados de OKR são somente leitura no servidor HTTP público. Não migrar silenciosamente.
+- Métricas e detalhamentos devem aplicar o mesmo escopo. Auditoria administrativa global não equivale a permissão para revelar conversas privadas ou respostas protegidas de Pulse.
+- Alteração de sessão, perfil, vínculo ou estrutura precisa invalidar a autorização de gravações concorrentes. V14 verifica ETag do estado e impressão da estrutura organizacional antes de persistir.
+
+## Importação Excel
+Somente Administrador; criação de 1–100 usuários ativos por lote, sem alteração de existentes, sem elevação a Administrador em massa. A planilha deve ser confidencial e possuir senha individual de 12–150 caracteres. Os hashes usam o mecanismo PBKDF2 existente. Não enviar senhas por canais abertos. Não são geradas senhas automáticas nem enviadas mensagens de boas-vindas. Empresa e departamento ativos obrigatórios; unidade, cargo, gestor e admissão opcionais. Gestor por e-mail, ativo, não colaborador, mesma empresa; pode estar no lote. Ciclos e duplicatas bloqueados. O backend recebe linhas estruturadas, não executa macros/fórmulas; a leitura XLSX ocorre no navegador com JSZip existente. Prévia não persiste dados e confirma somente após revalidar. Falha de qualquer linha impede todo o lote; credenciais, vínculos e auditoria são persistidos na mesma transação SQLite. O modelo tem abas Usuarios, Instrucoes, Empresas, Departamentos, Unidades.
+
+## Gate de publicação
+Executar npm test sem desativar etapas; verificar deploy Railway em homologacao, validar login, OKR por perfil e importação de dois usuários sintéticos antes do lote real. O E2E HTTP completo foi incluído no npm test, mas não foi executado no checkout local incompleto. Testes de interface locais usaram shell/API simulados. Não declarar homologação real até o deploy.

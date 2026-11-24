@@ -70,7 +70,7 @@ function prepareScope(state,domain,user,params){
  const people=allPeople.filter(p=>(!department||org?.assignments?.get(p.id)?.department_id===department)&&(!person||person===p.id))
  guard(!person||people.some(p=>p.id===person),'Pessoa fora de seu escopo.',403)
  // Filtered work can only reference catalog items linked to scoped enrollments.
- return {company,department,person,course,from,to,people,ids:new Set(people.map(p=>p.id)),allCompanies:allowedCompanies,applied:{company,department,person,course,from,to},role:user.role}
+ return {company,department,person,course,from,to,people,ids:new Set(people.map(p=>p.id)),allCompanies:allowedCompanies,applied:{company,department,person,course,from,to},role:user.role,okrActor:user,okrDomain:domain}
 }
 function legacyEnrollments(legacy,scope){
  return arr(legacy.enroll).filter(e=>scope.ids.has(e.person)&&(!scope.course||e.course===scope.course)&&

@@ -221,7 +221,18 @@ async function endpoint(req,ctx){
  const current=await data(BUCKET),db=current.state
  const request=async()=>{try{return await req.json()}catch{err(false,'Dados JSON inválidos.')}}
  if(path==='okr'&&method==='GET')return reply(listOKR(db,state,DOMAIN,user))
- if(path.startsWith('okr/')&&method==='POST'){const b=await request(),action=path.slice(4);return reply(await change(BUCKET,s=>{const result=mutateOKR(s,state,DOMAIN,user,action,b);if(!result.idempotent)audit(s,user,'okr.'+action,result.id);return result}))}
+ if(path.startsWith('okr/')&&method==='POST'){
+   const b=await request(),action=path.slice(4)
+   // Refresh identity and organization on every attempt. The real SQLite adapter checks
+   // this ETag inside the same transaction as the LXP CAS; transfer/revocation cannot race the write.
+   for(let attempt=0;attempt<4;attempt++){
+    const raw=await BUCKET.get(LEGACY);err(raw,'Ambiente não inicializado.',503);const fresh=await raw.json(),actor=getUser(req,fresh)
+    const {etag,state:aggregate}=await data(BUCKET),result=mutateOKR(aggregate,fresh,DOMAIN,actor,action,b)
+    if(!result.idempotent)audit(aggregate,actor,'okr.'+action,result.id)
+    if(await BUCKET.put(STORE,JSON.stringify(aggregate),{onlyIf:etag?{etagMatches:etag}:{etagDoesNotMatch:'*'},requireStateEtag:raw.etag,requireOrganizationRevision:fresh.organization?.revision}))return reply(result)
+   }
+   err(false,'A estrutura ou o objetivo foi alterado. Atualize a página.',409)
+  }
  if(path==='me'&&method==='GET'){
   const ownCompany=company(state,user.id)
   return reply({user:{id:user.id,name:user.name,role:user.role,companyId:ownCompany,managerId:user.manager||''},canManage:isManage(user),

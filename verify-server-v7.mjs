@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import {mkdtemp,writeFile,copyFile,rm} from 'node:fs/promises'
+import {mkdtemp,writeFile,copyFile,rm,readdir} from 'node:fs/promises'
 import {spawn} from 'node:child_process'
 import {createServer} from 'node:net'
 import {tmpdir} from 'node:os'
@@ -12,12 +12,14 @@ try{
  await writeFile(join(tmp,'package.json'),'{"type":"module"}')
  await writeFile(join(tmp,'platform.mjs'),'export default {fetch: async()=>new Response("stub-response",{status:200})}')
  await writeFile(join(tmp,'storage.mjs'),'export const BUCKET={async get(){return null}};export const DOMAIN={}')
- for(const [name,fn] of [['learning-evolution.mjs','handleEvolution'],['lxp-v2.mjs','handleLxpV2'],['scorm-v3.mjs','handleScormV3'],['reports-v3.mjs','handleReportsV3'],['learning-discovery-v4.mjs','handleDiscoveryV4'],['pulse-secure-v5.mjs','handlePulseV5'],['learning-assessments-v6.mjs','handleAssessmentsV6'],['people-intelligence-v6.mjs','handleIntelligenceV6'],['kirkpatrick-v7.mjs','handleKirkpatrickV7']]){
-  await writeFile(join(tmp,name),`export async function ${fn}(){return null}`)
+ // Copy the real extension modules, not a fixed list of fake handlers. A new
+ // server import must be present in the fixture and load successfully.
+ for(const name of await readdir(import.meta.dirname)){
+  if(name.endsWith('.mjs')&&!name.startsWith('verify-')&&!['serve.mjs','platform.mjs','storage.mjs','assets.mjs'].includes(name))await copyFile(join(import.meta.dirname,name),join(tmp,name))
  }
  const port=await freePort()
  let childErr=''
- child=spawn(process.execPath,['serve.mjs','--port',String(port)],{cwd:tmp,env:{...process.env,NODE_ENV:'test'},stdio:['ignore','pipe','pipe']})
+ child=spawn(process.execPath,['serve.mjs','--port',String(port)],{cwd:tmp,env:{...process.env,NODE_ENV:'test',LEARNING_DB:join(tmp,'fixture.sqlite')},stdio:['ignore','pipe','pipe']})
  child.stderr.on('data',x=>{childErr+=String(x)})
  const origin=`http://127.0.0.1:${port}`
  let ready=false
@@ -29,5 +31,6 @@ try{
  const health=await fetch(origin+'/healthz');assert.equal(health.status,200);assert.ok(health.headers.get('X-Request-ID'))
  const readiness=await fetch(origin+'/readyz');assert.equal(readiness.status,200);assert.equal((await readiness.json()).checks.sqlite,'ready')
  const root=await fetch(origin+'/some-page');assert.equal(root.status,200);assert.equal(await root.text(),'stub-response')
- console.log('PASSOU: servidor V7 — healthz, readiness SQLite, ID de correlação e roteamento isolado')
+ const denied=await fetch(origin+'/api/orgchart/v9');assert.equal(denied.status,401);assert.equal((await denied.json()).error,'Entre no Learning para continuar.')
+ console.log('PASSOU: servidor V7/V9 — healthz, readiness com adapter, ID de correlação, roteamento e importação dos handlers reais')
 }finally{if(child){child.kill('SIGTERM')}await rm(tmp,{recursive:true,force:true})}

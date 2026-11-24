@@ -1,0 +1,473 @@
+{
+  "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+  "branch": "homologacao-dna",
+  "date": "2026-11-24",
+  "release": "V10 P0",
+  "scoring_policy": "Pesos somam 100 por dimensão. Score final somente quando todos os critérios aplicáveis forem avaliados; PASS isolado é evidência parcial do critério restrito, não homologação. Não converter NOT_TESTED/BLOCKED em PASS. 10/10 somente com todos os critérios obrigatórios PASS e nenhum bloqueador crítico. Não há nota final nesta fase.",
+  "production_release_allowed": false,
+  "dimensions": [
+    {
+      "dimension": "Frontend e navegação",
+      "target": 10,
+      "score": null,
+      "status": "PARTIAL_EVIDENCE",
+      "criteria": [
+        {
+          "id": "FE-01",
+          "description": "Assets, MIME e referências HTML verificáveis",
+          "priority": "P1",
+          "weight": 30,
+          "file": "verify-build-v10.mjs",
+          "test": "verify-build-v10.mjs",
+          "status": "PASS",
+          "evidence": "20 verificações em fixture de build; não equivale a build completo",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        },
+        {
+          "id": "FE-02",
+          "description": "Navegação integrada, acessibilidade e jornadas completas",
+          "priority": "P1",
+          "weight": 70,
+          "file": "web-app.js, web-foundation.js, extensões",
+          "test": "web-app.js, web-foundation.js, extensões",
+          "status": "NOT_TESTED",
+          "evidence": "Sem navegador autenticado nesta sessão",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        }
+      ]
+    },
+    {
+      "dimension": "Backend e arquitetura",
+      "target": 10,
+      "score": null,
+      "status": "PARTIAL_EVIDENCE",
+      "criteria": [
+        {
+          "id": "BE-01",
+          "description": "Importação dos módulos reais no teste de inicialização",
+          "priority": "P0",
+          "weight": 25,
+          "file": "verify-server-v7.mjs",
+          "test": "verify-server-v7.mjs",
+          "status": "PASS",
+          "evidence": "Falha de importação reproduzida no original; teste corrigido passa com adapters do núcleo",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        },
+        {
+          "id": "BE-02",
+          "description": "Roteamento e autenticação centralizados",
+          "priority": "P1",
+          "weight": 35,
+          "file": "serve.mjs, domain.mjs",
+          "test": "serve.mjs, domain.mjs",
+          "status": "NOT_TESTED",
+          "evidence": "Fase 1 condicionada à estabilização",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        },
+        {
+          "id": "BE-03",
+          "description": "Migração e histórico organizacional reconciliados",
+          "priority": "P1",
+          "weight": 40,
+          "file": "storage.mjs, migrations.mjs",
+          "test": "storage.mjs, migrations.mjs",
+          "status": "NOT_TESTED",
+          "evidence": "Checkout e banco reais indisponíveis",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        }
+      ]
+    },
+    {
+      "dimension": "LMS e trilhas",
+      "target": 10,
+      "score": null,
+      "status": "NOT_TESTED",
+      "criteria": [
+        {
+          "id": "LMS-01",
+          "description": "Regressão de publicação, progresso e pré-requisitos",
+          "priority": "P1",
+          "weight": 35,
+          "file": "verify-learning.mjs, verify-journeys.mjs",
+          "test": "verify-learning.mjs, verify-journeys.mjs",
+          "status": "NOT_TESTED",
+          "evidence": "Núcleo indisponível nesta cópia",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        },
+        {
+          "id": "LMS-02",
+          "description": "Jornada completa, conclusão autoritativa e certificado",
+          "priority": "P1",
+          "weight": 65,
+          "file": "platform.mjs, learning.mjs",
+          "test": "platform.mjs, learning.mjs",
+          "status": "NOT_TESTED",
+          "evidence": "Ainda não homologado",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        }
+      ]
+    },
+    {
+      "dimension": "SCORM",
+      "target": 10,
+      "score": null,
+      "status": "PARTIAL_EVIDENCE",
+      "criteria": [
+        {
+          "id": "SC-01",
+          "description": "Runtime V3: teste isolado, recursos e autorização",
+          "priority": "P1",
+          "weight": 45,
+          "file": "verify-scorm-v3.mjs",
+          "test": "verify-scorm-v3.mjs",
+          "status": "PASS",
+          "evidence": "Teste isolado passou Node 24",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        },
+        {
+          "id": "SC-02",
+          "description": "Múltiplos SCOs, edição 2004 e pacotes reais",
+          "priority": "P1",
+          "weight": 55,
+          "file": "scorm-v3.mjs",
+          "test": "scorm-v3.mjs",
+          "status": "NOT_TESTED",
+          "evidence": "Não alterado nesta fase",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        }
+      ]
+    },
+    {
+      "dimension": "Avaliações educacionais",
+      "target": 10,
+      "score": null,
+      "status": "PARTIAL_EVIDENCE",
+      "criteria": [
+        {
+          "id": "AE-01",
+          "description": "Regressão de sessões, tentativas e correção",
+          "priority": "P1",
+          "weight": 40,
+          "file": "verify-assessments-v6.mjs",
+          "test": "verify-assessments-v6.mjs",
+          "status": "PASS",
+          "evidence": "59 chamadas isoladas",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        },
+        {
+          "id": "AE-02",
+          "description": "Banco de questões, integração LMS e E2E",
+          "priority": "P1",
+          "weight": 60,
+          "file": "learning-assessments-v6.mjs",
+          "test": "learning-assessments-v6.mjs",
+          "status": "NOT_TESTED",
+          "evidence": "Não alterado nesta fase",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        }
+      ]
+    },
+    {
+      "dimension": "Kirkpatrick",
+      "target": 10,
+      "score": null,
+      "status": "PARTIAL_EVIDENCE",
+      "criteria": [
+        {
+          "id": "KP-01",
+          "description": "Regressão de N1–N4, acesso e persistência",
+          "priority": "P1",
+          "weight": 40,
+          "file": "verify-kirkpatrick-v7.mjs",
+          "test": "verify-kirkpatrick-v7.mjs",
+          "status": "PASS",
+          "evidence": "33 chamadas isoladas",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        },
+        {
+          "id": "KP-02",
+          "description": "Fluxo real LMS → N1/N2/N3/N4 → analytics",
+          "priority": "P1",
+          "weight": 60,
+          "file": "kirkpatrick-v7.mjs, people-intelligence-v6.mjs",
+          "test": "kirkpatrick-v7.mjs, people-intelligence-v6.mjs",
+          "status": "NOT_TESTED",
+          "evidence": "E2E não executado",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        }
+      ]
+    },
+    {
+      "dimension": "DHO",
+      "target": 10,
+      "score": null,
+      "status": "PARTIAL_EVIDENCE",
+      "criteria": [
+        {
+          "id": "DHO-01",
+          "description": "Regressão isolada LXP V2 e organograma",
+          "priority": "P1",
+          "weight": 25,
+          "file": "verify-lxp-v2.mjs, verify-orgchart-v9.mjs",
+          "test": "verify-lxp-v2.mjs, verify-orgchart-v9.mjs",
+          "status": "PASS",
+          "evidence": "Adapters simulados; sem homologação",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        },
+        {
+          "id": "DHO-02",
+          "description": "Desempenho 360°, calibração, competências, PDI e OKR integrados",
+          "priority": "P1",
+          "weight": 75,
+          "file": "lxp-v2.mjs",
+          "test": "lxp-v2.mjs",
+          "status": "NOT_TESTED",
+          "evidence": "Não alterado nesta fase",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        }
+      ]
+    },
+    {
+      "dimension": "People Analytics",
+      "target": 10,
+      "score": null,
+      "status": "PARTIAL_EVIDENCE",
+      "criteria": [
+        {
+          "id": "PA-01",
+          "description": "Regressão de fontes, escopo e disponibilidade",
+          "priority": "P1",
+          "weight": 30,
+          "file": "verify-intelligence-v6.mjs",
+          "test": "verify-intelligence-v6.mjs",
+          "status": "PASS",
+          "evidence": "9 chamadas isoladas",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        },
+        {
+          "id": "PA-02",
+          "description": "Fonte semântica única e histórico reconciliado",
+          "priority": "P1",
+          "weight": 70,
+          "file": "reports-v3.mjs, people-intelligence-v6.mjs",
+          "test": "reports-v3.mjs, people-intelligence-v6.mjs",
+          "status": "NOT_TESTED",
+          "evidence": "Fase futura",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        }
+      ]
+    },
+    {
+      "dimension": "Relatórios",
+      "target": 10,
+      "score": null,
+      "status": "PARTIAL_EVIDENCE",
+      "criteria": [
+        {
+          "id": "RE-01",
+          "description": "Regressão isolada de filtros, escopo e CSV",
+          "priority": "P1",
+          "weight": 35,
+          "file": "verify-reports-v3.mjs",
+          "test": "verify-reports-v3.mjs",
+          "status": "PASS",
+          "evidence": "Teste isolado passou",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        },
+        {
+          "id": "RE-02",
+          "description": "Construtor, jobs, PDF/XLSX e reconciliação",
+          "priority": "P1",
+          "weight": 65,
+          "file": "reports-v3.mjs",
+          "test": "reports-v3.mjs",
+          "status": "NOT_TESTED",
+          "evidence": "Fase futura",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        }
+      ]
+    },
+    {
+      "dimension": "Segurança e privacidade",
+      "target": 10,
+      "score": null,
+      "status": "PARTIAL_EVIDENCE",
+      "criteria": [
+        {
+          "id": "SP-01",
+          "description": "Regressão de autorização nos módulos disponíveis",
+          "priority": "P1",
+          "weight": 30,
+          "file": "verify-pulse-v5.mjs, verify-orgchart-v9.mjs",
+          "test": "verify-pulse-v5.mjs, verify-orgchart-v9.mjs",
+          "status": "PASS",
+          "evidence": "38 chamadas Pulse e 58 verificações de organograma; adapters",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        },
+        {
+          "id": "SP-02",
+          "description": "Testes adversariais do núcleo, sessões e LGPD",
+          "priority": "P1",
+          "weight": 70,
+          "file": "verify-privacy.mjs, verify-user-company.mjs",
+          "test": "verify-privacy.mjs, verify-user-company.mjs",
+          "status": "NOT_TESTED",
+          "evidence": "Sem execução integral",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        }
+      ]
+    },
+    {
+      "dimension": "Infraestrutura e QA",
+      "target": 10,
+      "score": null,
+      "status": "PARTIAL_EVIDENCE",
+      "criteria": [
+        {
+          "id": "QA-01",
+          "description": "Regressões locais no Node 24",
+          "priority": "P1",
+          "weight": 25,
+          "file": "EVIDENCIAS/regression-node24.log",
+          "test": "EVIDENCIAS/regression-node24.log",
+          "status": "PASS",
+          "evidence": "17 suítes disponíveis aprovadas; 41 arquivos com sintaxe válida",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        },
+        {
+          "id": "QA-02",
+          "description": "Build e suíte integral no checkout real",
+          "priority": "P0",
+          "weight": 25,
+          "file": "npm test",
+          "test": "npm test",
+          "status": "BLOCKED",
+          "evidence": "Checkout incompleto no contêiner; log registra ausência de web-marca.png",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": "Checkout incompleto no contêiner; log registra ausência de web-marca.png"
+        },
+        {
+          "id": "QA-03",
+          "description": "Deploy saudável e smoke tests no Railway",
+          "priority": "P0",
+          "weight": 30,
+          "file": "Railway/GitHub status",
+          "test": "Railway/GitHub status",
+          "status": "FAIL",
+          "evidence": "V9 failure no SHA auditado; patch não publicado",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": "V9 failure no SHA auditado; patch não publicado"
+        },
+        {
+          "id": "QA-04",
+          "description": "Carga, restauração e recuperação no ambiente real",
+          "priority": "P1",
+          "weight": 20,
+          "file": "ops/backup-verify.mjs",
+          "test": "ops/backup-verify.mjs",
+          "status": "NOT_TESTED",
+          "evidence": "Somente backup/restore isolado aprovado",
+          "baseline_commit": "0750dddf6e6972a428cf1793c953d642f1be7f40",
+          "patch_commit": null,
+          "date": "2026-11-24",
+          "responsible": "Engenharia — sessão atual",
+          "known_defect": null
+        }
+      ]
+    }
+  ]
+}

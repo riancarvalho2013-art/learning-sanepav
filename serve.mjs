@@ -39,6 +39,7 @@ const safeLogRoute=raw=>{
 // Explicit ownership of HTTP routes; fallback is only for the legacy platform.
 const context={BUCKET,DOMAIN}
 const routeRequest=createRouteRegistry([
+ {exact:'/api/first-access/invite',handler:request=>request.method==='POST'?DOMAIN.recovery(request,request.headers.get('oai-authenticated-user-id')||''):new Response(JSON.stringify({error:'Método não permitido.'}),{status:405,headers:{'content-type':'application/json','cache-control':'no-store'}})},
  {exact:'/api/progress',handler:request=>handleCompletionV11(request,context)},
  {prefix:'/api/completion/v11/',handler:request=>handleCompletionV11(request,context)},
  {exact:'/api/organization/v11/history',handler:request=>handleOrganizationHistory(request,context)},

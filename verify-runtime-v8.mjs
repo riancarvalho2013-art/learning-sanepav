@@ -29,7 +29,7 @@ try{
   const seed={users:[{id:uid,name:'QA',role:'Administrador',active:true}],sessions:[{person:uid,digest:createHash('sha256').update(token).digest('hex'),identity:'learning-railway',until:Date.now()+600000}],courses:[],enroll:[],records:[],pulses:[],missions:[],missionEnrollments:[],organization:{companies:[{id:company,name:'QA',active:1}],units:[],departments:[],grants:[],assignments:[]}}
   await writeFile(join(cwd,'storage.mjs'),`const state=${JSON.stringify(seed)};state.organization.assignments=new Map([[${JSON.stringify(uid)},{company_id:${JSON.stringify(company)}}]]);export const BUCKET={async get(key){return key==='system/state-v1'?{async json(){return state}}:null}};export const DOMAIN={allowedCompanies(s,u){if(s!==state)throw Error('Invalid domain state');return s.organization.companies.map(c=>c.id)}};`)
  }
- child=spawn(process.execPath,['serve.mjs'],{cwd,env:{...process.env,PORT:String(port),NODE_ENV:'production',SETUP_KEY:key,LEARNING_DB:join(directory,'learning.sqlite')},stdio:['ignore','pipe','pipe']});child.stdout.on('data',x=>log+=String(x));child.stderr.on('data',x=>log+=String(x))
+ child=spawn(process.execPath,['serve.mjs'],{cwd,env:{...process.env,PORT:String(port),NODE_ENV:'production',SETUP_KEY:key,LEARNING_DB:join(directory,'learning.sqlite'),RESEND_API_KEY:'',EMAIL_FROM:'',APP_ORIGIN:''},stdio:['ignore','pipe','pipe']});child.stdout.on('data',x=>log+=String(x));child.stderr.on('data',x=>log+=String(x))
  let ready=false;for(let i=0;i<100;i++){try{if((await fetch(endpoint+'/readyz')).ok){ready=true;break}}catch{}if(child.exitCode!==null)break;await new Promise(r=>setTimeout(r,50))}assert.ok(ready,'Servidor não iniciou: '+log.slice(-1500))
  let auth='learning='+token
  if(!fixture){
@@ -43,7 +43,8 @@ try{
  const routes=['/api/lxp/v2/me','/api/lxp/v2/okr','/api/reports/v3/semantic','/api/lxp/v2/pulse','/api/lxp/v2/performance','/api/lxp/v2/growth','/api/lxp/v2/meetings','/api/lxp/v2/feedback','/api/lxp/v2/overview','/api/pulse/v5/list','/api/pulse/v5/options','/api/kirkpatrick/v7/options','/api/kirkpatrick/v7/transfer/tasks','/api/discovery/v4/mine','/api/discovery/v4/metrics','/api/assessment/v6/list','/api/assessment/v6/options','/api/reports/v3/catalog','/api/reports/v3/summary','/api/reports/v3/views','/api/intelligence/v6/summary']
  for(const path of routes){await call(path,auth);await call(path,'',undefined,401)}
  await call('/api/scorm/v3/launch',auth,undefined,400)
- if(!fixture){await call('/api/reports/v3/history',auth);await call('/api/reports/v3/history','',undefined,401)}
+ await call('/api/first-access/invite',auth,undefined,405)
+ if(!fixture){await call('/api/first-access/invite','',{personId:uid,requestId:randomUUID()},401);await call('/api/first-access/invite',auth,{personId:uid,requestId:randomUUID()},503);await call('/api/reports/v3/history',auth);await call('/api/reports/v3/history','',undefined,401)}
  const pulse=(await call('/api/pulse/v5/list',auth)).data;assert.ok(Array.isArray(pulse.items));checks++
  const kp=(await call('/api/kirkpatrick/v7/options',auth)).data;assert.ok(Array.isArray(kp.companies)&&Array.isArray(kp.courses));checks++
  const analytics=(await call('/api/intelligence/v6/summary',auth)).data;assert.ok(analytics.sources.pulseSafe&&analytics.sources.kirkpatrick);checks++

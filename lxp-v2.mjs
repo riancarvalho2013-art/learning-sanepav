@@ -206,6 +206,7 @@ const cycleView=(c,db,state,user,domain)=>{
   calibration:managing&&c.status!=='draft'?c.participants.map(personId=>({personId,name:cyclePerson(state,c,personId).name,original:originalScore(c,tasks,personId),proposal:calibrationFor(c,personId)})):undefined,
   competencies: c.status==='closed'&&c.releaseResults&&eligibleReviewer(state,c,user.id)?competencyResults(c,tasks,user.id):undefined,
   competencyPeople:managing&&c.status==='closed'&&c.releaseResults?c.participants.filter(p=>eligibleReviewer(state,c,p)).map(personId=>({personId,name:cyclePerson(state,c,personId).name,items:competencyResults(c,tasks,personId)})):undefined,
+  recommendationConfig:recommendationConfig(state,c,user),recommendations:recommendationsFor(state,c,user.id,tasks),
   results:c.releaseResults?subjectResults(c,tasks,user.id):undefined,
   finalScore:c.releaseResults?(calibrationFor(c,user.id)?.approvedAt?calibrationFor(c,user.id).proposed:originalScore(c,tasks,user.id)):undefined}
 }
@@ -214,6 +215,26 @@ function meetingVisible(user,x){return x.participants.includes(user.id)}
 function feedbackVisible(user,x){return x.fromId===user.id||x.toId===user.id}
 function findCompanyForAction(state,domain,user,personId){err(own(state,personId),'Pessoa não encontrada.',404);err(canEditPerson(state,domain,user,personId),'Pessoa fora do seu escopo de desenvolvimento.',403);const companyId=company(state,personId);err(companyId,'A pessoa precisa estar vinculada a uma empresa.',409);ensureCompany(state,domain,user,companyId);return companyId}
 function performanceDates(b){err(isDate(b.startDate)&&isDate(b.endDate)&&b.startDate<=b.endDate,'Informe um período válido.')}
+// V17 — recommendations configured per competency before cycle publication.
+// Catalog references are not enrollment grants; unpublished or unassigned content never leaks to the participant.
+function recommendationCatalog(s){
+ const courses=new Map((s.courses||[]).filter(c=>(c.status||'published')==='published').map(c=>[c.id,c]))
+ const entries=[...courses.values()].map(c=>({kind:'course',id:c.id,title:c.title}))
+ for(const m of s.missions||[])if(Array.isArray(m.courses)&&m.courses.length&&m.courses.every(c=>courses.has(c)))entries.push({kind:'mission',id:m.id,title:m.title})
+ return entries
+}
+const recommendationTopics=c=>competencyResults(c,[],'').map(({key,label})=>({key,label}))
+const recKey=x=>x.kind+':'+x.id
+function recommendationsFor(s,c,p,tasks){
+ if(c.status!=='closed'||!c.releaseResults||!c.participants.includes(p)||company(s,p)!==c.companyId||!own(s,p))return []
+ const enrolled=linkedOptions(s,p),byCourse=new Map((s.enroll||[]).filter(e=>e.person===p).map(e=>[e.course,e.id])),byKey=new Map(enrolled.map(x=>[recKey(x),x])),catalog=new Set(recommendationCatalog(s).map(recKey))
+ return competencyResults(c,tasks,p).filter(x=>x.observed!==null).flatMap(x=>{
+  const saved=(c.learningRecommendationsV17||[]).find(r=>r.key===x.key);if(!saved?.items?.length)return []
+  const available=[],blocked=[];for(const item of saved.items){const eId=item.kind==='course'?byCourse.get(item.id):item.id,match=byKey.get(item.kind+':'+eId);if(match&&catalog.has(recKey(item)))available.push({kind:match.kind,id:match.id,title:match.title,progress:match.progress,completed:match.completed});else blocked.push(1)}
+  return [{key:x.key,label:x.label,gap:x.gap,items:available,unavailable:blocked.length}]
+ })
+}
+function recommendationConfig(s,c,u){return u.role==='Administrador'&&c.status==='draft'?{topics:recommendationTopics(c),catalog:recommendationCatalog(s),items:c.learningRecommendationsV17||[]}:undefined}
 // V16 — integrated development profile and LMS-linked PDI. Read models only;
 // the existing enrollment/completion engine remains the single source of truth.
 function profileScope(s,d,u,p){
@@ -243,7 +264,7 @@ async function integratedProfile(s,d,u,db,bucket,p){
  const target=own(s,p),a=assignment(s,p)||{},tenant=company(s,p),opts=linkedOptions(s,p),courses=opts.filter(o=>o.kind==='course'),missions=opts.filter(o=>o.kind==='mission'),courseIds=new Set(courses.map(o=>o.id)),enroll=(s.enroll||[]).filter(e=>e.person===p&&courseIds.has(e.id))
  const actions=db.pdiActions.filter(x=>x.personId===p&&pdiInCompany(s,x)).map(x=>projectPdiLearning(s,x,opts)).map(({id,title,mix,status,dueDate,learning})=>({id,title,mix,status,dueDate,learning}))
  const okrs=listOKR(db,s,d,u).items.filter(o=>o.scope==='individual'&&o.ownerId===p&&o.status!=='draft').map(({id,title,progress,status,startsOn,endsOn})=>({id,title,progress,status,startsOn,endsOn}))
- const cycles=db.cycles.filter(c=>c.status==='closed'&&c.releaseResults&&c.companyId===tenant&&c.participants.includes(p)).sort((a,b)=>String(b.endDate).localeCompare(String(a.endDate))).map(c=>{const tasks=db.reviews.filter(t=>t.cycleId===c.id),cal=calibrationFor(c,p);return {id:c.id,title:c.title,endDate:c.endDate,score:cal?.approvedAt?cal.proposed:originalScore(c,tasks,p),competencies:competencyResults(c,tasks,p).map(({label,observed,expected,gap,suppressed})=>({label,observed,expected,gap,suppressed}))}})
+ const cycles=db.cycles.filter(c=>c.status==='closed'&&c.releaseResults&&c.companyId===tenant&&c.participants.includes(p)).sort((a,b)=>String(b.endDate).localeCompare(String(a.endDate))).map(c=>{const tasks=db.reviews.filter(t=>t.cycleId===c.id),cal=calibrationFor(c,p);return {id:c.id,title:c.title,endDate:c.endDate,score:cal?.approvedAt?cal.proposed:originalScore(c,tasks,p),recommendations:recommendationsFor(s,c,p,tasks),competencies:competencyResults(c,tasks,p).map(({label,observed,expected,gap,suppressed})=>({label,observed,expected,gap,suppressed}))}})
  const keys=enroll.filter(e=>e.progress===100).map(e=>'evolution/v1/issued/'+e.id);let certificates=null
  if(typeof bucket.countExisting==='function')certificates=await bucket.countExisting(keys);else if(keys.length<=2000)certificates=(await Promise.all(keys.map(k=>bucket.get(k)))).filter(Boolean).length
  const limit=100,cap=rows=>rows.slice(0,limit)
@@ -401,6 +422,18 @@ async function endpoint(req,ctx){
    err(!b.competencyKey||competency,'Competência sem resultado disponível para esta pessoa.',409)
    checkCapacity(s,'pdiActions');const action={id:id(),personId:b.personId,companyId:c.companyId,title:text(b.title,150),description:text(b.description,1500,{optional:true}),mix:b.mix,status:'todo',dueDate:b.dueDate,evidence:'',createdAt:now(),updatedAt:now(),createdBy:user.id,revision:1,source:{cycleId:c.id,requestId:b.requestId,calibrationId:calibrationFor(c,b.personId)?.id||null,competency:competency?{key:competency.key,label:competency.label,observed:competency.observed,expected:competency.expected,gap:competency.gap}:null}};s.pdiActions.push(action);audit(s,user,'performance.pdi',action.id);return {id:action.id,idempotent:false}
   });return reply(result,201)
+ }
+ if(path==='performance/recommendations'&&method==='POST'){
+  const b=await request();err(b&&typeof b==='object'&&!Array.isArray(b)&&uuid(b.id)&&typeof b.key==='string'&&b.key.length<=100&&Array.isArray(b.items)&&b.items.length<=10,'Configuração inválida.');
+  err(b.items.every(x=>x&&['course','mission'].includes(x.kind)&&uuid(x.id))&&new Set(b.items.map(recKey)).size===b.items.length,'Conteúdos inválidos ou duplicados.')
+  for(let attempt=0;attempt<4;attempt++){
+   const raw=await BUCKET.get(LEGACY);err(raw,'Ambiente não inicializado.',503);const fresh=await raw.json(),actor=getUser(req,fresh);err(actor.role==='Administrador','Apenas a administração configura recomendações.',403)
+   const {etag,state:aggregate}=await data(BUCKET),c=aggregate.cycles.find(x=>x.id===b.id);err(c,'Ciclo indisponível.',404);ensureCompany(fresh,DOMAIN,actor,c.companyId);err(c.status==='draft'&&c.revision===b.revision,'O ciclo foi publicado ou alterado. Atualize a página.',409)
+   err(recommendationTopics(c).some(x=>x.key===b.key),'Competência não cadastrada.');const catalog=new Set(recommendationCatalog(fresh).map(recKey));err(b.items.every(x=>catalog.has(recKey(x))),'Conteúdo indisponível ou não publicado.',400)
+   c.learningRecommendationsV17=(c.learningRecommendationsV17||[]).filter(x=>x.key!==b.key);if(b.items.length)c.learningRecommendationsV17.push({key:b.key,items:b.items.map(({kind,id})=>({kind,id})),updatedAt:now(),updatedBy:actor.id})
+   c.revision++;audit(aggregate,actor,'performance.recommendations',c.id)
+   if(await BUCKET.put(STORE,JSON.stringify(aggregate),{onlyIf:etag?{etagMatches:etag}:{etagDoesNotMatch:'*'},requireStateEtag:raw.etag,requireOrganizationRevision:fresh.organization?.revision}))return reply({id:c.id,revision:c.revision})
+  }err(false,'O ciclo ou estrutura mudou. Atualize a página.',409)
  }
  if(path==='performance/cycle'&&method==='GET'){
   const c=db.cycles.find(x=>x.id===url.searchParams.get('id'));err(c&&cycleVisible(c,state,user,DOMAIN,db),'Ciclo indisponível.',404)

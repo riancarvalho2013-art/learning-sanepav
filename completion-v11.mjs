@@ -2,6 +2,7 @@
 import {createHash, timingSafeEqual} from 'node:crypto'
 import {courseStatus,courseRevision,requireLearningAccess} from './learning.mjs'
 import {readFinalAssessmentRequirements,readFinalAssessmentPasses} from './learning-assessments-v6.mjs'
+import {canReconcileScorm} from './scorm-linear-v12.mjs'
 const ROOT='/api/completion/v11/', STATE='system/state-v1'
 const check=(ok,message,status=400)=>{if(!ok)throw Object.assign(new Error(message),{status})}
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json;charset=utf-8','cache-control':'private,no-store','x-content-type-options':'nosniff'}})
@@ -73,11 +74,27 @@ function finalize(e,c,state,user,ctx,at){
  v.event={id:'learning.course.completed:'+e.id,type:'learning.course.completed',version:1,occurredAt:at,organization:org(state,user.id),courseId:c.id,enrollmentId:e.id,evidenceType:v.content.type,assessmentCount:v.requirements.length}
 }
 /** Updates only the authorized enrollment. Input progress is not evidence of approval. */
-export function applyProgress(state,user,input,ctx,{scormAuthorized=false,at=new Date().toISOString()}={}){
+export function applyProgress(state,user,input,ctx,{scormAuthorized=false,scormPlan=null,at=new Date().toISOString()}={}){
  check(input&&typeof input==='object'&&!Array.isArray(input),'Dados inválidos.')
  const {e,c}=enrollmentFor(state,user,input.id)
  if(c.type==='SCORM'){
   check(scormAuthorized,'Abra a aula SCORM e use a sessão do player.',403)
+  if(scormPlan){
+   const {id:planId,items,index}=scormPlan
+   check(Array.isArray(items)&&items.length>1&&items.length<=50&&Number.isInteger(index)&&index>=0&&index<items.length,'Plano SCO inválido.',409)
+   if(e.progress===100)return status(e,c)
+   if(e.scormMultiV12?.planId!==planId){e.scormMultiV12={planId,items:items.map(i=>({id:i.id,complete:false,cmi:{}}))};if(e.completionV11?.content?.type==='scorm')e.completionV11.content=null}
+   const multi=e.scormMultiV12,first=multi.items.findIndex(x=>!x.complete)
+   check(first===-1||index<=first,'Conclua os SCOs anteriores.',403)
+   const item=multi.items[index];check(item?.id===items[index].id,'Plano SCO alterado.',409)
+   if(!item.complete){const observed=validateCMI(input.cmi,item.cmi);item.cmi=observed.values;item.complete=observed.complete;item.updated=at}
+   const done=multi.items.filter(x=>x.complete).length
+   e.progress=Math.min(99,Math.max(e.progress||0,Math.floor(done*100/items.length)))
+   if(done===items.length){const v=prepareEvidence(e,c,state,user,ctx,at);v.content={type:'scorm',at,runtimeStatus:'1.2:multi_sco_completed',assurance:'runtime_declared',scoCount:items.length,planId}}
+   finalize(e,c,state,user,ctx,at);e.updated=at
+   return {...status(e,c),multiSco:{index,count:items.length,completed:done,currentComplete:item.complete}}
+  }
+  check(!e.scormMultiV12||e.progress===100,'Reabra a sessão multi-SCO para registrar progresso.',409)
   const observed=validateCMI(input.cmi,e.cmi)
   e.cmi=observed.values
   if(e.progress===100){e.updated=at;return status(e,c)} // preserve original completion and score
@@ -119,16 +136,17 @@ async function mutate(req,ctx,fn){
 async function readBody(req){let b;try{b=await req.json()}catch{check(false,'JSON inválido.')};check(b&&typeof b==='object'&&!Array.isArray(b),'Dados inválidos.');return b}
 function origin(req){check(req.headers.get('origin')===new URL(req.url).origin,'Origem inválida.',403)}
 /** A runtime session validator executes inside each CAS retry (including fresh ACL checks). */
-export async function saveScormProgress(req,ctx,input,authorize){
+export async function saveScormProgress(req,ctx,input,authorize,scormPlan=null){
  origin(req)
- return mutate(req,ctx,(state,user)=>{authorize(state,user);return applyProgress(state,user,input,ctx,{scormAuthorized:true})})
+ return mutate(req,ctx,(state,user)=>{authorize(state,user);return applyProgress(state,user,input,ctx,{scormAuthorized:true,scormPlan})})
 }
 export async function reconcileCompletion(req,ctx,courseId){
- return mutate(req,ctx,(state,user)=>{
+ return mutate(req,ctx,async(state,user)=>{
   const rows=list(state.enroll).filter(e=>e.person===user.id&&(!courseId||e.course===courseId)&&e.progress!==100&&e.completionV11?.content)
   const result=[]
   for(const e of rows){const c=list(state.courses).find(c=>c.id===e.course);if(!c||courseStatus(c)==='draft')continue
    try{requireLearningAccess(state,e)}catch{continue}
+   if(!await canReconcileScorm(ctx.BUCKET,c,e)){result.push(status(e,c));continue}
    finalize(e,c,state,user,ctx,new Date().toISOString());result.push(status(e,c))
   }
   return {items:result}

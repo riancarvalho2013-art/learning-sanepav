@@ -1,3 +1,4 @@
+import {readHistoricalIndex} from './historical-analytics-v12.mjs'
 import {migrate} from './migrations.mjs'
 import {installOrganizationHistory,recordManagerHistory,readOrganizationHistory} from './organization-history-v11.mjs'
 import {createDomain} from './domain.mjs'
@@ -29,8 +30,16 @@ const initialState=current?JSON.parse(Buffer.from(current.body).toString()):null
 if(initialState)DOMAIN.syncPeople(initialState)
 installOrganizationHistory(db,initialState)
 DOMAIN.organizationHistory=filters=>readOrganizationHistory(db,filters)
+DOMAIN.historicalIndex=ids=>readHistoricalIndex(db,ids)
 
 export const BUCKET = {
+ // Internal read-only batch check; callers must first derive authorized object keys.
+ async countExisting(keys){
+  if(!Array.isArray(keys)||keys.some(x=>typeof x!=='string'))throw new TypeError('Chaves inválidas.')
+  const unique=[...new Set(keys)],statement=db.prepare('SELECT COUNT(*) AS n FROM objects WHERE key IN (SELECT value FROM json_each(?))');let total=0
+  for(let i=0;i<unique.length;i+=2000)total+=statement.get(JSON.stringify(unique.slice(i,i+2000))).n
+  return total
+ },
  async get(key) {
   const row = db.prepare('SELECT * FROM objects WHERE key=?').get(key)
   if(!row) return null

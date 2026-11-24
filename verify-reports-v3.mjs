@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import {writeFile} from 'node:fs/promises'
 import {createHash,randomUUID} from 'node:crypto'
 import {handleReportsV3,REPORT_DEFINITIONS} from './reports-v3.mjs'
 const uuid=()=>randomUUID()
@@ -43,7 +44,7 @@ assert.equal(byCode(leader.data,'learning.completed').value,1)
 assert.equal(byCode(leader.data,'learning.completion_rate').value,50)
 assert.equal(byCode(leader.data,'learning.score_avg').value,92)
 assert.equal(byCode(leader.data,'learning.certificates').value,1)
-assert.equal(byCode(leader.data,'dho.pulse_mean').value,4)
+assert.equal(byCode(leader.data,'dho.pulse_mean').value,null)
 assert.equal(byCode(leader.data,'dho.review_adherence').value,100)
 assert.equal((await call('hr','summary?person='+ids.get('outsider'))).status,403)
 const a=await call('hr','summary?company='+companyA)
@@ -71,6 +72,7 @@ assert.match(csv.headers.get('content-type'),/text\/csv/)
 assert.ok(csv.data.includes('Curso inclusivo'))
 assert.ok(!csv.data.includes('Curso confidencial B'))
 assert.ok(!csv.data.includes('outsider'))
+const xlsx=await handleReportsV3(new Request('https://learning.example.test/api/reports/v3/export.xlsx?company='+companyA,{headers:{cookie:'learning=hr','oai-authenticated-user-id':'learning-railway'}}),{BUCKET:bucket,DOMAIN:domain});assert.equal(xlsx.status,200);const workbookBytes=Buffer.from(await xlsx.arrayBuffer());assert.equal(workbookBytes.readUInt32LE(0),0x04034b50);if(process.env.QA_XLSX_OUTPUT)await writeFile(process.env.QA_XLSX_OUTPUT,workbookBytes)
 const catalog=await call('hr','catalog')
 assert.equal(catalog.status,200)
 assert.ok(catalog.data.definitions.length>=15)

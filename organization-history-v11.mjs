@@ -12,6 +12,7 @@ export function installOrganizationHistory(db,existingState){
     source_revision INTEGER NOT NULL,valid_from TEXT NOT NULL,valid_to TEXT,origin TEXT NOT NULL CHECK(origin IN ('baseline','insert','update')),
     CHECK(valid_to IS NULL OR valid_to>=valid_from));
    CREATE UNIQUE INDEX IF NOT EXISTS org_assignment_history_v11_open ON org_assignment_history_v11(person_id) WHERE valid_to IS NULL;
+   CREATE INDEX IF NOT EXISTS org_assignment_history_v11_person ON org_assignment_history_v11(person_id,valid_from,sequence);
    CREATE INDEX IF NOT EXISTS org_assignment_history_v11_company ON org_assignment_history_v11(company_id,valid_from,sequence);
    CREATE TABLE IF NOT EXISTS org_manager_history_v11(
     sequence INTEGER PRIMARY KEY AUTOINCREMENT,person_id TEXT NOT NULL,manager_id TEXT,valid_from TEXT NOT NULL,valid_to TEXT,origin TEXT NOT NULL CHECK(origin IN ('baseline','change')),

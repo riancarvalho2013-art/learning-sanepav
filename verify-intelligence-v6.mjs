@@ -58,6 +58,8 @@ try{
   db.prepare('INSERT INTO kirkpatrick_transfer_v7 VALUES(?,?,?,?,?)').run(companyA,course,4,'submitted',new Date().toISOString())
  }
  db.prepare('INSERT INTO kirkpatrick_outcomes_v7 VALUES(?,?,?)').run(companyA,course,new Date().toISOString())
+ // Simulates a previous-tenant event from a transferred employee. Must not leak into A.
+ db.prepare('INSERT INTO lxp_discovery_events VALUES(?,?,?,?,?,?)').run(randomUUID(),users[3].id,companyB,course,'catalog_viewed',today)
  const report=await call(users[0],'?company='+companyA)
  assert.equal(report.status,200,JSON.stringify(report.body))
  assert.equal(report.body.sources.lxp.metrics.catalogViews,1)

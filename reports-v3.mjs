@@ -4,6 +4,8 @@
  * Os dados refletem vínculos organizacionais ATUAIS; nunca inferir eventos ausentes.
  */
 import {createHash,randomUUID} from 'node:crypto'
+import {workbook} from './report-xlsx-v12.mjs'
+import {historicalReport,HISTORICAL_DEFINITIONS} from './historical-analytics-v12.mjs'
 import {completionClassification} from './completion-v11.mjs'
 
 const LEGACY='system/state-v1'
@@ -113,6 +115,7 @@ function lxpRows(legacy,lxp,scope){
 }
 function pulseSummary(lxp,scope){
  // Strict privacy: no small-group analytics, person or department slicing, nor respondent exports.
+ if(scope.role==='Líder')return {surveys:null,mean:null,responseRate:null,suppressed:true,reason:'Resultados corporativos Pulse são restritos ao RH/DHO, Diretoria e Administração.'}
  if(scope.person||scope.department)return {surveys:null,mean:null,responseRate:null,suppressed:true,reason:'Recorte individual ou por departamento não permitido para registros Pulse identificados na origem.'}
  const eligible=arr(lxp.pulses).filter(p=>scope.allCompanies.has(p.companyId)&&inPeriod(p.createdAt,scope))
  const qualified=[]
@@ -138,7 +141,8 @@ async function collect(bucket,scope,legacy){
  let certCount=null
  // Existing certificate issuer persists one immutable object per enrollment.
  // No global list exists; only enumerate enrollments already authorized.
- if(enroll.length<=2000){const found=await Promise.all(enroll.map(e=>bucket.get('evolution/v1/issued/'+e.id)));certCount=found.filter(Boolean).length}
+ if(typeof bucket.countExisting==='function')certCount=await bucket.countExisting(enroll.map(e=>'evolution/v1/issued/'+e.id))
+ else if(enroll.length<=2000){const found=await Promise.all(enroll.map(e=>bucket.get('evolution/v1/issued/'+e.id)));certCount=found.filter(Boolean).length}
  const assignments=arr(legacy.missionEnrollments).filter(x=>scope.ids.has(x.person))
  const data=[
   metric('people.active',scope.people.length),
@@ -191,8 +195,8 @@ function dataRows(summary,scope){
  })
 }
 const escapeCsv=v=>{let s=norm(v);if(/^[\s\uFEFF]*[=+@\-\t\r]/u.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"'}
-const csv=rows=>{const cols=['id','personId','name','companyId','departmentId','courseId','course','track','type','status','progress','score','due','updated','completed','evidenceType','assessmentRequired','assessmentPassed']
- return '\ufeff'+[cols.join(';'),...rows.map(r=>cols.map(c=>escapeCsv(r[c]??'')).join(';'))].join('\r\n')}
+const reportColumns=['id','personId','name','companyId','departmentId','courseId','course','track','type','status','progress','score','due','updated','completed','evidenceType','assessmentRequired','assessmentPassed']
+function csv(rows){const enc=new TextEncoder();let index=-1;return new ReadableStream({pull(controller){if(index===-1){controller.enqueue(enc.encode('\ufeff'+reportColumns.join(';')+'\r\n'));index=0;return}if(index>=rows.length){controller.close();return}const stop=Math.min(index+256,rows.length);let text='';for(;index<stop;index++)text+=reportColumns.map(c=>escapeCsv(rows[index][c]??'')).join(';')+'\r\n';controller.enqueue(enc.encode(text))}})}
 
 
 async function saveView(req,bucket,legacy,user,domain,route){
@@ -257,8 +261,9 @@ async function main(req,ctx){
  if(route==='views'||route==='views/delete')return saveView(req,bucket,legacy,user,ctx.DOMAIN,route)
  guard(req.method==='GET','Método não permitido.',405)
  const query=new URL(req.url).searchParams
+ if(route==='history'||route==='history.csv'||route==='history.xlsx')return historicalReport(req,ctx,legacy,user,route)
  const scope=prepareScope(legacy,ctx.DOMAIN,user,query)
- if(route==='catalog')return send({version:'3.0.0',definitions:Object.entries(REPORT_DEFINITIONS).map(([code,v])=>({code,...v,source:code.startsWith('dho.')?LXP:LEGACY,version:1})),notTracked:[
+ if(route==='catalog')return send({version:'3.0.0',definitions:Object.entries(REPORT_DEFINITIONS).map(([code,v])=>({code,...v,source:code.startsWith('dho.')?LXP:LEGACY,version:1})),historicalDefinitions:Object.entries(HISTORICAL_DEFINITIONS).map(([code,v])=>({code,...v})),notTracked:[
   {code:'learning.actual_hours',reason:'Não há telemetria padronizada de tempo efetivo para todos os formatos.'},
   {code:'people.turnover',reason:'Sem base de admissões/desligamentos confiável integrada ao RH/DP.'},
   {code:'people.absenteeism',reason:'Sem sistema de ponto ou presença vinculado.'},
@@ -266,13 +271,17 @@ async function main(req,ctx){
  ]})
  const result=await collect(bucket,scope,legacy)
  const common={version:'3.0.0',at:new Date().toISOString(),filters:scope.applied,scope:{companies:[...scope.allCompanies],people:scope.people.length},
-  caveats:['Estrutura organizacional atual, não fotografia histórica.','Períodos em matrículas dependem das datas registradas; ausência de timestamp não é preenchida artificialmente.','Pulse legado mantém respostas identificadas na origem; o limiar de sete respostas protege apenas a divulgação agregada, sem anonimização retroativa.']}
+  caveats:['Carteira atual: os vínculos desta visão são atuais, inclusive em filtros de data. Para conclusões por vínculo vigente na ocorrência, use a aba Histórico reconciliado.','Períodos em matrículas dependem das datas registradas; ausência de timestamp não é preenchida artificialmente.','Pulse legado mantém respostas identificadas na origem; o limiar de sete respostas protege apenas a divulgação agregada, sem anonimização retroativa.']}
  if(route==='summary')return send({...common,metrics:result.metrics,byCourse:result.byCourse.slice(0,100),departments:result.departments,privacy:result.pulse})
- if(route==='enrollments'||route==='export.csv'){
+ if(route==='enrollments'||route==='export.csv'||route==='export.xlsx'){
   const rows=dataRows(result,scope)
   if(route==='export.csv'){
-   guard(rows.length<=20000,'O relatório excede 20 mil matrículas. Restrinja o período ou a empresa.',413)
    return new Response(csv(rows),{headers:{'content-type':'text/csv;charset=utf-8','content-disposition':'attachment; filename="learning-matriculas.csv"','cache-control':'private,no-store','x-content-type-options':'nosniff'}})
+  }
+  if(route==='export.xlsx'){
+   guard(rows.length<=20000,'Excel limitado a 20 mil matrículas. Use CSV ou restrinja os filtros.',413)
+   const bytes=workbook([['Resumo',[['Campo','Valor'],['Total de matrículas',rows.length],['Gerado em',common.at],['Modelo','Carteira atual']]],['Indicadores',[['Código','Indicador','Valor','Unidade','Fonte','Definição'],...result.metrics.map(x=>[x.code,x.label,x.value,x.unit,x.source,x.definition])]],['Dados detalhados',[reportColumns,...rows.map(r=>reportColumns.map(c=>r[c]??''))]],['Metadados',[['Filtro','Valor'],...Object.entries(scope.applied),...common.caveats.map(x=>['Ressalva',x])]],['Dicionário',[['Código','Nome','Definição','Unidade'],...Object.entries(REPORT_DEFINITIONS).map(([code,x])=>[code,x.label,x.definition,x.unit])]]]);
+   return new Response(bytes,{headers:{'content-type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','content-disposition':'attachment; filename="learning-matriculas.xlsx"','cache-control':'private,no-store','x-content-type-options':'nosniff'}})
   }
   const size=clamp(query.get('limit'),1,100,25),offset=clamp(query.get('offset'),0,1000000,0)
   return send({...common,total:rows.length,limit:size,offset,rows:rows.slice(offset,offset+size)})

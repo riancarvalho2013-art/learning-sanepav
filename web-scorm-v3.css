@@ -43,3 +43,8 @@ dialog.scorm-v3-dialog #modalBody {width:min(1540px,100%);margin:0 auto;padding:
 .scorm-v3-help small{color:#6b8ba5}
 @media(max-width:780px){.scorm-v3-top-grid{grid-template-columns:1fr}.scorm-v3-toolbar{gap:6px}.scorm-v3-toolbar-left{width:100%;margin-bottom:6px}.scorm-v3-btn{flex:1}.scorm-v3-canvas{height:72dvh;min-height:480px}.scorm-v3-top{border-radius:0 0 20px 20px}.scorm-v3-safe{display:none}}
 @media(prefers-reduced-motion:reduce){.scorm-v3-spin{animation:none}.scorm-v3-btn,.scorm-v3-bar i{transition:none}}
+
+/* Keep native hidden semantics even where toolbar styles set display. */
+.scorm-v3-room [hidden]{display:none!important}
+#scormV12Steps{font-size:.85rem;font-weight:650;color:#245e93;white-space:normal}
+.scorm-v3-btn:disabled{opacity:.5;cursor:not-allowed}

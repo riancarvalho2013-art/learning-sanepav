@@ -187,8 +187,9 @@ function metrics(db,state,actor,domain,query){
  const base={from,to,company,department,peopleInScope:scopedIds.length,mode:'estrutura_organizacional_atual',source:'lxp_discovery_events',generatedAt:new Date().toISOString()}
  if(scopedIds.length<5)return {...base,suppressed:true,reason:'Menos de cinco pessoas no recorte; métricas de engajamento ocultas.',metrics:null,trend:[]}
  const people=JSON.stringify(scopedIds)
- const parameters=[people,from,to]
- const where=`user_id IN (SELECT value FROM json_each(?)) AND event_date BETWEEN ? AND ?`
+ const eventCompanies=company?[company]:domain.allowedCompanies(state,actor)
+ const parameters=[people,JSON.stringify(eventCompanies),from,to]
+ const where=`user_id IN (SELECT value FROM json_each(?)) AND company_id IN (SELECT value FROM json_each(?)) AND event_date BETWEEN ? AND ?`
  const rows=db.prepare(`SELECT event_type AS type, COUNT(*) AS events, COUNT(DISTINCT user_id) AS people FROM lxp_discovery_events WHERE ${where} GROUP BY event_type`).all(...parameters)
  const unique=db.prepare(`SELECT COUNT(DISTINCT user_id) AS n FROM lxp_discovery_events WHERE ${where}`).get(...parameters).n
  const saves=db.prepare(`SELECT COUNT(*) AS n FROM lxp_discovery_bookmarks WHERE user_id IN (SELECT value FROM json_each(?))`).get(people).n

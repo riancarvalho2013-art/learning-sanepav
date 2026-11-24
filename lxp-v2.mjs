@@ -110,7 +110,9 @@ function normalizedQuestion(q,index){
  err(type!=='single'||choices.length>=2&&choices.length<=12&&new Set(choices).size===choices.length,'Informe de 2 a 12 alternativas diferentes.')
  const weight=q.weight==null?1:Number(q.weight)
  err(Number.isFinite(weight)&&weight>=0&&weight<=10,'Peso da pergunta entre 0 e 10.')
- return {id:uuid(q.id)?q.id:id(),type,title:text(q.title,250),description:text(q.description,500,{optional:true}),required:q.required!==false,weight,choices,competency:text(q.competency,100,{optional:true}),order:index}
+ const expected=q.expected==null||q.expected===''?null:Number(q.expected)
+ err(expected===null||type==='rating'&&Number.isFinite(expected)&&expected>=1&&expected<=5,'Proficiência esperada exige escala de 1 a 5.')
+ return {expected,id:uuid(q.id)?q.id:id(),type,title:text(q.title,250),description:text(q.description,500,{optional:true}),required:q.required!==false,weight,choices,competency:text(q.competency,100,{optional:true}),order:index}
 }
 function normalizeForm(x){err(Array.isArray(x)&&x.length>0&&x.length<=60,'Crie de 1 a 60 perguntas.');const form=x.map(normalizedQuestion);err(new Set(form.map(q=>q.id)).size===form.length,'Perguntas duplicadas.');return form}
 function summarizeTask(t){return {id:t.id,cycleId:t.cycleId,subjectId:t.subjectId,reviewerId:t.reviewerId,perspective:t.perspective,status:t.status,submittedAt:t.submittedAt||null,updatedAt:t.updatedAt||null}}
@@ -150,6 +152,30 @@ function subjectResults(c,tasks,subjectId){
  }
  return results
 }
+// Competency scores use the original submitted ratings (not a calibrated general score).
+// Equal perspective weights; weighted questions within each reviewer. Suppress small peer/report groups per competency.
+export function competencyResults(c,tasks,person){
+ const normalize=v=>String(v||'').normalize('NFKC').trim().toLocaleLowerCase('pt-BR')
+ const catalog=new Map();for(const perspective of perspectives)for(const q of formFor(c,perspective)){const k=normalize(q.competency);if(q.type==='rating'&&k&&q.weight>0&&!catalog.has(k))catalog.set(k,q.competency)}
+ const out=[];const round=v=>Math.round(v*100)/100
+ for(const [key,label] of catalog){const scores=[];let suppressed=false
+  for(const perspective of perspectives){const form=formFor(c,perspective).filter(q=>q.type==='rating'&&normalize(q.competency)===key&&q.weight>0);if(!form.length)continue
+   const reviewers=new Map()
+   for(const t of tasks){if(t.subjectId!==person||t.perspective!==perspective||t.status!=='submitted')continue
+    let weight=0,total=0,expected=0,allTargets=true
+    for(const q of form){const answer=t.answers?.[q.id];if(!Number.isFinite(answer)||answer<1||answer>5)continue;weight+=q.weight;total+=answer*q.weight;if(Number.isFinite(q.expected)&&q.expected>=1&&q.expected<=5)expected+=q.expected*q.weight;else allTargets=false}
+    if(weight)reviewers.set(t.reviewerId,{score:total/weight,expected:allTargets?expected/weight:null})
+   }
+   if(!reviewers.size)continue
+   if(['peer','report'].includes(perspective)&&reviewers.size<3){suppressed=true;continue}
+   const rs=[...reviewers.values()];scores.push({score:rs.reduce((a,b)=>a+b.score,0)/rs.length,expected:rs.every(r=>r.expected!==null)?rs.reduce((a,b)=>a+b.expected,0)/rs.length:null})
+  }
+  const observed=scores.length?round(scores.reduce((a,b)=>a+b.score,0)/scores.length):null
+  const expected=scores.length&&scores.every(r=>r.expected!==null)?round(scores.reduce((a,b)=>a+b.expected,0)/scores.length):null
+  out.push({key,label,observed,expected,gap:observed!==null&&expected!==null?round(expected-observed):null,suppressed,perspectivesUsed:scores.length})
+ }
+ return out
+}
 const originalScore=(c,tasks,person)=>{const scores=subjectResults(c,tasks,person).map(r=>r.score).filter(Number.isFinite);return scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length*100)/100:null}
 const calibrationFor=(c,person)=>(c.calibrations||[]).filter(x=>x.personId===person).at(-1)||null
 function assertCycleManagement(state,domain,user,c){err(isManage(user),'Somente RH/DHO e administração gerenciam ciclos.',403);ensureCompany(state,domain,user,c.companyId)}
@@ -177,6 +203,8 @@ const cycleView=(c,db,state,user,domain)=>{
   departmentIds:managing?c.departmentIds:undefined,participants:managing?c.participants.map(p=>cyclePerson(state,c,p)):undefined,
   tasks:managing?tasks.map(t=>({...summarizeTask(t),subject:cyclePerson(state,c,t.subjectId),reviewer:cyclePerson(state,c,t.reviewerId)})):myTasks,
   calibration:managing&&c.status!=='draft'?c.participants.map(personId=>({personId,name:cyclePerson(state,c,personId).name,original:originalScore(c,tasks,personId),proposal:calibrationFor(c,personId)})):undefined,
+  competencies: c.status==='closed'&&c.releaseResults&&eligibleReviewer(state,c,user.id)?competencyResults(c,tasks,user.id):undefined,
+  competencyPeople:managing&&c.status==='closed'&&c.releaseResults?c.participants.filter(p=>eligibleReviewer(state,c,p)).map(personId=>({personId,name:cyclePerson(state,c,personId).name,items:competencyResults(c,tasks,personId)})):undefined,
   results:c.releaseResults?subjectResults(c,tasks,user.id):undefined,
   finalScore:c.releaseResults?(calibrationFor(c,user.id)?.approvedAt?calibrationFor(c,user.id).proposed:originalScore(c,tasks,user.id)):undefined}
 }
@@ -308,7 +336,9 @@ async function endpoint(req,ctx){
    err(c.participants.includes(b.personId)&&company(state,b.personId)===c.companyId&&own(state,b.personId),'Pessoa fora do escopo.',403)
    err(['70','20','10'].includes(b.mix)&&isDate(b.dueDate)&&uuid(b.requestId),'Modalidade, prazo ou identificador inválidos.')
    const prior=s.pdiActions.find(x=>x.source?.requestId===b.requestId);if(prior){err(prior.personId===b.personId&&prior.source.cycleId===c.id,'Identificador incompatível.',409);return {id:prior.id,idempotent:true}}
-   checkCapacity(s,'pdiActions');const action={id:id(),personId:b.personId,companyId:c.companyId,title:text(b.title,150),description:text(b.description,1500,{optional:true}),mix:b.mix,status:'todo',dueDate:b.dueDate,evidence:'',createdAt:now(),updatedAt:now(),createdBy:user.id,revision:1,source:{cycleId:c.id,requestId:b.requestId,calibrationId:calibrationFor(c,b.personId)?.id||null}};s.pdiActions.push(action);audit(s,user,'performance.pdi',action.id);return {id:action.id,idempotent:false}
+   const competency=b.competencyKey?competencyResults(c,s.reviews.filter(t=>t.cycleId===c.id),b.personId).find(x=>x.key===b.competencyKey&&x.observed!==null):null
+   err(!b.competencyKey||competency,'Competência sem resultado disponível para esta pessoa.',409)
+   checkCapacity(s,'pdiActions');const action={id:id(),personId:b.personId,companyId:c.companyId,title:text(b.title,150),description:text(b.description,1500,{optional:true}),mix:b.mix,status:'todo',dueDate:b.dueDate,evidence:'',createdAt:now(),updatedAt:now(),createdBy:user.id,revision:1,source:{cycleId:c.id,requestId:b.requestId,calibrationId:calibrationFor(c,b.personId)?.id||null,competency:competency?{key:competency.key,label:competency.label,observed:competency.observed,expected:competency.expected,gap:competency.gap}:null}};s.pdiActions.push(action);audit(s,user,'performance.pdi',action.id);return {id:action.id,idempotent:false}
   });return reply(result,201)
  }
  if(path==='performance/cycle'&&method==='GET'){

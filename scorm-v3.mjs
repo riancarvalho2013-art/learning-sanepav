@@ -7,7 +7,8 @@
  * package is the current LMS authoring limit. LTI/xAPI/cmi5 are not supported.
  */
 import {createHash, randomBytes, randomUUID, timingSafeEqual} from 'node:crypto'
-import {missingPrerequisites, courseStatus} from './learning.mjs'
+import {linearScormPlan,inspectManifest} from './scorm-linear-v12.mjs'
+import {missingPrerequisites, courseStatus, courseRevision} from './learning.mjs'
 import {saveScormProgress} from './completion-v11.mjs'
 
 const SCOPE = '/scorm/v3/'
@@ -104,6 +105,7 @@ function injectedHTML(html,session,origin){
  else transformed=script+transformed
  return transformed
 }
+export {inspectManifest} from './scorm-linear-v12.mjs'
 function mimeOf(path){return contentType[path.split('.').at(-1).toLowerCase()]||'application/octet-stream'}
 const readState=async BUCKET=>{
  const blob=await BUCKET.get('system/state-v1')
@@ -117,6 +119,13 @@ function authenticated(state,request){
  const session=state.sessions?.find(s=>verifiedEqual(s.digest,digest)&&s.identity===identity&&s.until>Date.now())
  return state.users?.find(person=>person.id===session?.person&&person.active)||null
 }
+// Content uses a bearer URL in an opaque sandbox, but the originating login must remain active.
+function loginBinding(request){
+ const token=(request.headers.get('cookie')||'').match(/(?:^|;\s*)learning=([^;]+)/)?.[1]||''
+ return {digest:hex(token),identity:request.headers.get('oai-authenticated-user-id')||''}
+}
+function loginStillActive(state,session){return Boolean(state?.sessions?.some(s=>s.person===session.personId&&s.identity===session.identity&&verifiedEqual(s.digest,session.digest)&&s.until>Date.now()))}
+function sameLogin(request,session){const b=loginBinding(request);return b.identity===session.identity&&verifiedEqual(b.digest,session.digest)}
 function permitted(state,user,courseId,enrollId='',uploadId=''){
  const course=state.courses?.find(c=>c.id===courseId&&c.type==='SCORM'&&c.upload&&c.entry)
  if(!course||uploadId&&course.upload!==uploadId)return null
@@ -173,8 +182,8 @@ export function createScormRuntime({clock=()=>Date.now()}={}){
     const input=await request.json(),session=sessions.get(input?.token)
     if(!session||session.preview||typeof input?.key!=='string'||!verifiedEqual(session.key,input.key)||session.enrollmentId!==input?.id)return failure(403,'Sessão SCORM inválida ou expirada.')
     const result=await saveScormProgress(request,environment,{id:input.id,cmi:input.cmi},(state,user)=>{
-     if(user.id!==session.personId||session.expires<clock()||session.expiresAbsolute<clock()||!permitted(state,user,session.courseId,session.enrollmentId,session.courseUpload))throw Object.assign(new Error('Acesso à sessão SCORM revogado.'),{status:403})
-    })
+     if(user.id!==session.personId||!sameLogin(request,session)||!loginStillActive(state,session)||session.expires<clock()||session.expiresAbsolute<clock()||!permitted(state,user,session.courseId,session.enrollmentId,session.courseUpload)||courseRevision(state.courses.find(c=>c.id===session.courseId))!==session.courseRevision)throw Object.assign(new Error('Acesso à sessão SCORM revogado.'),{status:403})
+    },session.plan)
     for(const [k,v] of Object.entries(input.cmi))if(!['cmi.core.student_id','cmi.core.student_name','cmi.learner_id','cmi.learner_name','cmi.core.credit','cmi.credit','cmi.mode','cmi.core.lesson_mode'].includes(k))session.cmi[k]=v;session.expires=Math.min(clock()+URL_TTL,session.expiresAbsolute)
     return json(result)
    }catch(e){return failure(e instanceof SyntaxError?400:e.status||500,e.status?e.message:e instanceof SyntaxError?'JSON inválido.':'Não foi possível registrar o progresso SCORM.')}
@@ -193,23 +202,38 @@ export function createScormRuntime({clock=()=>Date.now()}={}){
     const {course}=access
     if(!safePath(course.entry)||!/[.]html?$/i.test(course.entry))return failure(422,'A página inicial do SCORM está inválida.')
     if(!await BUCKET.get('files/'+course.upload+'/'+course.entry))return failure(422,'O arquivo inicial SCORM não está no armazenamento. Reenvie o pacote completo.')
+    const root=course.entry.slice(0,course.entry.lastIndexOf('/')+1)
+    let manifestFolder='',manifest=await BUCKET.get('files/'+course.upload+'/imsmanifest.xml')
+    if(!manifest&&root){manifest=await BUCKET.get('files/'+course.upload+'/'+root+'imsmanifest.xml');manifestFolder=root}
+    let plan=null,entry=course.entry,storedCmi=enrollment?.cmi||{},multiSco=null
+    if(manifest){const xml=await manifest.text(),candidate=linearScormPlan(xml,manifestFolder),inspection=inspectManifest(xml)
+     if(candidate.mode==='linear'){
+      for(const item of candidate.items)if(!await BUCKET.get('files/'+course.upload+'/'+item.entry))return failure(422,'Arquivo inicial de SCO ausente: '+item.entry)
+      const saved=enrollment?.scormMultiV12?.planId===candidate.id?enrollment.scormMultiV12.items:[]
+      const first=candidate.items.findIndex((item,i)=>saved[i]?.id!==item.id||!saved[i]?.complete)
+      const requested=url.searchParams.get('sco'),index=requested===null?(first<0?0:first):/^\d{1,2}$/.test(requested)?Number(requested):-1
+      if(index<0||index>=candidate.items.length||first>=0&&index>first)return failure(403,'Conclua os SCOs anteriores.')
+      plan={id:candidate.id,items:candidate.items,index};entry=candidate.items[index].entry;storedCmi=saved[index]?.cmi||{}
+      multiSco={index,count:candidate.items.length,completed:saved.filter(x=>x.complete).length,currentComplete:!!saved[index]?.complete,title:candidate.items[index].title}
+     }else if(inspection.scoResources>1||inspection.linkedScoItems>1){return failure(422,candidate.reason||'Pacote multi-SCO sem sequência compatível com o runtime atual.')}
+    }
     if(sessions.size>=MAX_SESSIONS){const oldest=sessions.keys().next().value;if(oldest)sessions.delete(oldest)}
     const token=randomBytes(36).toString('base64url'),key=randomUUID()
-    const session={token,key,courseId:course.id,courseUpload:course.upload,enrollmentId:enrollment?.id||'',personId:user.id,
+    const session={token,key,...loginBinding(request),plan,courseRevision:courseRevision(course),courseId:course.id,courseUpload:course.upload,enrollmentId:enrollment?.id||'',personId:user.id,
      preview:!access.enrollment,created:clock(),expires:clock()+URL_TTL,expiresAbsolute:clock()+MAX_SESSION,
      cmi:{'cmi.core.student_id':user.id,'cmi.core.student_name':user.name,
       'cmi.learner_id':user.id,'cmi.learner_name':user.name,'cmi.core.credit':'credit','cmi.credit':'credit',
       'cmi.core.lesson_mode':'normal','cmi.mode':'normal','cmi.core.lesson_status':'not attempted','cmi.completion_status':'unknown',
-      'cmi.core.entry':enrollment?.cmi?'resume':'ab-initio','cmi.entry':enrollment?.cmi?'resume':'ab-initio',...(enrollment?.cmi||{})}}
+      'cmi.core.entry':Object.keys(storedCmi).length?'resume':'ab-initio','cmi.entry':Object.keys(storedCmi).length?'resume':'ab-initio',...storedCmi}}
     sessions.set(token,session)
-    return json({url:assetURL(token,course.entry),key,course:course.id,enrollment:enrollment?.id||null,
+    return json({url:assetURL(token,entry),key,multiSco,course:course.id,enrollment:enrollment?.id||null,
      preview:session.preview,title:course.title,minutes:course.minutes,expiresInSeconds:URL_TTL/1000})
    }
    if(path==='/api/scorm/v3/keepalive'){
     const token=url.searchParams.get('token')||'',session=sessions.get(token)
-    if(!session||session.personId!==user.id)return failure(404,'Sessão SCORM não encontrada.')
+    if(!session||session.personId!==user.id||!sameLogin(request,session)||!loginStillActive(state,session))return failure(404,'Sessão SCORM não encontrada.')
     const access=permitted(state,user,session.courseId,session.enrollmentId,session.courseUpload)
-    if(!access)return failure(403,'Acesso revogado.')
+    if(!access||courseRevision(access.course)!==session.courseRevision)return failure(403,'Acesso revogado.')
     session.expires=Math.min(clock()+URL_TTL,session.expiresAbsolute)
     return json({active:true,expiresInSeconds:Math.max(0,Math.floor((session.expires-clock())/1000))})
    }
@@ -221,8 +245,10 @@ export function createScormRuntime({clock=()=>Date.now()}={}){
     const course=access.course
     const root=course.entry.slice(0,course.entry.lastIndexOf('/')+1)
     const exists=Boolean(await BUCKET.get('files/'+course.upload+'/'+course.entry))
-    const manifest=await BUCKET.get('files/'+course.upload+'/'+root+'imsmanifest.xml')||await BUCKET.get('files/'+course.upload+'/imsmanifest.xml')
+    let manifestFolder='',manifest=await BUCKET.get('files/'+course.upload+'/imsmanifest.xml');if(!manifest&&root){manifest=await BUCKET.get('files/'+course.upload+'/'+root+'imsmanifest.xml');manifestFolder=root}
     const manifestContent=manifest?await manifest.text():''
+    const inspection=inspectManifest(manifestContent),plan=manifest?linearScormPlan(manifestContent,manifestFolder):null
+    if(plan?.mode==='linear')inspection.warning='Sequência linear SCORM 1.2 suportada: '+plan.items.length+' SCOs. A compatibilidade de cada conteúdo ainda precisa ser testada.'
     const version=/2004/i.test(manifestContent)?'SCORM 2004':/1[.]2/i.test(manifestContent)?'SCORM 1.2':'Não identificada'
     const launch=exists?await BUCKET.get('files/'+course.upload+'/'+course.entry):null
     const html=launch?await launch.text():''
@@ -233,7 +259,7 @@ export function createScormRuntime({clock=()=>Date.now()}={}){
       if(!safePath(filename)||!await BUCKET.get('files/'+course.upload+'/'+filename))missing.push(ref)
      }catch{missing.push(ref)}
     }
-    return json({course:course.id,title:course.title,entry:course.entry,entryExists:exists,manifestExists:Boolean(manifest),version,missingResources:[...new Set(missing)],
+    return json({course:course.id,title:course.title,entry:course.entry,entryExists:exists,manifestExists:Boolean(manifest),version,manifestInspection:inspection,missingResources:[...new Set(missing)],
       advisory:'Inspeciona vínculos diretos no HTML inicial; recursos carregados dinamicamente devem ser testados no player.'})
    }
    return failure(404,'Recurso SCORM inexistente.')
@@ -246,7 +272,7 @@ export function createScormRuntime({clock=()=>Date.now()}={}){
   if(!filename)return failure(400,'Caminho inválido.')
   const state=await readState(BUCKET)
   const owner=state?.users?.find(x=>x.id===session.personId&&x.active)
-  if(!owner||!permitted(state,owner,session.courseId,session.enrollmentId,session.courseUpload))return failure(403,'Acesso à aula revogado.')
+  if(!owner||!loginStillActive(state,session)||!permitted(state,owner,session.courseId,session.enrollmentId,session.courseUpload)||courseRevision(state.courses.find(c=>c.id===session.courseId))!==session.courseRevision)return failure(403,'Acesso à aula revogado.')
   const object=await BUCKET.get('files/'+session.courseUpload+'/'+filename)
   if(!object)return failure(404,'Recurso não encontrado dentro do pacote SCORM: '+filename)
   const mime=mimeOf(filename),html=/^text\/html/.test(mime),css=/^text\/css/.test(mime)

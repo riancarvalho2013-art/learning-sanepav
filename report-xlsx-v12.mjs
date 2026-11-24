@@ -1,0 +1,22 @@
+/** Server-side XLSX (OOXML ZIP), bounded memory, no formulas or external libraries. */
+import {deflateRawSync,crc32} from 'node:zlib'
+const xml=s=>String(s??'').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]/g,'').replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]))
+const col=i=>{let s='';for(let n=i+1;n;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s;return s}
+const head='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',ns='http://schemas.openxmlformats.org/spreadsheetml/2006/main',rel='http://schemas.openxmlformats.org/officeDocument/2006/relationships',pkg='http://schemas.openxmlformats.org/package/2006/relationships'
+function sheet(rows){return head+`<worksheet xmlns="${ns}"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetData>`+rows.map((row,i)=>`<row r="${i+1}">`+row.map((value,j)=>{const ref=col(j)+(i+1);return typeof value==='number'&&Number.isFinite(value)?`<c r="${ref}"><v>${value}</v></c>`:`<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xml(String(value??'').slice(0,32767))}</t></is></c>`}).join('')+'</row>').join('')+'</sheetData></worksheet>'}
+function zip(entries){let offset=0;const local=[],central=[];for(const [path,value] of entries){const name=Buffer.from(path),raw=Buffer.from(value),data=deflateRawSync(raw,{level:3}),crc=crc32(raw),h=Buffer.alloc(30),c=Buffer.alloc(46)
+ h.writeUInt32LE(0x04034b50,0);h.writeUInt16LE(20,4);h.writeUInt16LE(8,8);h.writeUInt32LE(crc,14);h.writeUInt32LE(data.length,18);h.writeUInt32LE(raw.length,22);h.writeUInt16LE(name.length,26)
+ c.writeUInt32LE(0x02014b50,0);c.writeUInt16LE(20,4);c.writeUInt16LE(20,6);c.writeUInt16LE(8,10);c.writeUInt32LE(crc,16);c.writeUInt32LE(data.length,20);c.writeUInt32LE(raw.length,24);c.writeUInt16LE(name.length,28);c.writeUInt32LE(offset,42)
+ local.push(h,name,data);central.push(c,name);offset+=h.length+name.length+data.length
+ }const directory=Buffer.concat(central),e=Buffer.alloc(22);e.writeUInt32LE(0x06054b50,0);e.writeUInt16LE(entries.length,8);e.writeUInt16LE(entries.length,10);e.writeUInt32LE(directory.length,12);e.writeUInt32LE(offset,16);return Buffer.concat([...local,directory,e])}
+export function historyWorkbook(result){
+ if(result.rows.length>20000)throw Object.assign(new Error('Excel limitado a 20 mil linhas. Use CSV por streaming ou restrinja o período.'),{status:413})
+ const columns=['enrollmentId','personId','person','courseId','course','completedAt','companyId','departmentId','unitId','evidenceType','reconciliation','reason']
+ const sheets=[['Indicadores',[['Código','Indicador','Valor','Unidade','Definição','Fonte'],...result.metrics.map(m=>[m.code,m.label,m.value,m.unit,m.definition,m.source])]],['Conclusões',[columns,...result.rows.map(row=>columns.map(k=>row[k]??''))]],['Metadados',[['Campo','Valor'],['Registros',result.total],['Histórico desde',result.observedFrom],...Object.entries(result.filters),...result.caveats.map(x=>['Ressalva',x])]]]
+ return workbook(sheets)
+}
+export function workbook(sheets){
+ if(sheets.some(([,rows])=>rows.length>20001))throw Object.assign(new Error('Excel limitado a 20 mil linhas por aba. Use CSV ou restrinja os filtros.'),{status:413})
+ const entries=[['[Content_Types].xml',head+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')+'</Types>'],['_rels/.rels',head+`<Relationships xmlns="${pkg}"><Relationship Id="rId1" Type="${rel}/officeDocument" Target="xl/workbook.xml"/></Relationships>`],['xl/workbook.xml',head+`<workbook xmlns="${ns}" xmlns:r="${rel}"><sheets>`+sheets.map(([name],i)=>`<sheet name="${xml(name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')+'</sheets></workbook>'],['xl/_rels/workbook.xml.rels',head+`<Relationships xmlns="${pkg}">`+sheets.map((_,i)=>`<Relationship Id="rId${i+1}" Type="${rel}/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')+'</Relationships>'],...sheets.map(([,rows],i)=>[`xl/worksheets/sheet${i+1}.xml`,sheet(rows)])]
+ return zip(entries)
+}

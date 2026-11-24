@@ -23,7 +23,7 @@ async function call(path,{as=admin,method='GET',body,origin='https://learning.te
  assert(response);let result=await response.json();return {...result,httpStatus:response.status}
 }
 const deny=(r,code)=>assert.equal(r.httpStatus,code,JSON.stringify(r))
-const question={type:'rating',title:'Colaboração',weight:1,required:true}
+const question={type:'rating',title:'Colaboração',competency:'Colaboração',expected:5,weight:1,required:true}
 const cycle={companyId:A,title:'Ciclo 360',startDate:date,endDate:date,personIds:[workers[0],leader],includeSelf:true,includeLeader:true,includePeer:true,includeReports:true,requireCalibration:true,selfQuestions:[question],leaderQuestions:[question],peerQuestions:[question],reportQuestions:[question]}
 const post=(path,body,as=admin)=>call(path,{method:'POST',body,as})
 const view=(as=admin)=>call('performance/cycle?id='+cid,{as})
@@ -46,7 +46,7 @@ deny(await post('performance/calibrate',proposal,leader),403);deny(await post('p
 deny(await post('performance/calibrate',proposal),200);c=await view();const p=c.calibration.find(x=>x.personId===workers[0]).proposal;assert.equal(p.original,4)
 deny(await post('performance/calibration/finish',{id:cid,revision:c.revision}),409)
 deny(await post('performance/calibration/approve',{id:cid,revision:c.revision,proposalId:p.id}),200);c=await view();deny(await post('performance/calibration/finish',{id:cid,revision:c.revision}),200);deny(await post('performance/release',{id:cid}),200)
-c=await view(workers[0]);assert.equal(c.finalScore,4.2);const peers=c.results.find(x=>x.perspective==='peer');assert.equal(peers.score,4);assert.equal(peers.answers,undefined);assert.equal(peers.reviewerId,undefined)
-c=await view(leader);assert.equal(c.results.find(x=>x.perspective==='report').suppressed,true);assert.equal(c.finalScore,null)
-const action={id:cid,personId:workers[0],title:'Praticar colaboração',mix:'70',dueDate:date,requestId:rid()};r=await post('performance/pdi',action);deny(r,201);const pid=r.id;r=await post('performance/pdi',action);assert.equal(r.id,pid);assert.equal(r.idempotent,true);assert.equal((await call('growth',{as:workers[0]})).items.find(x=>x.id===pid).source.cycleId,cid)
+c=await view(workers[0]);assert.equal(c.finalScore,4.2);assert.equal(c.competencies[0].observed,4);assert.equal(c.competencies[0].expected,5);assert.equal(c.competencies[0].gap,1);const peers=c.results.find(x=>x.perspective==='peer');assert.equal(peers.score,4);assert.equal(peers.answers,undefined);assert.equal(peers.reviewerId,undefined)
+c=await view(leader);assert.equal(c.results.find(x=>x.perspective==='report').suppressed,true);assert.equal(c.finalScore,null);assert.equal(c.competencies[0].observed,null);assert.equal(c.competencies[0].gap,null);assert.equal(c.competencies[0].suppressed,true)
+const action={id:cid,personId:workers[0],title:'Praticar colaboração',competencyKey:'colaboração',mix:'70',dueDate:date,requestId:rid()};r=await post('performance/pdi',action);deny(r,201);const pid=r.id;r=await post('performance/pdi',action);assert.equal(r.id,pid);assert.equal(r.idempotent,true);assert.equal((await call('growth',{as:workers[0]})).items.find(x=>x.id===pid).source.cycleId,cid);assert.equal((await call('growth',{as:workers[0]})).items.find(x=>x.id===pid).source.competency.gap,1)
 console.log('PASS: desempenho 360, segregação empresarial, calibração, supressão e PDI idempotente (fixture de organização e persistência).')

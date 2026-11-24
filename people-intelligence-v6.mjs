@@ -31,7 +31,7 @@ function scope(state,DOMAIN,user,params){
 function events(db,scope){
  if(!exists(db,'lxp_discovery_events'))return {available:false,reason:'A migração Discovery V4 ainda não foi criada.',metrics:null}
  if(scope.people.length<5)return {available:false,reason:'Público com menos de cinco pessoas.',metrics:null}
- const ids=JSON.stringify(scope.people),sql='user_id IN (SELECT value FROM json_each(?)) AND event_date BETWEEN ? AND ?',args=[ids,scope.from,scope.to]
+ const ids=JSON.stringify(scope.people),sql='user_id IN (SELECT value FROM json_each(?)) AND company_id IN (SELECT value FROM json_each(?)) AND event_date BETWEEN ? AND ?',args=[ids,JSON.stringify(scope.companies),scope.from,scope.to]
  const rows=db.prepare(`SELECT event_type,COUNT(*) AS events,COUNT(DISTINCT user_id) AS people FROM lxp_discovery_events WHERE ${sql} GROUP BY event_type`).all(...args)
  const unique=db.prepare(`SELECT COUNT(DISTINCT user_id) AS n FROM lxp_discovery_events WHERE ${sql}`).get(...args).n
  const counts=Object.fromEntries(rows.map(row=>[row.event_type,{events:row.events,people:row.people}]))
@@ -90,7 +90,7 @@ async function main(req,ctx){
  if(url.pathname===ROOT+'summary'){
   const result={version:'6.0',generatedAt:new Date().toISOString(),filters:{company:s.company,from:s.from,to:s.to},mode:'estrutura_atual',peopleInScope:s.people.length,
    sources:{lxp:events(db,s),assessments:assessments(db,s),pulseSafe:pulse(db,s),kirkpatrick:kirkpatrick(db,s)},
-   caveats:['Eventos de descoberta não são progresso nem conclusão comprovada.','Resultados de avaliação são classificados por formulário e pessoa (maior nota no período).','Pulse só aparece agregado após encerramento e limiar mínimo; não há corte individual.','Os vínculos organizacionais refletem a estrutura atual.','N1 e N3 agregam apenas coortes de sete ou mais participantes; N4 é observação e não prova causalidade.']}
+   caveats:['Eventos de descoberta não são progresso nem conclusão comprovada.','Resultados de avaliação são classificados por formulário e pessoa (maior nota no período).','Pulse só aparece agregado após encerramento e limiar mínimo; não há corte individual.','Público definido pelo vínculo atual; eventos LXP filtrados também pela empresa registrada na ocorrência. Não equivale a uma fotografia histórica de equipe.','N1 e N3 agregam apenas coortes de sete ou mais participantes; N4 é observação e não prova causalidade.']}
   return reply(result)
  }
  return reply({error:'Rota de inteligência não encontrada.'},404)

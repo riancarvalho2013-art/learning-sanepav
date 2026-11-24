@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import {createHash} from 'node:crypto'
 import {runInNewContext} from 'node:vm'
-import {createScormRuntime} from './scorm-v3.mjs'
+import {createScormRuntime,inspectManifest} from './scorm-v3.mjs'
 
 const origin='https://homologacao.test',identity='learning-railway',cookieToken='valid-private-session'
 const digest=createHash('sha256').update(cookieToken).digest('hex')
@@ -89,6 +89,8 @@ assert.equal(stub.API.LMSFinish(''),'true')
 state.enroll[0].prerequisites=['ffffffff-ffff-4fff-8fff-ffffffffffff']
 await ensureStatus(launch.url,403,{cookie:false,identityHeader:false})
 state.enroll[0].prerequisites=[]
+const login=state.sessions.pop();await ensureStatus(launch.url,403,{cookie:false,identityHeader:false});state.sessions.push(login)
 state.users[0].active=false
 await ensureStatus(launch.url,403,{cookie:false,identityHeader:false})
+const inspection=inspectManifest('<manifest xmlns:adlcp="urn:adl"><resources><resource identifier="A" adlcp:scormType="sco"/><resource identifier="B" adlcp:scormType="sco"/></resources><organizations><organization><item identifierref="A"/><item identifierref="B"/><imsss:sequencing/></organization></organizations></manifest>');assert.equal(inspection.scoResources,2);assert.equal(inspection.linkedScoItems,2);assert.equal(inspection.sequencing,true);assert.equal(inspectManifest('<!DOCTYPE x [<!ENTITY x SYSTEM "file:///etc/passwd">]>').status,'unsupported');assert.equal(inspectManifest('').status,'absent')
 console.log('OK SCORM V3: ACL/session, isolated iframe, CSS/JS/images without cookies, range, CORS, diagnostics, 1.2/2004 bridge and revocation')

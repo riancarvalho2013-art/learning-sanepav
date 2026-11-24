@@ -1,11 +1,10 @@
-# Checkpoint V12 — 2026-11-24
+# Checkpoint V13
 
-- Branch: `homologacao-dna`; HEAD consultada: `cd87919c500b1b8a6e8f9cd4ad8ac40971379a7f`.
-- V11: GitHub commit status success, serviço angelic-serenity. V12: patch local; escrita GitHub 403.
-- Produção: não alterada; liberação bloqueada.
-- Incrementos: projeção de conclusões por vínculo histórico, filtro Discovery por empresa de origem, exportação CSV em blocos e XLSX no servidor, SCORM 1.2 multi-SCO linear, sessão vinculada ao login, metas de competência e PDI no ciclo existente.
-- Banco: índice aditivo no histórico organizacional, atributos opcionais nos registros existentes. Sem reconstrução fictícia de passado. Não exclui ou revoga dados legados. Curso com evidência prévia de apenas um SCO não é reconciliado como multi-SCO sem evidências suficientes.
-- Testes: 22 grupos locais Node 24.11.1 (adapters em parte das suítes); 50 verificações históricas, 55 multi-SCO, 81 conclusão V11 e 45 HTTP de fixture; navegador desktop/mobile com shell/API sintéticos, Excel lido pelo openpyxl.
-- Bloqueador: `npm test` completo parou em web-marca.png ausente na cópia local, embora presente no repositório; nenhuma alteração do gate. Não testado o volume real, a carga real, a recuperação operacional e o E2E integral.
-- Próxima ação: publicar exclusivamente em homologação, executar build integral, confirmar SHA e smoke tests das novas telas, validar backup e restauração isolados do banco da homologação. Usar pacote SCORM real 1.2 com 2 SCOs e outro de SCO único; validar prova final, certificado, histórico, exportação e DHO. Não fazer merge para main.
-- Pendências: catálogo global de métricas, normalização e histórico de outros fatos, SCORM 2004 sequenciamento completo, catálogo competências por cargo/OKRs, jobs exportação, matriz adversarial completa, E2E integral e carga real.
+- Branch autorizada: homologacao-dna. Baseline: a2017a37f60b40926a69a54199bb0ffb8b7ee478, deploy success confirmado. Main intocada.
+- Novos módulos: metric-registry-v13.mjs, okr-v13.mjs, kirkpatrick-n2-v13.mjs, ops/recovery-v13.mjs.
+- Integrações: relatórios e N2 compartilhado; OKRs na mesma coleção CAS de LXP; SCORM 2004 flow-only no runtime/motor existentes.
+- Persistência: extensão aditiva okrsV13 dentro de lxp/v2/state. Sem alteração destrutiva de esquema; registros OKR legados mantidos. Históricos antigos sem fonte continuam não reconciliados.
+- Testes: 26 grupos locais aprovados; Node 24.11.1; 49 HTTP com fixture; 58 SCORM 2004; 33 OKR; 66 métricas; navegador 1440/390 com shell/API simulados; restore sintético com hashes. Build completo e E2E integral não executáveis na cópia local (arquivos centrais ausentes).
+- GitHub: escrita 403 confirmada; sem commit da V13. Railway V13 não validado.
+- Próxima ação: backup da homologação; upload preservando caminhos; executar workflow na branch de homologação; conferir logs, testar pacotes SCORM reais, validar dados e restaurar backup em ambiente isolado. Não liberar produção.
+- Pendências: SCORM 2004 regras complexas/objetivos/rollup, migração relacional e reconciliação global de fatos, fila de exportação, recuperação em volume independente real, E2E integral, carga e segurança integral.

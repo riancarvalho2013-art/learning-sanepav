@@ -5,6 +5,7 @@
  * All persistent mutations are optimistic / revision-safe through the existing SQLite BUCKET.
  */
 import {randomUUID,createHash} from 'node:crypto'
+import {listOKR,mutateOKR} from './okr-v13.mjs'
 const STORE='lxp/v2/state'
 const LEGACY='system/state-v1'
 const MAX_ITEMS={pulses:500,pulseResponses:30000,cycles:250,reviews:40000,pdiActions:20000,meetings:10000,feedbackRequests:10000}
@@ -219,6 +220,8 @@ async function endpoint(req,ctx){
  if(method==='POST')err(req.headers.get('origin')===url.origin,'Origem inválida.',403)
  const current=await data(BUCKET),db=current.state
  const request=async()=>{try{return await req.json()}catch{err(false,'Dados JSON inválidos.')}}
+ if(path==='okr'&&method==='GET')return reply(listOKR(db,state,DOMAIN,user))
+ if(path.startsWith('okr/')&&method==='POST'){const b=await request(),action=path.slice(4);return reply(await change(BUCKET,s=>{const result=mutateOKR(s,state,DOMAIN,user,action,b);if(!result.idempotent)audit(s,user,'okr.'+action,result.id);return result}))}
  if(path==='me'&&method==='GET'){
   const ownCompany=company(state,user.id)
   return reply({user:{id:user.id,name:user.name,role:user.role,companyId:ownCompany,managerId:user.manager||''},canManage:isManage(user),

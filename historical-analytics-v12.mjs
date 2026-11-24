@@ -10,11 +10,8 @@ const dayFormat=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',ye
 const day=s=>dayFormat.format(new Date(s))
 const json=(x,status=200)=>new Response(JSON.stringify(x),{status,headers:{'content-type':'application/json;charset=utf-8','cache-control':'private,no-store','x-content-type-options':'nosniff'}})
 const key=(...parts)=>JSON.stringify(parts)
-export const HISTORICAL_DEFINITIONS=Object.freeze({
- 'history.completions':{label:'Conclusões com vínculo reconciliado',definition:'Matrículas distintas concluídas no período e atribuíveis ao vínculo vigente na conclusão, com acesso atual autorizado.',unit:'quantidade',source:'system/state-v1 + org_assignment_history_v11',version:1},
- 'history.unresolved':{label:'Conclusões sem vínculo reconciliado',definition:'Conclusões não atribuíveis, sem data suficiente ou com divergência entre fontes; somente administração global, sem filtros organizacionais.',unit:'quantidade',source:'system/state-v1 + org_assignment_history_v11',version:1},
- 'history.coverage':{label:'Cobertura de reconciliação',definition:'Conclusões reconciliadas / conclusões elegíveis, incluindo não reconciliadas, × 100; apenas visão global sem filtros organizacionais.',unit:'%',source:'system/state-v1 + org_assignment_history_v11',version:1}
-})
+import {HISTORICAL_DEFINITIONS} from './metric-registry-v13.mjs'
+export {HISTORICAL_DEFINITIONS}
 const metric=(code,value)=>({code,...HISTORICAL_DEFINITIONS[code],value,available:value!==null})
 /** Bulk read, ordered once. No historical assignment is exposed directly to the browser. */
 export function readHistoricalIndex(db,personIds){

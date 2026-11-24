@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import {DatabaseSync} from 'node:sqlite'
 import {writeFile} from 'node:fs/promises'
 import {createHash,randomUUID} from 'node:crypto'
 import {handleReportsV3,REPORT_DEFINITIONS} from './reports-v3.mjs'
@@ -29,8 +30,9 @@ lxp.reviews.push({cycleId:lxp.cycles[0].id,subjectId:ids.get('employee0'),review
 for(let i=0;i<7;i++)lxp.pulseResponses.push({surveyId:pulseId,userId:ids.get('employee'+i),rating:4,at:'2026-11-21'})
 const store=new Map([['system/state-v1',state],['lxp/v2/state',lxp],['evolution/v1/issued/'+enroll[0].id,{code:uuid()}]])
 const bucket={async get(key){const value=store.get(key);return value===undefined?null:{etag:'x',json:async()=>structuredClone(value)}},async put(key,value,options){if(!store.has(key)&&options?.onlyIf?.etagMatches)return null;if(store.has(key)&&options?.onlyIf?.etagDoesNotMatch)return null;store.set(key,JSON.parse(value));return {etag:'x'}}}
-const domain={allowedCompanies:(s,u)=>u.role==='Administrador'?[companyA,companyB]:[assignments.get(u.id)?.company_id].filter(Boolean)}
-async function call(user,route,body){const cookie=user?'learning='+user:'';const result=await handleReportsV3(new Request('https://learning.example.test/api/reports/v3/'+route,{headers:{cookie,'oai-authenticated-user-id':'learning-railway',...(body?{'origin':'https://learning.example.test','content-type':'application/json'}:{})},...(body?{method:'POST',body:JSON.stringify(body)}:{})}),{BUCKET:bucket,DOMAIN:domain})
+const intelligenceDb=new DatabaseSync(':memory:')
+const domain={historicalIndex:()=>({assignments:[],managers:[],observedFrom:null}),allowedCompanies:(s,u)=>u.role==='Administrador'?[companyA,companyB]:[assignments.get(u.id)?.company_id].filter(Boolean)}
+async function call(user,route,body){const cookie=user?'learning='+user:'';const result=await handleReportsV3(new Request('https://learning.example.test/api/reports/v3/'+route,{headers:{cookie,'oai-authenticated-user-id':'learning-railway',...(body?{'origin':'https://learning.example.test','content-type':'application/json'}:{})},...(body?{method:'POST',body:JSON.stringify(body)}:{})}),{BUCKET:bucket,DOMAIN:domain,intelligenceDb})
  const rawBody=await result.text();let data;try{data=JSON.parse(rawBody)}catch{data=rawBody};return{status:result.status,data,headers:result.headers}}
 const byCode=(data,code)=>data.metrics.find(x=>x.code===code)
 assert.equal((await call('','summary')).status,401)
@@ -72,12 +74,12 @@ assert.match(csv.headers.get('content-type'),/text\/csv/)
 assert.ok(csv.data.includes('Curso inclusivo'))
 assert.ok(!csv.data.includes('Curso confidencial B'))
 assert.ok(!csv.data.includes('outsider'))
-const xlsx=await handleReportsV3(new Request('https://learning.example.test/api/reports/v3/export.xlsx?company='+companyA,{headers:{cookie:'learning=hr','oai-authenticated-user-id':'learning-railway'}}),{BUCKET:bucket,DOMAIN:domain});assert.equal(xlsx.status,200);const workbookBytes=Buffer.from(await xlsx.arrayBuffer());assert.equal(workbookBytes.readUInt32LE(0),0x04034b50);if(process.env.QA_XLSX_OUTPUT)await writeFile(process.env.QA_XLSX_OUTPUT,workbookBytes)
+const xlsx=await handleReportsV3(new Request('https://learning.example.test/api/reports/v3/export.xlsx?company='+companyA,{headers:{cookie:'learning=hr','oai-authenticated-user-id':'learning-railway'}}),{BUCKET:bucket,DOMAIN:domain,intelligenceDb});assert.equal(xlsx.status,200);const workbookBytes=Buffer.from(await xlsx.arrayBuffer());assert.equal(workbookBytes.readUInt32LE(0),0x04034b50);if(process.env.QA_XLSX_OUTPUT)await writeFile(process.env.QA_XLSX_OUTPUT,workbookBytes)
 const catalog=await call('hr','catalog')
 assert.equal(catalog.status,200)
 assert.ok(catalog.data.definitions.length>=15)
 assert.ok(catalog.data.notTracked.some(x=>x.code==='people.turnover'))
-assert.equal(Object.keys(REPORT_DEFINITIONS).length,catalog.data.definitions.length)
+assert.ok(Object.keys(REPORT_DEFINITIONS).every(code=>catalog.data.definitions.some(d=>d.code===code)));assert.ok(catalog.data.definitions.some(d=>d.code==='kirkpatrick.nps'))
 assert.equal((await call('hr','health')).status,200)
 const saved=await call('hr','views',{name:'Minha visão de LMS',filters:{company:companyA,from:'2026-11-01'}})
 assert.equal(saved.status,200,JSON.stringify(saved.data))
@@ -94,3 +96,5 @@ courses[0].title='=HYPERLINK("https://attacker.test")'
 const bad=await call('hr','export.csv?company='+companyA)
 assert.match(bad.data,/'=HYPERLINK/)
 console.log('OK: relatórios v3: RBAC, hierarquia, empresas, filtros, matrícula real, certificados reais, Pulse com supressão por limite mínimo, supressão, CSV, paginação e dicionário.')
+
+const sem=await call('hr','semantic?company='+companyA+'&from=2026-11-20&to=2026-11-22');assert.equal(sem.status,200,JSON.stringify(sem.data));assert.equal(byCode(sem.data,'learning.completed').value,1);assert.equal(byCode(sem.data,'history.unresolved').value,null);assert.equal(byCode(sem.data,'pulseSafe.responseRate').value,null);assert.equal((await call('employee0','semantic')).status,403);assert.equal((await call('hr','semantic?company='+companyB)).status,403);const semXlsx=await handleReportsV3(new Request('https://learning.example.test/api/reports/v3/semantic.xlsx?company='+companyA,{headers:{cookie:'learning=hr','oai-authenticated-user-id':'learning-railway'}}),{BUCKET:bucket,DOMAIN:domain,intelligenceDb});assert.equal(semXlsx.status,200);const semBytes=Buffer.from(await semXlsx.arrayBuffer());assert.equal(semBytes.readUInt32LE(0),0x04034b50);if(process.env.QA_SEMANTIC_XLSX)await writeFile(process.env.QA_SEMANTIC_XLSX,semBytes);intelligenceDb.close();console.log('PASS API semântica: catálogo, valores, escopo, nulos e XLSX.')

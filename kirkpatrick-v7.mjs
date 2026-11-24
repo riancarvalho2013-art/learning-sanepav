@@ -5,6 +5,7 @@
  * N3: manager-rated transfer evidence 30/60/90 days.
  * N4: manually documented operational observations; NEVER asserts causality.
  */
+import {pairedLearning} from './kirkpatrick-n2-v13.mjs'
 import {DatabaseSync} from 'node:sqlite'
 import {randomUUID,createHash} from 'node:crypto'
 import {dirname} from 'node:path'
@@ -102,19 +103,7 @@ function summary(db,state,domain,user,companyId,courseId){
  const transfers=db.prepare('SELECT COUNT(*) AS n, SUM(CASE WHEN status=\'submitted\' THEN 1 ELSE 0 END) AS submitted,AVG(CASE WHEN status=\'submitted\' THEN application ELSE NULL END) AS mean FROM kirkpatrick_transfer_v7 WHERE company_id=? AND course_id=?').get(companyId,courseId)
  const threshold=7,ratingsAvailable=reaction.n>=threshold,transferAvailable=(transfers.submitted||0)>=threshold
  const nps=ratingsAvailable?Math.round((reaction.promoters-reaction.detractors)*10000/reaction.n)/100:null
- let educational={status:'not_measured',pairedPeople:0,changePoints:null,source:null}
- const tables=db.prepare("SELECT name FROM sqlite_master WHERE name IN ('assessment_v6_forms','assessment_v6_attempts')").all()
- if(tables.length===2){
-  const forms=db.prepare("SELECT id,kind FROM assessment_v6_forms WHERE company_id=? AND course_id=? AND status IN ('published','archived') AND kind IN ('pre','post')").all(companyId,courseId)
-  const pre=forms.filter(x=>x.kind==='pre'),post=forms.filter(x=>x.kind==='post')
-  if(pre.length===1&&post.length===1){
-   const before=db.prepare('SELECT user_id,MAX(score) AS score FROM assessment_v6_attempts WHERE form_id=? GROUP BY user_id').all(pre[0].id)
-   const after=db.prepare('SELECT user_id,MAX(score) AS score FROM assessment_v6_attempts WHERE form_id=? GROUP BY user_id').all(post[0].id)
-   const a=new Map(after.map(x=>[x.user_id,x.score]))
-   const pairs=before.filter(b=>a.has(b.user_id))
-   educational={status:pairs.length?'available':'no_paired_data',pairedPeople:pairs.length,changePoints:pairs.length?Math.round(pairs.reduce((n,x)=>n+a.get(x.user_id)-x.score,0)*100/pairs.length)/100:null,source:'assessment_v6_attempts',method:'Melhor nota pré e pós por pessoa; não comprova causalidade.'}
-  }else educational={status:'not_comparable',pairedPeople:0,changePoints:null,reason:'Exige exatamente um pré-teste e um pós-teste publicados para este curso.'}
- }
+ const {changeSum,...educational}=pairedLearning(db,companyId,courseId)
  const outcomes=db.prepare('SELECT id,metric_name,unit,baseline,observed,period_start,period_end,source,method,caveat,created_at FROM kirkpatrick_outcomes_v7 WHERE company_id=? AND course_id=? ORDER BY created_at DESC LIMIT 50').all(companyId,courseId)
  return {companyId,courseId,generatedAt:now(),n1:{state:ratingsAvailable?'available':'insufficient_data',threshold,responseCount:ratingsAvailable?reaction.n:null,meanClarity:ratingsAvailable?Math.round(reaction.clarity*100)/100:null,meanRelevance:ratingsAvailable?Math.round(reaction.relevance*100)/100:null,meanApplicability:ratingsAvailable?Math.round(reaction.applicability*100)/100:null,nps},n2:educational,n3:{state:transferAvailable?'available':'insufficient_data',assigned:transfers.n,submitted:transfers.submitted||0,meanApplication:transferAvailable?Math.round(transfers.mean*100)/100:null},n4:{state:outcomes.length?'recorded_observations':'not_measured',observations:outcomes,warning:'Observações operacionais não estabelecem causalidade com o treinamento.'},privacy:'N1 é uma pesquisa identificada, mas o relatório apresenta apenas agregados com 7+ respostas. Notas individuais não são disponibilizadas por esta API.'}
 }

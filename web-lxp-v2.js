@@ -55,12 +55,33 @@ body=function(...args){
  if(page==='Pulse'){void renderPulse();return}
  if(page==='Desempenho'){void renderPerformance();return}
  if(page==='PDI'){void renderGrowth();return}
+ if(page==='OKR'){void renderOKR13();return}
  if(page==='1:1'){void renderMeetings();return}
  if(page==='Feedback'){void renderFeedback();return}
  if(page==='Minha jornada'){void renderJourney();return}
  if(page==='Meu acesso'){void renderAccess();return}
  priorBody(...args)
 }
+
+// OKR uses the existing LXP page lifecycle, no additional draw/body wrapper.
+let okrDraft=null
+const okrAction=(action,id,revision,kr='')=>'<button type="button" class="lxp-btn" data-okr13="'+e(action)+'" data-id="'+e(id)+'" data-revision="'+e(revision)+'" data-kr="'+e(kr)+'">'+e({publish:'Publicar',close:'Encerrar',checkin:'Registrar check-in'}[action])+'</button>'
+async function renderOKR13(){
+ await asyncScreen(screen('Gestão de metas','Objetivos e resultados-chave','Acompanhe resultados mensuráveis, com histórico e responsabilidade.',load()),async current=>{
+  const result=await apiLxp('okr');if(!current())return;okrDraft=result
+  const items=result.items||[]
+  const cards=items.map(o=>panel(o.title,'<p>'+e(o.ownerName)+' · '+e(o.startsOn)+' a '+e(o.endsOn)+' · '+e(({draft:'Rascunho',active:'Ativo',closed:'Encerrado'})[o.status])+'</p><strong>'+e(o.progress)+'% do objetivo</strong>'+o.results.map(k=>'<div class="lxp-line"><div><strong>'+e(k.title)+'</strong><small>'+e(k.baseline)+' → '+e(k.target)+' '+e(k.unit)+' · Peso '+e(k.weight)+'</small><p>Atual: '+e(k.checkins.at(-1)?.value??k.baseline)+' · '+e(k.progress)+'%</p><progress max="100" value="'+e(k.progress)+'" aria-label="Progresso"></progress><details><summary>Histórico ('+k.checkins.length+')</summary>'+k.checkins.map(c=>'<p>'+e(c.businessDate)+' · '+e(c.value)+' '+e(k.unit)+' — '+e(c.note)+'</p>').join('')+'</details></div>'+(o.status==='active'?okrAction('checkin',o.id,o.revision,k.id):'')+'</div>').join('')+(o.canManage&&o.status==='draft'?okrAction('publish',o.id,o.revision):'')+(o.canManage&&o.status==='active'?okrAction('close',o.id,o.revision):'')))
+  const create=result.canCreate&&result.people.length?'<button type="button" class="lxp-btn primary" data-okr13="new">Novo objetivo</button>':''
+  enterScreen(screen('Gestão de metas','Objetivos e resultados-chave','Metas crescentes e decrescentes, pesos e check-ins. O progresso é calculado no servidor.',cards.join('')||empty('Nenhum OKR estruturado','Crie um objetivo e seus resultados-chave.')+'' ,create)+linkLegacy('OKR'))
+ })
+}
+function okrKR(){return '<fieldset class="lxp-panel" data-okr-kr><legend>Resultado-chave</legend>'+field('Resultado mensurável','krTitle','','text','required maxlength="160"')+field('Unidade','unit','','text','required maxlength="40"')+field('Valor inicial','baseline','0','number','required step="any"')+field('Meta','target','100','number','required step="any"')+field('Peso','weight','1','number','required step="any" min="0.01" max="100"')+'<button type="button" class="lxp-btn" data-okr13="remove-kr">Remover resultado</button></fieldset>'}
+function okrForm(action,params={}){const box=$('modalBody'),modal=$('modal');if(!box||!modal)return
+ const fields=action==='new'?field('Objetivo','title','','text','required maxlength="160"')+select('Responsável','ownerId',okrDraft.people.map(p=>[p.id,p.name]))+field('Início','startsOn',iso(),'date','required')+field('Fim','endsOn',iso(),'date','required')+'<div id="okrKRs">'+okrKR()+'</div><button type="button" class="lxp-btn" data-okr13="add-kr">Adicionar resultado-chave</button>':action==='checkin'?field('Valor atual','value','','number','required step="any"')+textarea('Evidência ou comentário','note','','required maxlength="500"'):action==='close'?textarea('Justificativa de encerramento','note','','required maxlength="500"'):'<p>Publicar este objetivo e iniciar o acompanhamento?</p>'
+ box.innerHTML='<section class="lxp-page"><h2>'+e(({new:'Novo OKR',checkin:'Check-in',close:'Encerrar objetivo',publish:'Publicar objetivo'})[action])+'</h2><form id="okr13Form" data-action="'+e(action)+'" data-id="'+e(params.id||'')+'" data-revision="'+e(params.revision||'')+'" data-kr="'+e(params.kr||'')+'" data-request="'+crypto.randomUUID()+'">'+fields+'<div class="lxp-heading-actions"><button type="submit" class="lxp-btn primary">Confirmar</button><button type="button" class="lxp-btn" data-okr13="cancel">Cancelar</button></div><p role="alert" id="okr13Error"></p></form></section>';if(!modal.open)modal.showModal()
+}
+document.addEventListener('click',ev=>{const b=ev.target.closest('[data-okr13]');if(!b||page!=='OKR')return;ev.preventDefault();const a=b.dataset.okr13;if(a==='cancel'){$('modal').close();return}if(a==='add-kr'){const list=$('okrKRs');if(list&&list.children.length<10)list.insertAdjacentHTML('beforeend',okrKR());return}if(a==='remove-kr'){const list=$('okrKRs');if(list?.children.length>1)b.closest('[data-okr-kr]')?.remove();return}okrForm(a,b.dataset)})
+document.addEventListener('submit',async ev=>{const f=ev.target;if(f.id!=='okr13Form')return;ev.preventDefault();if(page!=='OKR')return;const btn=f.querySelector('[type=submit]');if(btn.disabled)return;btn.disabled=true;const values=new FormData(f),a=f.dataset.action;let payload={id:f.dataset.id,revision:Number(f.dataset.revision),requestId:f.dataset.request,note:values.get('note')};if(a==='new'){payload={requestId:f.dataset.request,title:values.get('title'),ownerId:values.get('ownerId'),startsOn:values.get('startsOn'),endsOn:values.get('endsOn'),results:[...f.querySelectorAll('[data-okr-kr]')].map(k=>({title:k.querySelector('[name=krTitle]').value,unit:k.querySelector('[name=unit]').value,baseline:Number(k.querySelector('[name=baseline]').value),target:Number(k.querySelector('[name=target]').value),weight:Number(k.querySelector('[name=weight]').value)}))}}else if(a==='checkin'){payload.resultId=f.dataset.kr;payload.value=Number(values.get('value'))}try{await apiLxp('okr/'+(a==='new'?'create':a),payload);if(page==='OKR'&&f.isConnected){$('modal').close();await renderOKR13()}}catch(ex){if(f.isConnected)$('okr13Error').textContent=ex.message}finally{btn.disabled=false}})
 
 // ───── Pulse: create, answer, view privacy-preserving aggregates ─────
 async function renderPulse(){

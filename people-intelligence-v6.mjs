@@ -2,6 +2,7 @@
  * Uses authoritative events/attempts/survey counters already persisted in SQLite.
  * No invented historical events and no respondent-level Pulse output.
  */
+import {pairedPortfolio} from './kirkpatrick-n2-v13.mjs'
 import {DatabaseSync} from 'node:sqlite'
 import {createHash} from 'node:crypto'
 import {mkdirSync} from 'node:fs'
@@ -80,7 +81,7 @@ function kirkpatrick(db,s){
  const n3=db.prepare(`SELECT company_id,course_id,COUNT(*) AS n,SUM(application) AS application FROM kirkpatrick_transfer_v7 WHERE company_id IN (SELECT value FROM json_each(?)) AND status='submitted' AND substr(submitted_at,1,10) BETWEEN ? AND ? GROUP BY company_id,course_id`).all(...args)
  const eligibleN3=n3.filter(x=>x.n>=7),n3Total=eligibleN3.reduce((n,x)=>n+x.n,0)
  const outcomes=db.prepare(`SELECT COUNT(*) AS n FROM kirkpatrick_outcomes_v7 WHERE company_id IN (SELECT value FROM json_each(?)) AND substr(created_at,1,10) BETWEEN ? AND ?`).get(...args).n
- return {available:true,source:'kirkpatrick_reactions_v7, kirkpatrick_transfer_v7, kirkpatrick_outcomes_v7',privacy:'Médias de N1 e N3 apenas de coortes empresa/curso com no mínimo sete respostas; dados legados e notas individuais não são acessíveis nesta visão.',metrics:{qualifiedReactionCohorts:qualified.length,reactionResponses:total||null,meanClarity:total?Math.round(sum('clarity')*100/total)/100:null,meanRelevance:total?Math.round(sum('relevance')*100/total)/100:null,meanApplicability:total?Math.round(sum('applicability')*100/total)/100:null,nps:total?Math.round((sum('promoters')-sum('detractors'))*10000/total)/100:null,qualifiedTransferCohorts:eligibleN3.length,transferResponses:n3Total||null,meanApplication:n3Total?Math.round(eligibleN3.reduce((n,x)=>n+x.application,0)*100/n3Total)/100:null,recordedBusinessObservations:outcomes}};
+ return {available:true,source:'kirkpatrick_reactions_v7, kirkpatrick_transfer_v7, kirkpatrick_outcomes_v7',privacy:'Médias de N1 e N3 apenas de coortes empresa/curso com no mínimo sete respostas; dados legados e notas individuais não são acessíveis nesta visão.',metrics:{...pairedPortfolio(db,s),qualifiedReactionCohorts:qualified.length,reactionResponses:total||null,meanClarity:total?Math.round(sum('clarity')*100/total)/100:null,meanRelevance:total?Math.round(sum('relevance')*100/total)/100:null,meanApplicability:total?Math.round(sum('applicability')*100/total)/100:null,nps:total?Math.round((sum('promoters')-sum('detractors'))*10000/total)/100:null,qualifiedTransferCohorts:eligibleN3.length,transferResponses:n3Total||null,meanApplication:n3Total?Math.round(eligibleN3.reduce((n,x)=>n+x.application,0)*100/n3Total)/100:null,recordedBusinessObservations:outcomes}};
 }
 async function main(req,ctx){
  const raw=await ctx.BUCKET.get('system/state-v1');check(raw,'Ambiente não inicializado.',503)

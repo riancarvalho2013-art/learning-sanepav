@@ -87,10 +87,10 @@ export function applyProgress(state,user,input,ctx,{scormAuthorized=false,scormP
    const multi=e.scormMultiV12,first=multi.items.findIndex(x=>!x.complete)
    check(first===-1||index<=first,'Conclua os SCOs anteriores.',403)
    const item=multi.items[index];check(item?.id===items[index].id,'Plano SCO alterado.',409)
-   if(!item.complete){const observed=validateCMI(input.cmi,item.cmi);item.cmi=observed.values;item.complete=observed.complete;item.updated=at}
+   if(!item.complete){const observed=validateCMI(input.cmi,item.cmi);item.cmi=observed.values;item.complete=scormPlan.version==='2004'?observed.values['cmi.completion_status']==='completed'&&observed.values['cmi.success_status']!=='failed':observed.complete;item.updated=at}
    const done=multi.items.filter(x=>x.complete).length
    e.progress=Math.min(99,Math.max(e.progress||0,Math.floor(done*100/items.length)))
-   if(done===items.length){const v=prepareEvidence(e,c,state,user,ctx,at);v.content={type:'scorm',at,runtimeStatus:'1.2:multi_sco_completed',assurance:'runtime_declared',scoCount:items.length,planId}}
+   if(done===items.length){const v=prepareEvidence(e,c,state,user,ctx,at);v.content={type:'scorm',at,runtimeStatus:(scormPlan.version||'1.2')+':multi_sco_completed',assurance:'runtime_declared',scoCount:items.length,planId}}
    finalize(e,c,state,user,ctx,at);e.updated=at
    return {...status(e,c),multiSco:{index,count:items.length,completed:done,currentComplete:item.complete}}
   }

@@ -46,13 +46,13 @@
    '<div class="scorm-v3-toolbar"><div class="scorm-v3-toolbar-left"><span class="scorm-v3-module">'+glyph('book')+' Conteúdo interativo</span><span class="scorm-v3-safe">'+glyph('shield')+' Aprendizagem protegida</span></div>'+'<span id="scormV12Steps" hidden></span><button type="button" class="scorm-v3-btn" data-scorm-action="previous-sco" hidden disabled>Etapa anterior</button><button type="button" class="scorm-v3-btn" data-scorm-action="next-sco" hidden disabled>Próxima etapa</button>'+button('diagnose','Diagnóstico','chart')+button('reload','Recarregar aula','refresh')+button('close','Voltar ao Learning','arrow')+'</div>'+
    '<div class="scorm-v3-canvas"><div class="scorm-v3-loader" id="scormV3Loading">'+wait('Preparando ambiente da aula…')+'<small>Validando o pacote e seus materiais</small></div><iframe id="scormV3Frame" title="'+escapeHTML(title)+'" sandbox="allow-scripts allow-forms" allow="fullscreen; autoplay" referrerpolicy="no-referrer" hidden></iframe></div>'+
    '<footer class="scorm-v3-bottom"><div class="scorm-v3-status" id="scormV3Status" role="status">O progresso será registrado conforme o conteúdo enviar os resultados.</div><span>SCORM 1.2 / 2004 · DNA Learning</span></footer>'+ 
-   '<details class="scorm-v3-help" id="scormV3Help"><summary>O treinamento não abriu corretamente?</summary><p>Use Diagnóstico para verificar os arquivos essenciais do pacote. Se uma aula não relatar conclusão, confirme a exportação SCORM 1.2 ou 2004. Sequências lineares SCORM 1.2 podem conter vários SCOs; regras avançadas ainda exigem compatibilidade específica. Algumas ferramentas exigem configurações específicas na exportação.</p><div id="scormV3Diagnostics"></div></details></section>'
+   '<details class="scorm-v3-help" id="scormV3Help"><summary>O treinamento não abriu corretamente?</summary><p>Use Diagnóstico para verificar os arquivos essenciais do pacote. Se uma aula não relatar conclusão, confirme a exportação SCORM 1.2 ou 2004. Sequências lineares SCORM 1.2 e SCORM 2004 com flow explícito podem conter vários SCOs; regras avançadas exigem compatibilidade específica. Algumas ferramentas exigem configurações específicas na exportação.</p><div id="scormV3Diagnostics"></div></details></section>'
  }
  function showSco(info){
   state.multiSco=info||null
   const label=$('scormV12Steps'),prev=document.querySelector('[data-scorm-action="previous-sco"]'),next=document.querySelector('[data-scorm-action="next-sco"]')
   if(label){label.hidden=!info;label.textContent=info?'Etapa '+(info.index+1)+' de '+info.count+' · '+info.completed+' concluídas':'';if(info?.title)label.title=info.title}
-  if(prev){prev.hidden=!info;prev.disabled=!info||info.index===0||state.changing}
+  if(prev){prev.hidden=!info;prev.disabled=!info||info.forwardOnly||info.index===0||state.changing}
   if(next){next.hidden=!info;next.disabled=!info||!info.currentComplete||info.index>=info.count-1||state.changing}
  }
  async function getLaunch(index=null){
@@ -117,7 +117,10 @@
    if(!ev.data.values||typeof ev.data.values!=='object'||Array.isArray(ev.data.values))return
    const safe={}
    for(const [key,value] of Object.entries(ev.data.values))if(key.startsWith('cmi.')&&key.length<=160&&typeof value==='string'&&value.length<=(key==='cmi.suspend_data'?64000:4000))safe[key]=value
-   state.events++;queueCMI(safe,ev.data.op==='commit')
+   state.events++;queueCMI(safe,['commit','terminate'].includes(ev.data.op))
+   const navigation=ev.data.op==='terminate'&&state.multiSco?.version==='2004'?ev.data.navigation:null
+   if(navigation&&navigation!=='_none_'){const version=state.version;void flush().then(async()=>{if(!state.opened||state.version!==version||state.pending||state.changing)return;const info=state.multiSco;if(navigation==='continue'&&info?.currentComplete&&info.index<info.count-1)await changeSco(info.index+1);else if(navigation==='previous'&&info?.index>0&&!info.forwardOnly)await changeSco(info.index-1);else if(['exit','exitAll','suspendAll'].includes(navigation))await closeRoom();else updateState('Navegação solicitada não está disponível nesta etapa.',true)})}
+
   }
  })
  async function closeRoom(){
@@ -188,7 +191,7 @@
   const {scormAction}=button.dataset
   if(scormAction==='close')void closeRoom()
   if(scormAction==='reload')void changeSco(state.multiSco?.index??null)
-  if(scormAction==='previous-sco'&&state.multiSco&&state.multiSco.index>0)void changeSco(state.multiSco.index-1)
+  if(scormAction==='previous-sco'&&state.multiSco&&!state.multiSco.forwardOnly&&state.multiSco.index>0)void changeSco(state.multiSco.index-1)
   if(scormAction==='next-sco'&&state.multiSco?.currentComplete&&state.multiSco.index<state.multiSco.count-1)void changeSco(state.multiSco.index+1)
   if(scormAction==='diagnose')void diagnostics()
  })

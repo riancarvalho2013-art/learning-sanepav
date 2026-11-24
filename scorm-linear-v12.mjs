@@ -1,4 +1,4 @@
-/** Bounded linear SCORM 1.2 subset. No claim of IMS/ADL sequencing conformance. */
+/** Bounded linear SCORM 1.2 and explicit flow-only SCORM 2004 subset. No claim of IMS/ADL sequencing conformance. */
 import {createHash} from 'node:crypto'
 const fail=message=>({mode:'unsupported',reason:message})
 const local=name=>name.split(':').at(-1).toLowerCase()
@@ -48,14 +48,29 @@ export function linearScormPlan(xml,folder=''){
  if(sco.length<=1)return {mode:'single_or_unknown'}
  if(sco.length>50||resourceMap.size!==allResources.length||items.length!==sco.length)return fail('Pacote misto ou acima do limite de 50 SCOs.')
  const all=[...walk(root)],schemaVersion=all.filter(x=>local(x.name)==='schemaversion').map(x=>x.text.trim()).join(' ')
- if(!/\b1\.2\b/.test(schemaVersion)||/2004/.test(schemaVersion))return fail('A sequência linear V12 suporta apenas manifestos SCORM 1.2.')
- if(all.some(x=>Object.hasOwn(x.attrs,'base')||['sequencing','sequencingcollection','controlmode','sequencingrules','prerequisites','masteryscore','timelimitaction','maxtimeallowed','datafromlms'].includes(local(x.name))))return fail('Regras de sequenciamento, dados de LMS ou base XML exigem suporte adicional.')
+ const version=/^2004(?: (?:2nd|3rd|4th) Edition)?$/i.test(schemaVersion)?'2004':/\b1\.2\b/.test(schemaVersion)&&!/2004/.test(schemaVersion)?'1.2':null
+ if(!version)return fail('Versão SCORM não identificada para sequência linear.')
+ const sequencingNames=['sequencing','sequencingcollection','controlmode','sequencingrules','prerequisites','masteryscore','timelimitaction','maxtimeallowed','datafromlms']
+ let forwardOnly=false
+ if(version==='1.2'){
+  if(all.some(x=>Object.hasOwn(x.attrs,'base')||sequencingNames.includes(local(x.name))))return fail('Regras de sequenciamento, dados de LMS ou base XML exigem suporte adicional.')
+ }else{
+  // Only an explicit flat flow-only organization is supported. Unknown sequencing
+  // behavior is rejected, never flattened into a fabricated ADL sequence.
+  const seq=children(org,'sequencing'),control=seq.length===1?children(seq[0],'controlmode'):[]
+  const mode=control.length===1?control[0]:null,attrs=mode?.attrs||{}
+  if(!mode||attrs.flow!=='true'||attrs.choice!=='false'||Object.keys(attrs).some(k=>!['flow','choice','forwardonly'].includes(k))||attrs.forwardonly!==undefined&&!['true','false'].includes(attrs.forwardonly)||seq[0].children.length!==1||mode.children.length||Object.keys(seq[0].attrs).length)return fail('SCORM 2004 exige controlMode explícito: flow=true, choice=false; regras adicionais não suportadas.')
+  const direct=children(org,'item');if(direct.length!==items.length||direct.some(x=>!x.attrs.identifierref||children(x,'item').length))return fail('SCORM 2004: apenas organização plana de SCOs obrigatórios.')
+  if(all.some(x=>Object.hasOwn(x.attrs,'base')||x!==seq[0]&&x!==mode&&(/(?:sequenc|rollup|objective|controlmode|limitconditions|deliverycontrols|randomization|presentation|navigation|hidelmsui|completionthreshold|timeLimitAction|datafromlms)/i.test(local(x.name)))))return fail('SCORM 2004 contém regras ou controles fora da matriz suportada.')
+  if(items.some(x=>x.attrs.isvisible==='false'||Object.keys(x.attrs).some(k=>!['identifier','identifierref','isvisible'].includes(k))))return fail('SCORM 2004 contém atividade oculta ou parâmetro não suportado.')
+  forwardOnly=attrs.forwardonly==='true'
+ }
  const seen=new Set(),plan=[]
  for(const item of sco){const res=resourceMap.get(item.attrs.identifierref),entry=launchPath(res.attrs.href,folder),id=item.attrs.identifier
   if(!id||id.length>160||seen.has(id)||!entry||item.attrs.parameters)return fail('Identificador ou endereço de SCO incompatível.')
   seen.add(id);plan.push({id,entry,title:(children(item,'title')[0]?.text.trim()||id).slice(0,150)})
  }
- return {mode:'linear',id:createHash('sha256').update(xml).update('\0'+folder).digest('hex'),items:plan}
+ return {mode:'linear',version,forwardOnly,id:createHash('sha256').update(xml).update('\0'+folder).digest('hex'),items:plan}
 }
 
 /** Bounded manifest inspection, not XML validation or a sequencer. Explicitly refuse DTDs. */

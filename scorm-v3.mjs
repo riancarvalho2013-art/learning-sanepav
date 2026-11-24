@@ -59,13 +59,16 @@ function scormBridge(setup){
  'use strict'
  const values={...setup.cmi}
  const key=setup.key
- let initialized=false, last12='0',last2004='0',sequence=0
+ let initialized=false, last12='0',last2004='0',sequence=0,navRequest='_none_'
  const result=(ok,code='0')=>{last12=code;last2004=code;return ok?'true':'false'}
  const message=op=>{
-  try{window.top.postMessage({type:'DNA_SCORM_COMMIT_V3',key,op,sequence:++sequence,values:{...values}},setup.parentOrigin)}catch{}
+  try{window.top.postMessage({type:'DNA_SCORM_COMMIT_V3',key,op,sequence:++sequence,values:{...values},navigation:op==='terminate'?navRequest:undefined},setup.parentOrigin)}catch{}
  }
  function get(name){
   if(!initialized){last12='301';last2004='132';return ''}
+  if(setup.navigation&&name==='adl.nav.request')return navRequest
+  if(setup.navigation&&name==='adl.nav.request_valid.continue')return setup.navigation.index<setup.navigation.count-1&&values['cmi.completion_status']==='completed'&&values['cmi.success_status']!=='failed'?'true':'false'
+  if(setup.navigation&&name==='adl.nav.request_valid.previous')return !setup.navigation.forwardOnly&&setup.navigation.index>0?'true':'false'
   if(name==='cmi.interactions._count')return String(Object.keys(values).filter(x=>/^cmi\.interactions\.\d+\.id$/.test(x)).length)
   if(name==='cmi.objectives._count')return String(Object.keys(values).filter(x=>/^cmi\.objectives\.\d+\.id$/.test(x)).length)
   if(name==='cmi._version')return '1.0'
@@ -74,6 +77,7 @@ function scormBridge(setup){
  }
  function set(name,value){
   if(!initialized)return result(false,'301')
+  if(setup.navigation&&name==='adl.nav.request'){if(!['_none_','continue','previous','exit','exitAll','suspendAll'].includes(value))return result(false,'406');navRequest=value;return result(true)}
   if(typeof name!=='string'||!name.startsWith('cmi.')||name.length>160||typeof value==='undefined')return result(false,'201')
   if(['cmi.core.student_id','cmi.core.student_name','cmi.learner_id','cmi.learner_name','cmi.core.credit','cmi.credit','cmi.mode','cmi.core.lesson_mode'].includes(name))return result(false,'403')
   const asString=String(value)
@@ -81,8 +85,8 @@ function scormBridge(setup){
   values[name]=asString
   return result(true)
  }
- function initialize(){if(initialized)return result(false,'101');initialized=true;message('start');return result(true)}
- function terminate(){if(!initialized)return result(false,'301');message('commit');initialized=false;return result(true)}
+ function initialize(){if(initialized)return result(false,'101');initialized=true;navRequest='_none_';message('start');return result(true)}
+ function terminate(){if(!initialized)return result(false,'301');message('terminate');initialized=false;return result(true)}
  function commit(){if(!initialized)return result(false,'301');message('commit');return result(true)}
  const api12={LMSInitialize:initialize,LMSFinish:terminate,LMSGetValue:get,LMSSetValue:set,LMSCommit:commit,
   LMSGetLastError:()=>last12,LMSGetErrorString:v=>v==='0'?'No error':'SCORM error '+v,LMSGetDiagnostic:v=>'SCORM error '+(v||last12)}
@@ -95,7 +99,7 @@ function scormBridge(setup){
  try{window.top.postMessage({type:'DNA_SCORM_READY_V3',key},setup.parentOrigin)}catch{}
 }
 function injectedHTML(html,session,origin){
- const data={key:session.key,parentOrigin:origin,cmi:session.cmi}
+ const data={key:session.key,parentOrigin:origin,cmi:session.cmi,navigation:session.plan?.version==='2004'?{index:session.plan.index,count:session.plan.items.length,forwardOnly:session.plan.forwardOnly}:null}
  const call='('+scormBridge.toString()+')('+JSON.stringify(data).replace(/</g,'\\u003c')+');'
  const script='<script data-dna-scorm-runtime="3">'+call.replace(/<\/script/gi,'<\\/script')+'</script>'
  const scope=SCOPE+encodeURIComponent(session.token)+'/'
@@ -211,12 +215,13 @@ export function createScormRuntime({clock=()=>Date.now()}={}){
       for(const item of candidate.items)if(!await BUCKET.get('files/'+course.upload+'/'+item.entry))return failure(422,'Arquivo inicial de SCO ausente: '+item.entry)
       const saved=enrollment?.scormMultiV12?.planId===candidate.id?enrollment.scormMultiV12.items:[]
       const first=candidate.items.findIndex((item,i)=>saved[i]?.id!==item.id||!saved[i]?.complete)
-      const requested=url.searchParams.get('sco'),index=requested===null?(first<0?0:first):/^\d{1,2}$/.test(requested)?Number(requested):-1
-      if(index<0||index>=candidate.items.length||first>=0&&index>first)return failure(403,'Conclua os SCOs anteriores.')
-      plan={id:candidate.id,items:candidate.items,index};entry=candidate.items[index].entry;storedCmi=saved[index]?.cmi||{}
-      multiSco={index,count:candidate.items.length,completed:saved.filter(x=>x.complete).length,currentComplete:!!saved[index]?.complete,title:candidate.items[index].title}
+      const requested=url.searchParams.get('sco'),index=requested===null?(first<0?(candidate.forwardOnly?candidate.items.length-1:0):first):/^\d{1,2}$/.test(requested)?Number(requested):-1
+      if(index<0||index>=candidate.items.length||first>=0&&index>first||candidate.forwardOnly&&index<(first<0?candidate.items.length-1:first))return failure(403,'Conclua os SCOs anteriores.')
+      plan={id:candidate.id,items:candidate.items,index,version:candidate.version,forwardOnly:candidate.forwardOnly};entry=candidate.items[index].entry;storedCmi=saved[index]?.cmi||{}
+      multiSco={version:candidate.version,forwardOnly:candidate.forwardOnly,index,count:candidate.items.length,completed:saved.filter(x=>x.complete).length,currentComplete:!!saved[index]?.complete,title:candidate.items[index].title}
      }else if(inspection.scoResources>1||inspection.linkedScoItems>1){return failure(422,candidate.reason||'Pacote multi-SCO sem sequência compatível com o runtime atual.')}
     }
+    if(plan?.forwardOnly&&enrollment)for(const [oldToken,old] of sessions)if(old.enrollmentId===enrollment.id&&old.personId===user.id)sessions.delete(oldToken)
     if(sessions.size>=MAX_SESSIONS){const oldest=sessions.keys().next().value;if(oldest)sessions.delete(oldest)}
     const token=randomBytes(36).toString('base64url'),key=randomUUID()
     const session={token,key,...loginBinding(request),plan,courseRevision:courseRevision(course),courseId:course.id,courseUpload:course.upload,enrollmentId:enrollment?.id||'',personId:user.id,
@@ -248,7 +253,7 @@ export function createScormRuntime({clock=()=>Date.now()}={}){
     let manifestFolder='',manifest=await BUCKET.get('files/'+course.upload+'/imsmanifest.xml');if(!manifest&&root){manifest=await BUCKET.get('files/'+course.upload+'/'+root+'imsmanifest.xml');manifestFolder=root}
     const manifestContent=manifest?await manifest.text():''
     const inspection=inspectManifest(manifestContent),plan=manifest?linearScormPlan(manifestContent,manifestFolder):null
-    if(plan?.mode==='linear')inspection.warning='Sequência linear SCORM 1.2 suportada: '+plan.items.length+' SCOs. A compatibilidade de cada conteúdo ainda precisa ser testada.'
+    if(plan?.mode==='linear')inspection.warning='Sequência linear SCORM '+plan.version+' suportada: '+plan.items.length+' SCOs. A compatibilidade de cada conteúdo ainda precisa ser testada.'
     const version=/2004/i.test(manifestContent)?'SCORM 2004':/1[.]2/i.test(manifestContent)?'SCORM 1.2':'Não identificada'
     const launch=exists?await BUCKET.get('files/'+course.upload+'/'+course.entry):null
     const html=launch?await launch.text():''

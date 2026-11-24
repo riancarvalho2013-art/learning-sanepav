@@ -6,6 +6,10 @@
 import {createHash,randomUUID} from 'node:crypto'
 import {workbook} from './report-xlsx-v12.mjs'
 import {historicalReport,HISTORICAL_DEFINITIONS} from './historical-analytics-v12.mjs'
+import {REPORT_DEFINITIONS,semanticDefinitions,semanticProjection} from './metric-registry-v13.mjs'
+import {okrMetrics} from './okr-v13.mjs'
+import {handleIntelligenceV6} from './people-intelligence-v6.mjs'
+export {REPORT_DEFINITIONS}
 import {completionClassification} from './completion-v11.mjs'
 
 const LEGACY='system/state-v1'
@@ -24,36 +28,6 @@ const saoPauloToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_P
 const inPeriod=(v,f)=>!f.from&&!f.to||Boolean(v&&(!f.from||date(v)>=f.from)&&(!f.to||date(v)<=f.to))
 const norm=(v)=>String(v??'').normalize('NFKC').trim()
 const clamp=(v,min,max,def)=>v!==null&&v!==''&&Number.isInteger(Number(v))?Math.max(min,Math.min(max,Number(v))):def
-const source=(label,definition,unit='quantidade',period='estoque')=>({label,definition,unit,period})
-// Versioned, centralized definitions: display names and calculations must not drift.
-export const REPORT_DEFINITIONS=Object.freeze({
- 'people.active':source('Pessoas ativas no escopo','Pessoas ativas vinculadas às empresas e à hierarquia autorizadas, com vínculo organizacional atual.'),
- 'learning.enrollments':source('Matrículas','Matrículas existentes no escopo; filtro temporal usa a data de atribuição apenas quando registrada.'),
- 'learning.completed':source('Matrículas concluídas','Matrículas com conclusão registrada (100%), inclusive legadas. A evidência é discriminada nos indicadores e no detalhamento; conclusão não equivale a prova de conhecimento.'),
- 'learning.completion_legacy':source('Conclusões legadas','Matrículas concluídas antes do registro estruturado de evidências, sem inferir aprovação.'),
- 'learning.completion_manual':source('Conclusões autodeclaradas','Conclusões cujo conteúdo foi confirmado pelo participante; podem incluir avaliação final exigida.'),
- 'learning.completion_quiz':source('Conclusões por questionário','Conclusões com questionário corrigido no servidor, mais avaliações finais exigidas, quando houver.'),
- 'learning.completion_scorm':source('Conclusões SCORM','Conclusões informadas pelo runtime em sessão autorizada, sem inferir aprendizagem independente.'),
- 'learning.completion_assessed':source('Conclusões com avaliação final','Conclusões V11 que possuem ao menos uma avaliação final exigida e aprovada no servidor.'),
- 'learning.completion_rate':source('Taxa de conclusão','Matrículas concluídas / matrículas elegíveis no recorte × 100.','%'),
- 'learning.courses':source('Cursos alcançados','Cursos distintos com matrícula no escopo filtrado, não o catálogo global.'),
- 'learning.avg_progress':source('Progresso médio','Média aritmética do progresso das matrículas válidas, sem inferir tempo estudado.','%'),
- 'learning.score_avg':source('Nota média registrada','Média das notas numericamente registradas nas matrículas, sem imputar notas ausentes.','pontos'),
- 'learning.expired':source('Matrículas vencidas','Matrículas não concluídas cujo prazo válido é anterior à data de referência.'),
- 'learning.certificates':source('Conclusões certificadas','Certificados efetivamente emitidos para matrículas do escopo, não conclusões presumidas.'),
- 'learning.tracks':source('Trilhas atribuídas','Atribuições de trilha explicitamente registradas para colaboradores no escopo.'),
- 'dho.pdi_actions':source('Ações de PDI','Ações PDI 70–20–10 registradas, por responsáveis autorizados.'),
- 'dho.pdi_completion':source('Taxa de execução de PDI','Ações de PDI concluídas / ações elegíveis registradas × 100.','%'),
- 'dho.reviews_assigned':source('Avaliações atribuídas','Tarefas de avaliação associadas a ciclos do escopo autorizado.'),
- 'dho.reviews_submitted':source('Avaliações respondidas','Tarefas de avaliação efetivamente enviadas.'),
- 'dho.review_adherence':source('Aderência ao ciclo','Tarefas enviadas / tarefas atribuídas × 100.','%'),
- 'dho.cycles':source('Ciclos de desempenho','Ciclos de avaliação registrados nas empresas autorizadas.'),
- 'dho.meetings':source('Reuniões 1:1 registradas','Reuniões contendo ao menos um participante do escopo; notas confidenciais não são acessadas.'),
- 'dho.feedback_requests':source('Solicitações de feedback','Solicitações registradas originadas ou recebidas por pessoas do escopo; não inclui texto privado.'),
- 'dho.pulse_surveys':source('Pesquisas Pulse','Pesquisas publicadas com público autorizado; não representa taxa de respostas.'),
- 'dho.pulse_mean':source('Percepção média Pulse','Média de pesquisas com pelo menos 7 respostas na audiência original, sem filtros capazes de identificar pessoas.','1 a 5'),
- 'dho.pulse_response_rate':source('Taxa de participação Pulse','Somente pesquisas com pelo menos 7 respostas, calculada por convites da audiência original.','%')
-})
 const metric=(code,value,extra={})=>({code,...REPORT_DEFINITIONS[code],value,available:value!==null,source:code.startsWith('learning.certificates')?'evo/certificates':code.startsWith('dho.')?'lxp/v2/state':'system/state-v1',...extra})
 
 function userFrom(req,state){
@@ -144,7 +118,9 @@ async function collect(bucket,scope,legacy){
  if(typeof bucket.countExisting==='function')certCount=await bucket.countExisting(enroll.map(e=>'evolution/v1/issued/'+e.id))
  else if(enroll.length<=2000){const found=await Promise.all(enroll.map(e=>bucket.get('evolution/v1/issued/'+e.id)));certCount=found.filter(Boolean).length}
  const assignments=arr(legacy.missionEnrollments).filter(x=>scope.ids.has(x.person))
+ const okrs=okrMetrics(lxp,scope,legacy)
  const data=[
+  ...Object.entries(okrs).map(([key,value])=>metric('okr.'+key,scope.course?null:value,{source:'lxp/v2/state.okrsV13',...(scope.course?{reason:'Filtro de curso não se aplica aos OKRs.'}:{})})),
   metric('people.active',scope.people.length),
   metric('learning.enrollments',enroll.length),
   metric('learning.completed',completed),
@@ -263,13 +239,22 @@ async function main(req,ctx){
  const query=new URL(req.url).searchParams
  if(route==='history'||route==='history.csv'||route==='history.xlsx')return historicalReport(req,ctx,legacy,user,route)
  const scope=prepareScope(legacy,ctx.DOMAIN,user,query)
- if(route==='catalog')return send({version:'3.0.0',definitions:Object.entries(REPORT_DEFINITIONS).map(([code,v])=>({code,...v,source:code.startsWith('dho.')?LXP:LEGACY,version:1})),historicalDefinitions:Object.entries(HISTORICAL_DEFINITIONS).map(([code,v])=>({code,...v})),notTracked:[
+ if(route==='catalog')return send({version:'3.1.0',definitions:semanticDefinitions().filter(v=>!v.code.startsWith('history.')),historicalDefinitions:semanticDefinitions().filter(v=>v.code.startsWith('history.')),notTracked:[
   {code:'learning.actual_hours',reason:'Não há telemetria padronizada de tempo efetivo para todos os formatos.'},
   {code:'people.turnover',reason:'Sem base de admissões/desligamentos confiável integrada ao RH/DP.'},
   {code:'people.absenteeism',reason:'Sem sistema de ponto ou presença vinculado.'},
   {code:'kirkpatrick.l3_l4',reason:'Disponíveis na visão Inteligência integrada quando há dados do módulo Kirkpatrick; não duplicados neste catálogo.'}
  ]})
  const result=await collect(bucket,scope,legacy)
+ if(route==='semantic'||route==='semantic.xlsx'){
+  let intelligence=null,historical=null
+  if(!scope.department&&!scope.person&&!scope.course){const response=await handleIntelligenceV6(new Request(new URL('/api/intelligence/v6/summary?'+new URLSearchParams(Object.entries(scope.applied).filter(([k,v])=>v&&['company','from','to'].includes(k))),req.url),{headers:req.headers}),ctx);if(response.ok)intelligence=await response.json()}
+  const response=await historicalReport(req,ctx,legacy,user,'history').catch(e=>{if(e.status===503)return null;throw e});if(response?.ok)historical=await response.json()
+  const metrics=semanticProjection(result.metrics,historical,intelligence,scope.applied)
+  const payload={version:'13.0',filters:scope.applied,metrics,at:new Date().toISOString(),periods:{intelligence:intelligence?.filters||null},caveats:['Carteira atual e ocorrência histórica são bases diferentes. Não some nem compare sem considerar a definição.','Valores indisponíveis não são zeros. A inteligência integrada utiliza o período efetivo indicado, com máximo de 366 dias.']}
+  if(route==='semantic.xlsx')return new Response(workbook([['Indicadores',[['Código','Nome','Valor','Unidade','Fonte','Base temporal','Definição','Motivo'],...metrics.map(m=>[m.code,m.label,m.value,m.unit,m.source,m.temporalBasis,m.definition,m.reason||''])]],['Metadados',[['Filtro','Valor'],...Object.entries(payload.filters),...Object.entries(payload.periods.intelligence||{}).map(([k,v])=>['Inteligência '+k,v]),...payload.caveats.map(x=>['Ressalva',x])]]]),{headers:{'content-type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','content-disposition':'attachment; filename="learning-indicadores.xlsx"','cache-control':'private,no-store'}})
+  return send(payload)
+ }
  const common={version:'3.0.0',at:new Date().toISOString(),filters:scope.applied,scope:{companies:[...scope.allCompanies],people:scope.people.length},
   caveats:['Carteira atual: os vínculos desta visão são atuais, inclusive em filtros de data. Para conclusões por vínculo vigente na ocorrência, use a aba Histórico reconciliado.','Períodos em matrículas dependem das datas registradas; ausência de timestamp não é preenchida artificialmente.','Pulse legado mantém respostas identificadas na origem; o limiar de sete respostas protege apenas a divulgação agregada, sem anonimização retroativa.']}
  if(route==='summary')return send({...common,metrics:result.metrics,byCourse:result.byCourse.slice(0,100),departments:result.departments,privacy:result.pulse})

@@ -78,16 +78,16 @@
   if(state.timer){clearTimeout(state.timer);state.timer=null}
   const values=state.pending;state.pending=null
   if(!values||!state.opened||state.launch?.preview||!state.enrollment)return state.queue
+  const launch=state.launch,enrollmentId=state.enrollment.id,version=state.version
+  if(!launch)return state.queue
   state.queue=state.queue.catch(()=>{}).then(async()=>{
    const payload=JSON.stringify(values)
    if(payload.length>88000)throw Error('O progresso SCORM ultrapassou o limite de armazenamento.')
-   await api('progress',{id:state.enrollment.id,progress:1,cmi:values})
-   const complete=['completed','passed'].includes(values['cmi.core.lesson_status'])||values['cmi.completion_status']==='completed'
-    ||values['cmi.completion_status']==='passed'
-   const percent=complete?100:Math.max(1,Math.round(Number(values['cmi.progress_measure']||0)*100)||1)
-   updateProgress(Math.max(state.completion,percent))
-   updateState('Progresso sincronizado às '+new Date().toLocaleTimeString('pt-BR')+(complete?' · Aula concluída':'')+'.')
-  }).catch(error=>{updateState('Não foi possível salvar o progresso: '+error.message,true)})
+   const result=await api('scorm/v3/commit',{id:enrollmentId,token:launch.url.split('/')[3],key:launch.key,cmi:values})
+   if(state.version!==version||!state.opened)return
+   updateProgress(result.progress)
+   updateState('Progresso sincronizado às '+new Date().toLocaleTimeString('pt-BR')+(result.pendingAssessment?' · Avaliação final pendente':result.progress===100?' · Curso concluído':'')+'.')
+  }).catch(error=>{if(state.version===version&&state.opened){if(!state.pending)state.pending=values;updateState('Não foi possível salvar o progresso: '+error.message+'. Tente novamente antes de fechar.',true)}})
   return state.queue
  }
  function queueCMI(value,urgent){
@@ -99,6 +99,9 @@
  window.addEventListener('message',ev=>{
   if(!state.opened||!state.launch)return
   if(ev.origin!=='null'&&ev.origin!==location.origin)return
+  const frame=$('scormV3Frame');if(!frame?.contentWindow||!ev.source)return
+  let source=ev.source,belongs=false;try{for(let i=0;i<16;i++){if(source===frame.contentWindow){belongs=true;break}const parent=source.parent;if(!parent||parent===source)break;source=parent}}catch{}
+  if(!belongs)return
   if(!ev.data||ev.data.key!==state.launch.key)return
   if(ev.data.type==='DNA_SCORM_READY_V3'){
    state.events++;updateState('Runtime SCORM conectado. Execute as atividades para registrar o progresso.')
@@ -112,8 +115,9 @@
  })
  async function closeRoom(){
   if(!state.opened)return
-  if(state.keepalive){clearInterval(state.keepalive);state.keepalive=null}
   await flush()
+  if(state.pending){updateState('Há progresso não sincronizado. Tente recarregar a aula somente após salvar.',true);return}
+  if(state.keepalive){clearInterval(state.keepalive);state.keepalive=null}
   state.opened=false;state.version++
   state.launch=null;state.enrollment=null;state.course=null;state.pending=null
   const modal=$('modal');if(modal?.open)modal.close()
@@ -123,7 +127,7 @@
   const {enrol,course}=getCourse(id)
   if(!enrol||!course||course.type!=='SCORM')return false
   if(course.blockedBy?.length){if(typeof toast==='function')toast('Conclua as etapas anteriores para abrir este treinamento.');return true}
-  if(state.opened)await closeRoom()
+  if(state.opened){await closeRoom();if(state.opened)return true}
   state.opened=true;state.version++
   state.enrollment=enrol;state.course=course;state.launch=null;state.pending=null;state.queue=Promise.resolve();state.events=0
   const modal=$('modal');if(!modal)return true

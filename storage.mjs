@@ -1,4 +1,5 @@
 import {migrate} from './migrations.mjs'
+import {installOrganizationHistory,recordManagerHistory,readOrganizationHistory} from './organization-history-v11.mjs'
 import {createDomain} from './domain.mjs'
 import {DatabaseSync,backup} from 'node:sqlite'
 import {randomUUID} from 'node:crypto'
@@ -24,7 +25,10 @@ db.exec('PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS objects (key TEXT P
 migrate(db)
 export const DOMAIN = createDomain(db)
 const current = db.prepare('SELECT body FROM objects WHERE key=?').get('system/state-v1')
-if(current) DOMAIN.syncPeople(JSON.parse(Buffer.from(current.body).toString()))
+const initialState=current?JSON.parse(Buffer.from(current.body).toString()):null
+if(initialState)DOMAIN.syncPeople(initialState)
+installOrganizationHistory(db,initialState)
+DOMAIN.organizationHistory=filters=>readOrganizationHistory(db,filters)
 
 export const BUCKET = {
  async get(key) {
@@ -54,6 +58,7 @@ export const BUCKET = {
      DOMAIN.assignPerson(state,actor,assignment.body)
     }
     DOMAIN.syncPeople(state)
+    recordManagerHistory(db,state)
    }
    db.exec('COMMIT')
    return result.changes ? {etag} : null

@@ -10,7 +10,7 @@ for(const [path,name,mime] of [['/pulse-v5.js','web-pulse-v5.js','text/javascrip
  assert.ok(file(name).length>1000)
 }
 assert.ok(server.includes("import {handlePulseV5} from './pulse-secure-v5.mjs'"))
-assert.ok(server.includes('await handlePulseV5(request,{BUCKET,DOMAIN}) || await handleDiscoveryV4'), 'Pulse V5 deve ficar antes dos handlers legados')
+assert.ok(server.includes("{prefix:'/api/pulse/v5/',handler:request=>handlePulseV5(request,context)}"), 'Pulse V5 deve ficar antes dos handlers legados')
 assert.ok(!file('reports-v3.mjs').includes('Pulse anônimo protege'), 'Não rotular respostas identificadas como anônimas nos relatórios')
 assert.ok(packageJson.scripts.test.includes('verify-pulse-v5.mjs'))
 assert.ok(packageJson.scripts.test.includes('verify-pulse-integration.mjs'))

@@ -13,6 +13,9 @@ import {handleAssessmentsV6} from './learning-assessments-v6.mjs'
 import {handleIntelligenceV6} from './people-intelligence-v6.mjs'
 import {handleKirkpatrickV7} from './kirkpatrick-v7.mjs'
 import {handleOrganizationChart} from './organization-chart-v9.mjs'
+import {handleCompletionV11,reconcileCompletion} from './completion-v11.mjs'
+import {createRouteRegistry} from './http-router-v11.mjs'
+import {handleOrganizationHistory} from './organization-history-v11.mjs'
 
 const portArgument=process.argv.indexOf('--port')
 const devMode=process.env.NODE_ENV!=='production'&&portArgument>=0
@@ -31,6 +34,24 @@ const safeLogRoute=raw=>{
  const allowed=segments[0]==='api'?2:1
  return '/'+segments.slice(0,allowed).map(x=>x.slice(0,32)).join('/')+(segments.length>allowed?'/*':'')
 }
+// Explicit ownership of HTTP routes; fallback is only for the legacy platform.
+const context={BUCKET,DOMAIN}
+const routeRequest=createRouteRegistry([
+ {exact:'/api/progress',handler:request=>handleCompletionV11(request,context)},
+ {prefix:'/api/completion/v11/',handler:request=>handleCompletionV11(request,context)},
+ {exact:'/api/organization/v11/history',handler:request=>handleOrganizationHistory(request,context)},
+ {exact:'/api/orgchart/v9',handler:request=>handleOrganizationChart(request,context)},
+ {prefix:'/api/kirkpatrick/v7/',handler:request=>handleKirkpatrickV7(request,context)},
+ {prefix:'/api/assessment/v6/',handler:request=>handleAssessmentsV6(request,{...context,onAssessmentSubmitted:(req,courseId)=>reconcileCompletion(req,context,courseId)})},
+ {prefix:'/api/intelligence/v6/',handler:request=>handleIntelligenceV6(request,context)},
+ {prefix:'/api/pulse/v5/',handler:request=>handlePulseV5(request,context)},
+ {prefix:'/api/discovery/v4/',handler:request=>handleDiscoveryV4(request,context)},
+ {prefix:'/api/reports/v3/',handler:request=>handleReportsV3(request,context)},
+ {prefix:'/api/scorm/v3/',handler:request=>handleScormV3(request,context)},
+ {prefix:'/scorm/v3/',handler:request=>handleScormV3(request,context)},
+ {prefix:'/api/lxp/v2/',handler:request=>handleLxpV2(request,context)},
+ {prefix:'/api/evo/',handler:request=>handleEvolution(request,context)}
+],request=>app.fetch(request,context))
 const setupPage = '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Ativar Learning Sanepav</title><form action="/ativar" method="post"><label>Código de ativação <input required type="password" name="code" autocomplete="off"></label><button>Ativar</button></form></html>'
 http.createServer(async (req,res) => {
   const requestId=randomUUID()
@@ -101,7 +122,7 @@ http.createServer(async (req,res) => {
       }
     }
     const request = new Request(url,options)
-    const result = await handleOrganizationChart(request,{BUCKET,DOMAIN}) || await handleKirkpatrickV7(request,{BUCKET,DOMAIN}) || await handleAssessmentsV6(request,{BUCKET,DOMAIN}) || await handleIntelligenceV6(request,{BUCKET,DOMAIN}) || await handlePulseV5(request,{BUCKET,DOMAIN}) || await handleDiscoveryV4(request,{BUCKET,DOMAIN}) || await handleReportsV3(request,{BUCKET,DOMAIN}) || await handleScormV3(request,{BUCKET,DOMAIN}) || await handleLxpV2(request,{BUCKET,DOMAIN}) || await handleEvolution(request,{BUCKET,DOMAIN}) || await app.fetch(request,{BUCKET,DOMAIN})
+    const result = await routeRequest(request)
     if(req.method==='GET'&&url.pathname==='/api/access'&&result.ok){
       const data=await result.json()
       if(data.setup){

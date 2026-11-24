@@ -4,6 +4,7 @@
  * Os dados refletem vínculos organizacionais ATUAIS; nunca inferir eventos ausentes.
  */
 import {createHash,randomUUID} from 'node:crypto'
+import {completionClassification} from './completion-v11.mjs'
 
 const LEGACY='system/state-v1'
 const LXP='lxp/v2/state'
@@ -26,7 +27,12 @@ const source=(label,definition,unit='quantidade',period='estoque')=>({label,defi
 export const REPORT_DEFINITIONS=Object.freeze({
  'people.active':source('Pessoas ativas no escopo','Pessoas ativas vinculadas às empresas e à hierarquia autorizadas, com vínculo organizacional atual.'),
  'learning.enrollments':source('Matrículas','Matrículas existentes no escopo; filtro temporal usa a data de atribuição apenas quando registrada.'),
- 'learning.completed':source('Matrículas concluídas','Matrículas com progresso de 100%, sem duplicar inscrições. Data de conclusão usada no filtro temporal quando disponível.'),
+ 'learning.completed':source('Matrículas concluídas','Matrículas com conclusão registrada (100%), inclusive legadas. A evidência é discriminada nos indicadores e no detalhamento; conclusão não equivale a prova de conhecimento.'),
+ 'learning.completion_legacy':source('Conclusões legadas','Matrículas concluídas antes do registro estruturado de evidências, sem inferir aprovação.'),
+ 'learning.completion_manual':source('Conclusões autodeclaradas','Conclusões cujo conteúdo foi confirmado pelo participante; podem incluir avaliação final exigida.'),
+ 'learning.completion_quiz':source('Conclusões por questionário','Conclusões com questionário corrigido no servidor, mais avaliações finais exigidas, quando houver.'),
+ 'learning.completion_scorm':source('Conclusões SCORM','Conclusões informadas pelo runtime em sessão autorizada, sem inferir aprendizagem independente.'),
+ 'learning.completion_assessed':source('Conclusões com avaliação final','Conclusões V11 que possuem ao menos uma avaliação final exigida e aprovada no servidor.'),
  'learning.completion_rate':source('Taxa de conclusão','Matrículas concluídas / matrículas elegíveis no recorte × 100.','%'),
  'learning.courses':source('Cursos alcançados','Cursos distintos com matrícula no escopo filtrado, não o catálogo global.'),
  'learning.avg_progress':source('Progresso médio','Média aritmética do progresso das matrículas válidas, sem inferir tempo estudado.','%'),
@@ -138,6 +144,8 @@ async function collect(bucket,scope,legacy){
   metric('people.active',scope.people.length),
   metric('learning.enrollments',enroll.length),
   metric('learning.completed',completed),
+  ...['legacy','manual','quiz','scorm'].map(kind=>metric('learning.completion_'+kind,enroll.filter(e=>completionClassification(e)===kind).length)),
+  metric('learning.completion_assessed',enroll.filter(e=>e.progress===100&&e.completionV11?.event&&e.completionV11.requirements?.length&&e.completionV11.requirements.every(r=>r.passed)).length),
   metric('learning.completion_rate',percent(completed,enroll.length),{numerator:completed,denominator:enroll.length}),
   metric('learning.courses',new Set(enroll.map(e=>e.course)).size),
   metric('learning.avg_progress',mean(enroll.map(x=>Number(x.progress)).filter(Number.isFinite))),
@@ -179,11 +187,11 @@ function dataRows(summary,scope){
  const u=people.get(e.person),c=courses.get(e.course),assign=summary.legacy.organization?.assignments?.get(e.person)
  return {id:e.id,personId:e.person,name:u?.name||'Colaborador não encontrado',companyId:assign?.company_id||'',departmentId:assign?.department_id||'',
   courseId:e.course,course:c?.title||'Curso removido',track:c?.track||'',type:c?.type||'',status:e.progress===100?'Concluído':e.progress?'Em andamento':'Não iniciado',
-  progress:Number(e.progress)||0,score:e.score??null,due:e.due||'',updated:e.updated||'',completed:e.completed||''}
+  progress:Number(e.progress)||0,score:e.score??null,due:e.due||'',updated:e.updated||'',completed:e.completed||'',evidenceType:completionClassification(e),assessmentRequired:e.completionV11?.requirements?.length??null,assessmentPassed:e.completionV11?.requirements?.filter(x=>x.passed).length??null}
  })
 }
 const escapeCsv=v=>{let s=norm(v);if(/^[\s\uFEFF]*[=+@\-\t\r]/u.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"'}
-const csv=rows=>{const cols=['id','personId','name','companyId','departmentId','courseId','course','track','type','status','progress','score','due','updated','completed']
+const csv=rows=>{const cols=['id','personId','name','companyId','departmentId','courseId','course','track','type','status','progress','score','due','updated','completed','evidenceType','assessmentRequired','assessmentPassed']
  return '\ufeff'+[cols.join(';'),...rows.map(r=>cols.map(c=>escapeCsv(r[c]??'')).join(';'))].join('\r\n')}
 
 
@@ -254,7 +262,7 @@ async function main(req,ctx){
   {code:'learning.actual_hours',reason:'Não há telemetria padronizada de tempo efetivo para todos os formatos.'},
   {code:'people.turnover',reason:'Sem base de admissões/desligamentos confiável integrada ao RH/DP.'},
   {code:'people.absenteeism',reason:'Sem sistema de ponto ou presença vinculado.'},
-  {code:'kirkpatrick.l3_l4',reason:'Dependem de instrumentos e indicadores organizacionais adicionais.'}
+  {code:'kirkpatrick.l3_l4',reason:'Disponíveis na visão Inteligência integrada quando há dados do módulo Kirkpatrick; não duplicados neste catálogo.'}
  ]})
  const result=await collect(bucket,scope,legacy)
  const common={version:'3.0.0',at:new Date().toISOString(),filters:scope.applied,scope:{companies:[...scope.allCompanies],people:scope.people.length},

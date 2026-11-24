@@ -7,7 +7,7 @@
  const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())
  const btn=(label,action,id='',cls='')=>'<button type="button" class="a6-btn '+cls+'" data-a6="'+action+'" data-id="'+safe(id)+'">'+safe(label)+'</button>'
  const option=(rows,value)=>rows.map(x=>'<option value="'+safe(x.id)+'" '+(String(x.id)===String(value)?'selected':'')+'>'+safe(x.name||x.title)+'</option>').join('')
- let items=[], optionsCache=null, busy=false
+ let items=[], optionsCache=null, busy=false, renderSequence=0
  let countdown=null, saveDelay=null
  const stopQuiz=()=>{clearInterval(countdown);clearTimeout(saveDelay);countdown=null;saveDelay=null}
  const currentAnswers=form=>[...form.querySelectorAll('.a6-answer-field')].map((_,i)=>{const value=new FormData(form).get('question-'+i);return value===null?null:Number(value)})
@@ -54,17 +54,18 @@
  }
  async function render(){
   stopQuiz()
-  const el=root();if(!el)return
+  const el=root(),sequence=++renderSequence;if(!el)return
   el.innerHTML=section(PAGE,'Instrumentos de aprendizagem com correção no servidor, histórico de tentativas e resultados verificáveis.','<div class="a6-loading">Carregando avaliações autorizadas…</div>')
   try{
-   const data=await api('assessment/v6/list')
-   if(page!==PAGE)return
+   const [data,completions]=await Promise.all([api('assessment/v6/list'),api('completion/v11/mine').catch(()=>null)])
+   if(page!==PAGE||root()!==el||sequence!==renderSequence)return
    items=data.items||[]
    el.innerHTML=section(PAGE,'Pré e pós-testes, avaliações finais e evidências de aprendizagem, sem conclusões fictícias no LMS.',
-    '<div class="a6-toolbar"><h2>'+(isManage()?'Avaliações sob gestão':'Suas avaliações')+'</h2>'+(isManage()?btn('Nova avaliação','create','','a6-primary'):'')+'</div>'+
+    '<div class="a6-toolbar"><h2>'+(isManage()?'Avaliações sob gestão':'Suas avaliações')+'</h2>'+(isManage()?btn('Nova avaliação','create','','a6-primary'):'')+btn('Sincronizar conclusões','reconcile')+'</div>'+
+    (completions?.items?.some(x=>x.pendingAssessment||x.revisionChanged)?'<div class="a6-warning" role="status">Há cursos com conclusão pendente. Responda às avaliações finais exigidas ou confirme o conteúdo atualizado. '+btn('Reconciliar conclusão','reconcile')+'</div>':'')+
     (items.length?'<div class="a6-grid">'+items.map(card).join('')+'</div>':empty('Nenhuma avaliação disponível','O RH pode criar uma avaliação vinculada a um curso publicado; colaboradores matriculados poderão respondê-la quando for publicada.'))+
     '<div id="a6-workspace" aria-live="polite"></div>')
-  }catch(e){el.innerHTML=section(PAGE,'',warning(e.message))}
+  }catch(e){if(page===PAGE&&root()===el&&sequence===renderSequence)el.innerHTML=section(PAGE,'',warning(e.message))}
  }
  function questionEditor(q,i){const opts=q?.options||['','','',''];const correct=q?.correctIndex??0
   return '<div class="a6-question" data-a6-question><div class="a6-question-head"><strong>Questão '+(i+1)+'</strong>'+btn('Remover','removeQuestion','','a6-danger')+'</div><label>Enunciado<textarea name="prompt" maxlength="500" minlength="5" rows="2" required>'+safe(q?.prompt||'')+'</textarea></label><div class="a6-option-grid">'+opts.map((o,j)=>'<label>Alternativa '+(j+1)+'<input type="text" data-option="'+j+'" value="'+safe(o)+'" maxlength="240" required></label>').join('')+'</div><div class="a6-fields"><label>Alternativa correta<select name="correctIndex">'+opts.map((_,j)=>'<option value="'+j+'" '+(j===correct?'selected':'')+'>'+(j+1)+'</option>').join('')+'</select></label><label>Peso da questão<input type="number" name="weight" min="1" max="5" value="'+safe(q?.weight||1)+'" required></label></div></div>'
@@ -126,6 +127,7 @@
   const node=event.target.closest('[data-a6]');if(!node||busy)return
   event.preventDefault();event.stopPropagation()
   const {a6:action,id}=node.dataset
+  if(action==='reconcile'){busy=true;void api('completion/v11/reconcile',{}).then(result=>{toast('Conclusões reconciliadas: '+result.items.filter(x=>x.progress===100).length);return render()}).catch(e=>toast(e.message)).finally(()=>busy=false);return}
   if(action==='catalog'){document.querySelector('aside nav button[data-id="Catálogo LMS"]')?.click();return}
   if(action==='dismiss'){stopQuiz();document.getElementById('a6-workspace')?.replaceChildren();return}
   if(action==='create'){void editor();return}
@@ -159,7 +161,7 @@
    const answers=currentAnswers(form)
    if(answers.some(x=>x===null)){toast('Responda todas as questões antes de enviar.');button.disabled=false;busy=false;return}
    const payload={id:form.dataset.id,attemptId:form.dataset.attempt,answers}
-   void api('assessment/v6/submit',payload).then(result=>{toast('Tentativa registrada. Nota: '+result.score+'% · '+(result.passed?'Aprovado':'Não aprovado'));return render()}).catch(e=>{toast(e.message);button.disabled=false}).finally(()=>busy=false)
+   void api('assessment/v6/submit',payload).then(result=>{toast('Tentativa registrada. Nota: '+result.score+'% · '+(result.passed?'Aprovado':'Não aprovado')+(result.completion?.items?.some(x=>x.progress===100)?' · Curso concluído':result.reconciliationPending?' · Sincronização de conclusão pendente':''));return render()}).catch(e=>{toast(e.message);button.disabled=false}).finally(()=>busy=false)
   }
  },true)
 })()

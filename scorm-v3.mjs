@@ -8,6 +8,7 @@
  */
 import {createHash, randomBytes, randomUUID, timingSafeEqual} from 'node:crypto'
 import {missingPrerequisites, courseStatus} from './learning.mjs'
+import {saveScormProgress} from './completion-v11.mjs'
 
 const SCOPE = '/scorm/v3/'
 const URL_TTL = 30 * 60_000
@@ -166,8 +167,19 @@ export function createScormRuntime({clock=()=>Date.now()}={}){
   const {BUCKET}=environment
   if(!BUCKET)return failure(503,'Armazenamento indisponível.')
   if(method==='OPTIONS'&&path.startsWith(SCOPE))return new Response(null,{status:204,headers:{'Access-Control-Allow-Origin':'null','Access-Control-Allow-Headers':'content-type,range','Access-Control-Allow-Methods':'GET,HEAD,OPTIONS','Access-Control-Max-Age':'600'}})
-  if(!['GET','HEAD'].includes(method))return failure(405,'Método não permitido.')
   prune()
+  if(path==='/api/scorm/v3/commit'&&method==='POST'){
+   try{
+    const input=await request.json(),session=sessions.get(input?.token)
+    if(!session||session.preview||typeof input?.key!=='string'||!verifiedEqual(session.key,input.key)||session.enrollmentId!==input?.id)return failure(403,'Sessão SCORM inválida ou expirada.')
+    const result=await saveScormProgress(request,environment,{id:input.id,cmi:input.cmi},(state,user)=>{
+     if(user.id!==session.personId||session.expires<clock()||session.expiresAbsolute<clock()||!permitted(state,user,session.courseId,session.enrollmentId,session.courseUpload))throw Object.assign(new Error('Acesso à sessão SCORM revogado.'),{status:403})
+    })
+    for(const [k,v] of Object.entries(input.cmi))if(!['cmi.core.student_id','cmi.core.student_name','cmi.learner_id','cmi.learner_name','cmi.core.credit','cmi.credit','cmi.mode','cmi.core.lesson_mode'].includes(k))session.cmi[k]=v;session.expires=Math.min(clock()+URL_TTL,session.expiresAbsolute)
+    return json(result)
+   }catch(e){return failure(e instanceof SyntaxError?400:e.status||500,e.status?e.message:e instanceof SyntaxError?'JSON inválido.':'Não foi possível registrar o progresso SCORM.')}
+  }
+  if(!['GET','HEAD'].includes(method))return failure(405,'Método não permitido.')
   if(path.startsWith('/api/scorm/v3/')){
    const state=await readState(BUCKET),user=authenticated(state,request)
    if(!user)return failure(401,'Entre no Learning para acessar esse conteúdo.')

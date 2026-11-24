@@ -184,6 +184,19 @@ function formCard(db,f,user,manage,student=false){
 }
 const csvEscape=x=>{let v=String(x??'');if(/^[\s\uFEFF]*[=+@\-\t\r]/u.test(v))v="'"+v;return '"'+v.replaceAll('"','""')+'"'}
 function csvResults(rows){const columns=['personId','name','attempts','bestScore','passed','lastAttemptAt'];return '\ufeff'+[columns.join(';'),...rows.map(row=>columns.map(k=>csvEscape(row[k])).join(';'))].join('\r\n')}
+// Completion reads the authoritative final forms and graded attempts, not client data.
+export function readFinalAssessmentRequirements(ctx,companyId,courseId){
+ if(!companyId)return []
+ const db=database(ctx);schema(db)
+ return db.prepare("SELECT id,title,revision FROM assessment_v6_forms WHERE company_id=? AND course_id=? AND kind='final' AND status='published' ORDER BY id").all(companyId,courseId).map(r=>({...r,passed:false}))
+}
+export function readFinalAssessmentPasses(ctx,ids,userId){
+ if(!ids.length)return Object.create(null)
+ const db=database(ctx);schema(db);const result=Object.create(null)
+ const q=db.prepare('SELECT id,score,submitted_at FROM assessment_v6_attempts WHERE form_id=? AND user_id=? AND passed=1 ORDER BY score DESC,submitted_at,id LIMIT 1')
+ for(const id of ids){const row=q.get(id,userId);if(row)result[id]=row}
+ return result
+}
 async function operation(req,{BUCKET,DOMAIN,...ctx}){
  const db=database(ctx);schema(db)
  const raw=await BUCKET.get('system/state-v1');guard(raw,'Ambiente não inicializado.',503)
@@ -241,6 +254,7 @@ async function operation(req,{BUCKET,DOMAIN,...ctx}){
   guard(b.revision===f.revision,'Revisão desatualizada.',409)
   guard(path==='publish'?f.status==='draft':f.status==='published','Transição de status inválida.',409)
   if(path==='publish')guard(currentCourse(state,f.course_id),'O curso não está publicado.',409)
+  if(path==='archive'&&f.kind==='final'){const pending=arr(state.enroll).filter(e=>e.progress!==100&&e.completionV11?.requirements?.some(r=>r.id===f.id));guard(pending.every(e=>Boolean(readFinalAssessmentPasses(ctx,[f.id],e.person)[f.id])),'Há matrículas aguardando aprovação nesta avaliação final. Não arquive antes de resolver as pendências.',409)}
   const status=path==='publish'?'published':'archived',now=new Date().toISOString()
   tx(db,()=>{const updated=db.prepare(`UPDATE assessment_v6_forms SET status=?,revision=revision+1,updated_at=?,${path==='publish'?'published_at':'archived_at'}=? WHERE id=? AND revision=?`).run(status,now,now,f.id,f.revision)
    guard(updated.changes===1,'Avaliação alterada por outra sessão.',409);audit(db,f.id,user,path,{revision:f.revision+1})})
@@ -325,7 +339,13 @@ async function operation(req,{BUCKET,DOMAIN,...ctx}){
    audit(db,f.id,user,'submitted',{attemptId:b.attemptId,score,passed})
    return {ok:true,score,passed,id:b.attemptId,submittedAt:when,idempotent:false,attemptNumber:consumedSlots(db,f.id,user.id)}
   })
-  return json({...outcome,note:'O resultado educacional não altera automaticamente o progresso oficial do LMS ou a emissão de certificados.'})
+  // The grade is committed first. If the legacy state write is temporarily unavailable,
+  // retain the grade and allow idempotent reconciliation without resubmitting answers.
+  let completion=null,reconciliationPending=false
+  if(outcome.passed&&f.kind==='final'&&ctx.onAssessmentSubmitted){
+   try{completion=await ctx.onAssessmentSubmitted(req,f.course_id)}catch{reconciliationPending=true}
+  }
+  return json({...outcome,completion,reconciliationPending,note:'A aprovação só conclui a matrícula quando todas as evidências exigidas estiverem registradas.'})
  }
  if(path==='question-analysis'&&req.method==='GET'){
   const f=getForm(db,url.searchParams.get('id'))

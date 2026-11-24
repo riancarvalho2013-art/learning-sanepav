@@ -12,6 +12,7 @@ import {handlePulseV5} from './pulse-secure-v5.mjs'
 import {handleAssessmentsV6} from './learning-assessments-v6.mjs'
 import {handleIntelligenceV6} from './people-intelligence-v6.mjs'
 import {handleKirkpatrickV7} from './kirkpatrick-v7.mjs'
+import {handleOrganizationChart} from './organization-chart-v9.mjs'
 
 const portArgument=process.argv.indexOf('--port')
 const devMode=process.env.NODE_ENV!=='production'&&portArgument>=0
@@ -100,7 +101,7 @@ http.createServer(async (req,res) => {
       }
     }
     const request = new Request(url,options)
-    const result = await handleKirkpatrickV7(request,{BUCKET,DOMAIN}) || await handleAssessmentsV6(request,{BUCKET,DOMAIN}) || await handleIntelligenceV6(request,{BUCKET,DOMAIN}) || await handlePulseV5(request,{BUCKET,DOMAIN}) || await handleDiscoveryV4(request,{BUCKET,DOMAIN}) || await handleReportsV3(request,{BUCKET,DOMAIN}) || await handleScormV3(request,{BUCKET,DOMAIN}) || await handleLxpV2(request,{BUCKET,DOMAIN}) || await handleEvolution(request,{BUCKET,DOMAIN}) || await app.fetch(request,{BUCKET,DOMAIN})
+    const result = await handleOrganizationChart(request,{BUCKET,DOMAIN}) || await handleKirkpatrickV7(request,{BUCKET,DOMAIN}) || await handleAssessmentsV6(request,{BUCKET,DOMAIN}) || await handleIntelligenceV6(request,{BUCKET,DOMAIN}) || await handlePulseV5(request,{BUCKET,DOMAIN}) || await handleDiscoveryV4(request,{BUCKET,DOMAIN}) || await handleReportsV3(request,{BUCKET,DOMAIN}) || await handleScormV3(request,{BUCKET,DOMAIN}) || await handleLxpV2(request,{BUCKET,DOMAIN}) || await handleEvolution(request,{BUCKET,DOMAIN}) || await app.fetch(request,{BUCKET,DOMAIN})
     if(req.method==='GET'&&url.pathname==='/api/access'&&result.ok){
       const data=await result.json()
       if(data.setup){

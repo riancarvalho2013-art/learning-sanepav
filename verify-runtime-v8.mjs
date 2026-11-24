@@ -24,7 +24,7 @@ try{
  let cwd=root
  if(fixture){
   cwd=directory
-  for(const f of ['serve.mjs','learning.mjs','learning-evolution.mjs','lxp-v2.mjs','scorm-v3.mjs','reports-v3.mjs','learning-discovery-v4.mjs','pulse-secure-v5.mjs','learning-assessments-v6.mjs','people-intelligence-v6.mjs','kirkpatrick-v7.mjs'])await copyFile(join(root,f),join(cwd,f))
+  for(const f of ['serve.mjs','learning.mjs','learning-evolution.mjs','lxp-v2.mjs','scorm-v3.mjs','reports-v3.mjs','learning-discovery-v4.mjs','pulse-secure-v5.mjs','learning-assessments-v6.mjs','people-intelligence-v6.mjs','kirkpatrick-v7.mjs','organization-chart-v9.mjs'])await copyFile(join(root,f),join(cwd,f))
   await writeFile(join(cwd,'platform.mjs'),'export default {fetch:async()=>new Response("Not found",{status:404})}')
   const seed={users:[{id:uid,name:'QA',role:'Administrador',active:true}],sessions:[{person:uid,digest:createHash('sha256').update(token).digest('hex'),identity:'learning-railway',until:Date.now()+600000}],courses:[],enroll:[],records:[],pulses:[],missions:[],missionEnrollments:[],organization:{companies:[{id:company,name:'QA',active:1}],units:[],departments:[],grants:[],assignments:[]}}
   await writeFile(join(cwd,'storage.mjs'),`const state=${JSON.stringify(seed)};state.organization.assignments=new Map([[${JSON.stringify(uid)},{company_id:${JSON.stringify(company)}}]]);export const BUCKET={async get(key){return key==='system/state-v1'?{async json(){return state}}:null}};export const DOMAIN={allowedCompanies(s,u){if(s!==state)throw Error('Invalid domain state');return s.organization.companies.map(c=>c.id)}};`)

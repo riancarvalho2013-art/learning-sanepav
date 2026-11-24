@@ -98,5 +98,13 @@
   "/kirkpatrick-v7.css": {
     "file": "web-kirkpatrick-v7.css",
     "mime": "text/css;charset=utf-8"
+  },
+  "/orgchart-v9.js": {
+    "file": "web-orgchart-v9.js",
+    "mime": "text/javascript;charset=utf-8"
+  },
+  "/orgchart-v9.css": {
+    "file": "web-orgchart-v9.css",
+    "mime": "text/css;charset=utf-8"
   }
 }

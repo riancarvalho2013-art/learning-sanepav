@@ -1,0 +1,36 @@
+/* Learning Sanepav — DNA do Desenvolvimento · Assessment V6 */
+.a6-root{--a6-blue:#1768b5;--a6-ink:#173d68;--a6-line:#d7e7f5;--a6-bg:#f5faff;color:var(--a6-ink);max-width:1300px;margin:auto;padding:clamp(12px,2.5vw,28px) 0 48px}
+.a6-root *{box-sizing:border-box}
+.a6-hero{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;padding:28px clamp(20px,3vw,40px);border:1px solid #c5e1f4;border-radius:24px;background:linear-gradient(120deg,#e8f5ff,#fff 75%);margin-bottom:24px}
+.a6-kicker{font-size:11px;font-weight:800;letter-spacing:.13em;color:#1672ba}
+.a6-hero h1{font-size:clamp(27px,3vw,41px);line-height:1.1;letter-spacing:-.035em;margin:10px 0;color:#19436e}
+.a6-hero p{font-size:14px;color:#6081a3;max-width:690px;margin:0;line-height:1.6}
+.a6-toolbar,.a6-work-head,.a6-heading,.a6-form-footer,.a6-question-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.a6-toolbar{margin-bottom:14px}.a6-toolbar h2{font-size:21px;margin:0;color:#234b73}
+.a6-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;border:1px solid #cce0f2;border-radius:12px;min-height:41px;padding:10px 14px;background:#fff;color:#1c5f9d;font:inherit;font-size:13px;font-weight:700;text-decoration:none;transition:background .18s,box-shadow .18s,transform .18s}
+.a6-btn:hover{background:#eaf5ff;box-shadow:0 6px 18px #196caf15;transform:translateY(-1px)}.a6-btn:focus-visible{outline:3px solid #4fa8ff;outline-offset:2px}
+.a6-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.a6-btn.a6-primary{color:#fff;background:#186db7;border-color:#186db7}.a6-btn.a6-primary:hover{background:#115c9e}
+.a6-btn.a6-alert,.a6-btn.a6-danger{color:#a33c41;border-color:#f1cccf}.a6-btn.a6-light,.a6-btn.a6-outline{background:#f7fbff}
+.a6-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr));gap:16px}
+.a6-card{background:#fff;border:1px solid var(--a6-line);border-radius:20px;padding:23px;box-shadow:0 6px 22px #1d64ad08;min-height:218px}
+.a6-card-meta{display:flex;justify-content:space-between;gap:8px;align-items:center;color:#5584af;font-size:12px;font-weight:700}
+.a6-card h2{font-size:19px;line-height:1.35;margin:15px 0 8px;color:#183d67}.a6-card p{font-size:13px;line-height:1.65;color:#587899;margin:5px 0}.a6-card .a6-dates{font-size:12px}
+.a6-status,.a6-tag{border-radius:99px;background:#e8f2fb;color:#26679d;padding:5px 9px;font-size:11px;white-space:nowrap}.a6-published{background:#e9f8f4;color:#197962}.a6-archived{background:#f3f3f3;color:#677482}
+.a6-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:17px}.a6-actions .a6-btn{font-size:12px;padding:8px 11px;min-height:38px}
+.a6-empty,.a6-loading,.a6-warning{padding:36px 20px;text-align:center;border:1px dashed #b5d4eb;border-radius:18px;background:#f7fbff;color:#6381a0}.a6-warning{border-style:solid;background:#fff9f6;color:#8a5337}.a6-empty h2{font-size:20px;margin:0 0 8px;color:#254f77}
+.a6-editor{margin-top:26px;padding:clamp(18px,3vw,33px);border:1px solid var(--a6-line);border-radius:23px;background:#fff;box-shadow:0 8px 28px #1a629409}.a6-work-head{margin-bottom:20px}.a6-work-head h2{font-size:22px;margin:0}
+.a6-editor label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:#4c7295}
+.a6-editor input,.a6-editor textarea,.a6-editor select{width:100%;border:1px solid #c5dbee;background:#fff;color:#234a73;border-radius:11px;padding:11px 12px;font:inherit;font-size:14px;min-height:43px}
+.a6-editor textarea{resize:vertical}.a6-editor input:focus-visible,.a6-editor textarea:focus-visible,.a6-editor select:focus-visible{outline:2px solid #55abf1;outline-offset:1px}
+.a6-fields,.a6-option-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:15px}
+.a6-heading{margin:24px 0 12px}.a6-heading h3{margin:0;font-size:18px}
+.a6-help{font-size:12px;color:#7892a9;line-height:1.6}
+.a6-question,.a6-review,.a6-answer-field{padding:22px;border:1px solid #d7e8f4;border-radius:16px;background:#fafdff;margin:13px 0}
+.a6-question-head{margin-bottom:15px}.a6-option-grid{margin:16px 0}.a6-form-footer{margin-top:23px;border-top:1px solid #e1eef8;padding-top:20px}.a6-form-footer small{color:#7790a5;max-width:500px}
+.a6-answer-field{border:1px solid #d7e8f4}.a6-answer-field legend{font-size:15px;font-weight:750;color:#214b72;padding:0 6px}.a6-answer-field label{display:flex;flex-direction:row;gap:12px;align-items:center;padding:12px;margin:8px 0;background:#fff;border:1px solid #e1ebf6;border-radius:12px;font-size:14px;font-weight:500}.a6-answer-field input[type=radio]{width:18px;height:18px;min-height:18px;accent-color:#247cc6}
+.a6-review li{margin:8px 0;font-size:14px}.a6-answer{font-size:12px;color:#167b65}
+.a6-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:20px 0}.a6-kpis>div{background:#eef7ff;border:1px solid #d6e9f8;border-radius:14px;padding:16px}.a6-kpis small{display:block;font-size:12px;color:#6383a3}.a6-kpis strong{display:block;font-size:24px;margin-top:8px}
+.a6-table-scroll{max-width:100%;overflow-x:auto;border-radius:14px;border:1px solid #d6e8f5}.a6-table{width:100%;border-collapse:collapse;min-width:630px}.a6-table th,.a6-table td{padding:13px 16px;border-bottom:1px solid #edf2f7;text-align:left;font-size:13px}.a6-table th{background:#eef7ff;color:#406a8d}.a6-table tr:last-child td{border-bottom:0}
+@media(max-width:700px){.a6-hero{padding:22px}.a6-editor{padding:17px}.a6-btn{min-height:43px}.a6-actions>.a6-btn{flex-grow:1}.a6-option-grid{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.a6-btn{transition:none}.a6-btn:hover{transform:none}}

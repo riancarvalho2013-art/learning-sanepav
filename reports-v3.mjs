@@ -107,7 +107,7 @@ function lxpRows(legacy,lxp,scope){
 }
 function pulseSummary(lxp,scope){
  // Strict privacy: no small-group analytics, person or department slicing, nor respondent exports.
- if(scope.person||scope.department)return {surveys:null,mean:null,responseRate:null,suppressed:true,reason:'Recorte individual ou por departamento não permitido para Pulse anônimo.'}
+ if(scope.person||scope.department)return {surveys:null,mean:null,responseRate:null,suppressed:true,reason:'Recorte individual ou por departamento não permitido para registros Pulse identificados na origem.'}
  const eligible=arr(lxp.pulses).filter(p=>scope.allCompanies.has(p.companyId)&&inPeriod(p.createdAt,scope))
  const qualified=[]
  for(const p of eligible){
@@ -258,7 +258,7 @@ async function main(req,ctx){
  ]})
  const result=await collect(bucket,scope,legacy)
  const common={version:'3.0.0',at:new Date().toISOString(),filters:scope.applied,scope:{companies:[...scope.allCompanies],people:scope.people.length},
-  caveats:['Estrutura organizacional atual, não fotografia histórica.','Períodos em matrículas dependem das datas registradas; ausência de timestamp não é preenchida artificialmente.','Pulse anônimo protege o nível mínimo de sete respostas e recortes pequenos.']}
+  caveats:['Estrutura organizacional atual, não fotografia histórica.','Períodos em matrículas dependem das datas registradas; ausência de timestamp não é preenchida artificialmente.','Pulse legado mantém respostas identificadas na origem; o limiar de sete respostas protege apenas a divulgação agregada, sem anonimização retroativa.']}
  if(route==='summary')return send({...common,metrics:result.metrics,byCourse:result.byCourse.slice(0,100),departments:result.departments,privacy:result.pulse})
  if(route==='enrollments'||route==='export.csv'){
   const rows=dataRows(result,scope)

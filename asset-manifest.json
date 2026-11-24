@@ -74,5 +74,21 @@
   "/discovery-v4.js": {
     "file": "web-discovery-v4.js",
     "mime": "text/javascript;charset=utf-8"
+  },
+  "/pulse-v5.js": {
+    "file": "web-pulse-v5.js",
+    "mime": "text/javascript;charset=utf-8"
+  },
+  "/pulse-v5.css": {
+    "file": "web-pulse-v5.css",
+    "mime": "text/css;charset=utf-8"
+  },
+  "/assessments-v6.css": {
+    "file": "web-assessments-v6.css",
+    "mime": "text/css;charset=utf-8"
+  },
+  "/assessments-v6.js": {
+    "file": "web-assessments-v6.js",
+    "mime": "text/javascript;charset=utf-8"
   }
 }

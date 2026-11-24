@@ -3,10 +3,10 @@
 'use strict'
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 const n=x=>x==null||!Number.isFinite(Number(x))?'Não disponível':Number(x).toLocaleString('pt-BR',{maximumFractionDigits:2})
-const tabs=[['Geral','Visão Geral'],['LMS','Aprendizagem'],['DHO','DHO e LXP'],['Pessoas','Pessoas e áreas'],['Matrículas','Detalhamento'],['Dicionário','Dicionário']]
+const tabs=[['Geral','Visão Geral'],['LMS','Aprendizagem'],['DHO','DHO e LXP'],['DNA','Inteligência integrada'],['Pessoas','Pessoas e áreas'],['Matrículas','Detalhamento'],['Dicionário','Dicionário']]
 const groups={Geral:['people.active','learning.enrollments','learning.completed','learning.completion_rate','learning.courses','learning.certificates','dho.reviews_submitted','dho.pdi_actions','dho.pulse_mean'],LMS:['learning.enrollments','learning.completed','learning.completion_rate','learning.courses','learning.avg_progress','learning.score_avg','learning.expired','learning.certificates','learning.tracks'],DHO:['dho.pdi_actions','dho.pdi_completion','dho.cycles','dho.reviews_assigned','dho.reviews_submitted','dho.review_adherence','dho.meetings','dho.feedback_requests','dho.pulse_surveys','dho.pulse_mean','dho.pulse_response_rate']}
 let savedViews=null,reportContextInitialized=false,lastHeaderCompany=''
-let section='Geral', reportState={company:'',department:'',person:'',course:'',from:'',to:''},catalog=null,last=null,offset=0,token=0
+let integrated=null;let section='Geral', reportState={company:'',department:'',person:'',course:'',from:'',to:''},catalog=null,last=null,offset=0,token=0
 const $r=()=>document.getElementById('inside')
 const query=()=>new URLSearchParams(Object.entries(reportState).filter(([k,v])=>v)).toString()
 const filters=()=>query()?'?'+query():''
@@ -34,11 +34,28 @@ function courseTable(){const a=last?.byCourse||[];return a.length?table(['Curso'
 function deptTable(){const depts=last?.departments||[],names=new Map(org().departments.map(x=>[x.id,x.name]));return depts.length?table(['Departamento','Pessoas','Matrículas','Conclusões','Taxa de conclusão'],depts.map(x=>'<tr><td><b>'+esc(names.get(x.id)||x.label)+'</b></td>'+(x.suppressed?'<td colspan="4">Dados suprimidos: menos de cinco pessoas</td>':'<td>'+n(x.people)+'</td><td>'+n(x.enrollments)+'</td><td>'+n(x.completed)+'</td><td>'+n(x.completionRate)+'%</td>')+'</tr>')):info('Nenhuma pessoa encontrada no escopo autorizado.')}
 const actions=()=>'<div class="r3-actions"><a class="r3-btn r3-primary" href="/api/reports/v3/export.csv'+esc(filters())+'" download>Exportar matrículas CSV</a><button type="button" class="r3-btn" data-r3="xlsx">Exportar Excel XLSX</button><button type="button" class="r3-btn" data-r3="print">Imprimir / salvar PDF</button></div>'
 const annotations=()=>'<aside class="r3-disclaimer"><b>Como interpretar:</b> '+esc((last?.caveats||[]).join(' '))+'</aside>'
+
+function dnaSource(source,title,rows){
+ if(!source?.available)return card(title,info(source?.reason||'Fonte indisponível.'))
+ return card(title,'<div class="r3-metrics">'+rows.map(([k,label,unit])=>'<article class="r3-card"><div class="r3-card-label">'+esc(label)+'</div><strong class="r3-number">'+n(source.metrics?.[k])+(unit||'')+'</strong><p>Fonte: '+esc(source.source||'Dados autorizados')+'</p></article>').join('')+'</div>')
+}
+function integratedView(){
+ if(reportState.department||reportState.person||reportState.course)return info('Esta visão apresenta apenas agregados autorizados por empresa e período. Limpe os filtros de departamento, pessoa e curso para consultar Pulse com segurança.')
+ if(!integrated)return info('Consultando dados de interação, avaliações e pesquisas…')
+ const src=integrated.sources||{}
+ return '<aside class="r3-disclaimer"><strong>Critério de privacidade:</strong> fontes não disponíveis e amostras pequenas não são transformadas em zeros. Nenhuma resposta individual de pesquisa será exibida.</aside>'+ 
+ dnaSource(src.lxp,'Descoberta e engajamento LXP',[["activePeople","Pessoas com interações"],["catalogViews","Visitas ao catálogo"],["searches","Pesquisas realizadas"],["launchRequests","Solicitações de abertura de aula"],["bookmarks","Favoritos atuais"],["ratings","Avaliações de conteúdo"],["averageRating","Nota média"," / 5"]])+ 
+ dnaSource(src.assessments,'Avaliações educacionais',[["publishedOrArchivedForms","Avaliações publicadas ou arquivadas"],["participantAssessments","Avaliações respondidas por pessoa"],["attempts","Tentativas no período"],["passed","Aprovações por pessoa e formulário"],["passRate","Taxa de aprovação","%"],["averageBestScore","Maior nota média","%"]])+ 
+ dnaSource(src.pulseSafe,'Pulse Seguro V5 · Dados agregados',[["qualifiedSurveys","Pesquisas elegíveis encerradas"],["suppressedSurveys","Pesquisas protegidas / em andamento"],["invited","Convites das pesquisas elegíveis"],["respondents","Participações elegíveis"],["responseRate","Taxa de participação","%"]])+ 
+ card('Definições e limites',(integrated.caveats||[]).map(x=>'<p>'+esc(x)+'</p>').join(''),'Período e empresa são respeitados no backend')
+}
+
 function content(){
- if(section==='Dicionário')return card('Definições oficiais',catalog?table(['Indicador','Código','Cálculo / critério','Unidade'],catalog.definitions.map(x=>'<tr><td><b>'+esc(x.label)+'</b></td><td><code>'+esc(x.code)+'</code></td><td>'+esc(x.definition)+'</td><td>'+esc(x.unit)+'</td></tr>')):info('Carregando dicionário.'))+card('Ainda sem fonte confiável',(catalog?.notTracked||[]).map(x=>'<p><b>'+esc(x.code)+':</b> '+esc(x.reason)+'</p>').join(''))
+ if(section==='DNA')return integratedView()
+	 if(section==='Dicionário')return card('Definições oficiais',catalog?table(['Indicador','Código','Cálculo / critério','Unidade'],catalog.definitions.map(x=>'<tr><td><b>'+esc(x.label)+'</b></td><td><code>'+esc(x.code)+'</code></td><td>'+esc(x.definition)+'</td><td>'+esc(x.unit)+'</td></tr>')):info('Carregando dicionário.'))+card('Ainda sem fonte confiável',(catalog?.notTracked||[]).map(x=>'<p><b>'+esc(x.code)+':</b> '+esc(x.reason)+'</p>').join(''))
  if(section==='Pessoas')return metrics(['people.active','learning.enrollments','learning.completed','learning.completion_rate'])+card('Comparativo por departamento',deptTable(),'Resultados abaixo de cinco pessoas são suprimidos')+annotations()
  if(section==='LMS')return metrics(groups.LMS)+card('Conclusão por curso',chart())+card('Detalhamento dos cursos',courseTable())+actions()+annotations()
- if(section==='DHO')return metrics(groups.DHO)+card('Privacidade de pesquisas',info('Resultados de Pulse com menos de 7 respostas não aparecem em médias. O sistema não expõe respostas individuais nem notas privadas de 1:1.'))+annotations()
+ if(section==='DHO')return metrics(groups.DHO)+card('Privacidade de pesquisas',info('No Pulse legado, respostas foram armazenadas com identificação; apenas a saída da Central de Relatórios é agregada. Use Pulse Seguro V5 para novas pesquisas protegidas.'))+annotations()
  if(section==='Matrículas')return card('Matrículas autorizadas','<div id="r3-enrollmentRows">'+info('Carregando registros…')+'</div>')+actions()+annotations()
  return metrics(groups.Geral)+card('Aprendizagem por curso',chart(),'Taxa de conclusão')+card('Resumo por departamento',deptTable(),'Mínimo de cinco pessoas')+actions()+annotations()
 }
@@ -47,8 +64,8 @@ async function render(){const el=$r();if(!el)return
  const currentHeader=firstCompany();if(!reportContextInitialized||currentHeader!==lastHeaderCompany){reportState.company=currentHeader;reportState.department='';lastHeaderCompany=currentHeader;reportContextInitialized=true}
  const job=++token;el.innerHTML=skeleton()
  try{
-  const out=await Promise.all([api('reports/v3/summary'+filters()),catalog?Promise.resolve(catalog):api('reports/v3/catalog'),savedViews?Promise.resolve({items:savedViews}):api('reports/v3/views')]);if(job!==token||page!=='Relatórios')return
-  last=out[0];catalog=out[1];savedViews=out[2].items||[]
+  const out=await Promise.all([api('reports/v3/summary'+filters()),catalog?Promise.resolve(catalog):api('reports/v3/catalog'),savedViews?Promise.resolve({items:savedViews}):api('reports/v3/views'),section==='DNA'&&!reportState.department&&!reportState.person&&!reportState.course?api('intelligence/v6/summary'+filters()):Promise.resolve(null)]);if(job!==token||page!=='Relatórios')return
+  last=out[0];catalog=out[1];savedViews=out[2].items||[];integrated=out[3]
   el.innerHTML='<section class="r3-wrapper">'+top('Indicadores rastreáveis, permissões por empresa e recortes consistentes.')+content()+'</section>'
   if(section==='Matrículas')void loadRows()
  }catch(ex){if(job===token&&page==='Relatórios')el.innerHTML='<section class="r3-wrapper">'+top()+'<div class="r3-error" role="alert">'+esc(ex.message||'Não foi possível carregar a central de relatórios.')+'</div></section>'}

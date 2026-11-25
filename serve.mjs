@@ -56,7 +56,7 @@ const routeRequest=createRouteRegistry([
  {prefix:'/api/lxp/v2/',handler:request=>handleLxpV2(request,context)},
  {prefix:'/api/evo/',handler:request=>handleEvolution(request,context)}
 ],request=>guardLegacyOKR(request,context,r=>app.fetch(r,context)))
-const setupPage = '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Ativar Learning Sanepav</title><form action="/ativar" method="post"><label>Código de ativação <input required type="password" name="code" autocomplete="off"></label><button>Ativar</button></form></html>'
+const setupPage = '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Ativar Learning Academy</title><form action="/ativar" method="post"><label>Código de ativação <input required type="password" name="code" autocomplete="off"></label><button>Ativar</button></form></html>'
 http.createServer(async (req,res) => {
   const requestId=randomUUID()
   const requestAt=Date.now()

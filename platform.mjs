@@ -15,7 +15,7 @@ const number=(v,min,max)=>{const n=Number(v);requireOk(v!==''&&v!=null&&Number.i
 const hex=a=>Array.from(new Uint8Array(a),x=>x.toString(16).padStart(2,'0')).join('')
 const hash=async v=>hex(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(v)))
 const password=hashPassword
-function initial(){return {users:[],sessions:[],logs:[],courses:[],enroll:[],records:[],uploads:[],fails:{},theme:{color:'#062b4f',accent:'#94c928',title:'Learning Sanepav',layout:'Confortável'}}}
+function initial(){return {users:[],sessions:[],logs:[],courses:[],enroll:[],records:[],uploads:[],fails:{},theme:{color:'#092756',accent:'#33c5e9',title:'Learning Academy',layout:'Confortável'}}}
 async function change(env,fn){
  for(let i=0;i<8;i++){const obj=await env.BUCKET.get(stateKey),s=obj?await obj.json():initial();const result=await fn(s)
  const saved=await env.BUCKET.put(stateKey,JSON.stringify(s),{onlyIf:obj?{etagMatches:obj.etag}:{etagDoesNotMatch:'*'},organizationAssignment:s.pendingOrganizationAssignment})

@@ -106,5 +106,17 @@
   "/orgchart-v9.css": {
     "file": "web-orgchart-v9.css",
     "mime": "text/css;charset=utf-8"
+  },
+  "/academy-mark.svg": {
+    "file": "web-academy-mark.svg",
+    "mime": "image/svg+xml"
+  },
+  "/auth-v20.css": {
+    "file": "web-auth-v20.css",
+    "mime": "text/css;charset=utf-8"
+  },
+  "/auth-v20.js": {
+    "file": "web-auth-v20.js",
+    "mime": "text/javascript;charset=utf-8"
   }
 }

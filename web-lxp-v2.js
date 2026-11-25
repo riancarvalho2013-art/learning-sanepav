@@ -40,7 +40,7 @@ function enhanceMenu(){
  const nav=document.querySelector('aside nav');if(!nav)return
  let cluster=nav.querySelector('#lxpNavigation')
  if(!cluster){cluster=document.createElement('div');cluster.id='lxpNavigation';nav.append(cluster)}
- const entries=[['Minha jornada','growth'],['Meu acesso','person']]
+ const entries=[['Minha jornada','growth'],['Academia de práticas','growth'],['Meu acesso','person']]
  cluster.innerHTML='<small>Experiência e autonomia</small>'+entries.map(([name,type])=>'<button type="button" data-act="nav" data-id="'+e(name)+'" class="'+(page===name?'sel':'')+'"><span class="ico">'+ic(type)+'</span>'+e(name)+'</button>').join('')
  for(const [name,icon] of [['Pulse','pulse'],['Desempenho','performance'],['PDI','growth'],['1:1','calendar'],['Feedback','feedback']]){
   const item=[...nav.querySelectorAll('button[data-id]')].find(b=>b.dataset.id===name)
@@ -59,6 +59,7 @@ body=function(...args){
  if(page==='1:1'){void renderMeetings();return}
  if(page==='Feedback'){void renderFeedback();return}
  if(page==='Minha jornada'){void renderJourney();return}
+ if(page==='Academia de práticas'){renderAcademy19();return}
  if(page==='Meu acesso'){void renderAccess();return}
  priorBody(...args)
  if(page==='Pessoas'&&d?.me?.role==='Administrador'){importButton();inviteButtons17()}
@@ -216,7 +217,7 @@ async function editPerformance(id=''){
  lxpPerfDraft=c;resetQuestions(c)
  const companyId=c?.companyId||companyPick(),startDate=c?.startDate||iso(),endDate=c?.endDate||iso()
  const content=panel('1. Identificação do ciclo','<form id="lxpPerformanceBuilder">'+field('Nome do ciclo','title',c?.title||'Avaliação de desempenho semestral','text','required maxlength="160"')+textarea('Objetivo do ciclo','description',c?.description||'','','maxlength="1200"')+populationForm(companyId)+'<div class="lxp-form-grid">'+field('Início das respostas','startDate',startDate,'date','required')+field('Fim das respostas','endDate',endDate,'date','required')+'</div><div class="lxp-form-grid">'+
- '<label class="lxp-check"><input type="checkbox" name="includeSelf" '+(c?.includeSelf===false?'':'checked')+'> Colaborador responde a autoavaliação</label><label class="lxp-check"><input type="checkbox" name="includeLeader" '+(c?.includeLeader===false?'':'checked')+'> Liderança avalia o liderado</label><label class="lxp-check"><input type="checkbox" name="includePeer" '+(c?.includePeer?'checked':'')+'> Pares com o mesmo gestor</label><label class="lxp-check"><input type="checkbox" name="includeReports" '+(c?.includeReports?'checked':'')+'> Liderados avaliam seu gestor</label><label class="lxp-check"><input type="checkbox" name="requireCalibration" '+(c?.requireCalibration?'checked':'')+'> Exigir etapa de calibração</label></div><p class="lxp-muted">As tarefas são criadas na publicação. Pares e liderados só têm resultados agregados liberados com ao menos três notas válidas; os registros de origem são identificados.</p>'+ '</form>')+
+ '<label class="lxp-check"><input type="checkbox" name="includeSelf" '+(c?.includeSelf===false?'':'checked')+'> Colaborador responde a autoavaliação</label><label class="lxp-check"><input type="checkbox" name="includeLeader" '+(c?.includeLeader===false?'':'checked')+'> Liderança avalia o liderado</label><label class="lxp-check"><input type="checkbox" name="includePeer" '+(c?.includePeer?'checked':'')+'> Pares com o mesmo gestor</label><label class="lxp-check"><input type="checkbox" name="includeReports" '+(c?.includeReports?'checked':'')+'> Liderados avaliam seu gestor</label><label class="lxp-check"><input type="checkbox" name="requireCalibration" '+(c?.requireCalibration?'checked':'')+'> Exigir etapa de calibração</label><label class="lxp-check"><input type="checkbox" name="selfPdiEnabled" '+(c?.selfPdiEnabled?'checked':'')+'> Permitir criar meu PDI a partir do resultado liberado</label></div><p class="lxp-muted">As tarefas são criadas na publicação. Pares e liderados só têm resultados agregados liberados com ao menos três notas válidas; os registros de origem são identificados.</p>'+ '</form>')+
  panel('2. Formulário de autoavaliação','<div id="lxpQuestions-self" class="lxp-question-list"></div>'+button('Adicionar pergunta de autoavaliação','perf-add-question','self'))+
  panel('3. Formulário da liderança','<div id="lxpQuestions-leader" class="lxp-question-list"></div>'+button('Adicionar pergunta da liderança','perf-add-question','leader'))+
  panel('4. Formulário de pares','<div id="lxpQuestions-peer" class="lxp-question-list"></div>'+button('Adicionar pergunta para pares','perf-add-question','peer'))+
@@ -231,12 +232,22 @@ async function savePerformance(){
  const formData=new FormData(form)
  const b=Object.fromEntries(formData);b.departmentIds=formData.getAll('departmentIds');b.personIds=formData.getAll('personIds');b.includeCreator=form.elements.includeCreator?.checked||false
  b.includeSelf=form.elements.includeSelf.checked;b.includeLeader=form.elements.includeLeader.checked
- b.includePeer=form.elements.includePeer.checked;b.includeReports=form.elements.includeReports.checked;b.requireCalibration=form.elements.requireCalibration.checked
+ b.includePeer=form.elements.includePeer.checked;b.includeReports=form.elements.includeReports.checked;b.requireCalibration=form.elements.requireCalibration.checked;b.selfPdiEnabled=form.elements.selfPdiEnabled.checked
  for(const k of perspectiveKeys)b[k+'Questions']=questionCollections[k]
  if(lxpPerfDraft){b.id=lxpPerfDraft.id;b.revision=lxpPerfDraft.revision}
  try{const r=await apiLxp('performance',b);notify('Ciclo salvo como rascunho. Revise e publique quando estiver pronto.');void openPerformance(r.id)}catch(ex){notify(ex.message)}
 }
 function recommendedPanel17(rows,self=true){if(!rows?.length)return '';return panel('Aprendizagem recomendada',rows.map(r=>'<div class="lxp-line"><div><strong>'+e(r.label)+'</strong><small>'+e(r.gap===null?'Sem meta comparável':r.gap>0?'Gap de '+r.gap+' pontos':'Meta alcançada')+'</small>'+r.items.map(item=>'<p>'+e(item.kind==='course'?'Curso':'Trilha')+' · '+e(item.title)+' · '+e(item.progress)+'%</p>').join('')+(r.unavailable?'<small>'+e(r.unavailable)+' recomendação(ões) sem acesso no momento. Solicite atribuição à gestão de aprendizagem.</small>':'')+'</div>'+(self?'<div class="lxp-heading-actions">'+(r.items.some(k=>k.kind==='course')?button('Abrir catálogo','goto','Catálogo LMS'):'')+(r.items.some(k=>k.kind==='mission')?button('Abrir trilhas','goto','Missões'):'')+'</div>':'')+'</div>').join(''))}
+function selfDevelopmentPanel19(c){if(!c.selfPdiEnabled||!c.competencies?.some(x=>x.observed!==null))return '';return panel('Do resultado à prática','<p>Escolha uma competência do seu resultado liberado e confirme uma ação. Nada será criado antes de salvar.</p>'+c.competencies.filter(x=>x.observed!==null).map(x=>'<div class="lxp-line"><strong>'+e(x.label)+'</strong>'+button('Criar ação no meu PDI','self-development',JSON.stringify({cycle:c.id,key:x.key}),'primary')+'</div>').join(''))}
+async function openSelfDevelopment19(input){
+ const route=page,viewer=d.me.id,anchor=root(),token=++renderToken,c=await apiLxp('performance/cycle?id='+encodeURIComponent(input.cycle));if(page!==route||viewer!==d?.me?.id||root()!==anchor||token!==renderToken)return
+ const topic=c.competencies?.find(x=>x.key===input.key&&x.observed!==null);if(!c.selfPdiEnabled||!topic)throw Error('Conexão indisponível neste relatório.')
+ const options=c.recommendations?.find(x=>x.key===topic.key)?.items||[],requestId=crypto.randomUUID()
+ enterScreen(screen('Desenvolvimento a partir da avaliação',topic.label,'A origem será registrada no seu PDI. Revise objetivo, prática e prazo.',panel('Nova ação','<form id="selfDevelopment19">'+boxInfo('Evidência da avaliação','Observado: '+topic.observed+' · Esperado: '+(topic.expected??'Não definido')+' · Ciclo: '+c.title)+field('Ação de desenvolvimento','title','Desenvolver '+topic.label,'text','required maxlength="150"')+textarea('Como vou praticar e demonstrar evolução?','description','','maxlength="1500"')+select('Tipo de aprendizagem','mix',[['70','Experiência prática · 70'],['20','Aprendizagem social · 20'],['10','Formação · 10']])+select('Treinamento recomendado (opcional)','learning',[['','Sem vínculo'],...options.map(x=>[x.kind+':'+x.id,x.title+' · '+x.progress+'%'])])+field('Prazo','dueDate',iso(),'date','required')+'<p role="status" data-self-status></p><div class="lxp-form-actions">'+button('Voltar ao relatório','perf-open',c.id)+'<button type="submit" class="lxp-btn primary">Criar minha ação</button></div></form>')))
+ const f=$('selfDevelopment19'),valid=()=>f.isConnected&&page===route&&viewer===d?.me?.id&&token===renderToken
+ f.elements.learning.onchange=()=>{const chosen=options.find(x=>x.kind+':'+x.id===f.elements.learning.value);f.elements.mix.disabled=!!chosen;if(chosen){f.elements.mix.value='10';f.elements.title.value=chosen.title}}
+ f.onsubmit=async ev=>{ev.preventDefault();if(!valid())return;const btn=f.querySelector('[type=submit]');if(btn.disabled)return;btn.disabled=true;const chosen=options.find(x=>x.kind+':'+x.id===f.elements.learning.value),payload={id:c.id,requestId,competencyKey:topic.key,title:f.elements.title.value,description:f.elements.description.value,mix:f.elements.mix.value,dueDate:f.elements.dueDate.value,...(chosen?{learningLink:{kind:chosen.kind,id:chosen.id}}:{})};try{await apiLxp('performance/my-development',payload);if(valid()){notify('Ação criada no seu PDI com origem na avaliação.');page='PDI';draw()}}catch(ex){if(valid())f.querySelector('[data-self-status]').textContent=ex.message}finally{btn.disabled=false}}
+}
 function recommendationEditor17(c){const x=c.recommendationConfig;if(!x?.topics.length)return '';return panel('Recomendações por competência','<p>Associe cursos e trilhas publicados ao tópico. Somente os conteúdos atribuídos serão identificados na devolutiva. Escolha até 10 por competência.</p><form id="lxpRecommendations17">'+select('Competência','topic',x.topics.map(t=>[t.key,t.label]))+'<label class="lxp-field"><span>Conteúdos recomendados (seleção múltipla)</span><select name="items" multiple size="6">'+x.catalog.map(k=>'<option value="'+e(k.kind+':'+k.id)+'">'+e((k.kind==='course'?'Curso · ':'Trilha · ')+k.title)+'</option>').join('')+'</select></label><p class="lxp-muted">No computador, use Ctrl ou Cmd para selecionar mais de um conteúdo. Desmarque todos para remover os vínculos do tópico.</p><button type="submit" class="lxp-btn primary">Salvar recomendações</button><p role="status" data-rec17-status></p></form>')}
 function bindRecommendation17(c){const f=$('lxpRecommendations17');if(!f)return;const config=c.recommendationConfig,fill=()=>{const chosen=new Set((config.items.find(x=>x.key===f.elements.topic.value)?.items||[]).map(x=>x.kind+':'+x.id));for(const o of f.elements.items.options)o.selected=chosen.has(o.value)};f.elements.topic.addEventListener('change',fill);fill();f.onsubmit=async ev=>{ev.preventDefault();const b=f.querySelector('[type=submit]');if(b.disabled)return;b.disabled=true;try{await apiLxp('performance/recommendations',{id:c.id,revision:c.revision,key:f.elements.topic.value,items:[...f.elements.items.selectedOptions].map(o=>{const [kind,id]=o.value.split(':');return {kind,id}})});if(page==='Desempenho'&&f.isConnected){notify('Recomendações salvas.');await openPerformance(c.id)}}catch(ex){if(f.isConnected)f.querySelector('[data-rec17-status]').textContent=ex.message}finally{b.disabled=false}}}
 async function openPerformance(id){perfCycleId=id
@@ -256,7 +267,7 @@ async function openPerformance(id){perfCycleId=id
   if(c.status==='closed'&&c.releaseResults&&c.participants?.length){content+=panel('Ação de PDI vinculada ao ciclo','<form id="lxpCyclePdi">'+select('Pessoa','personId',c.participants.map(x=>[x.id,x.name]))+select('Competência vinculada (opcional)','competencyKey',[['','Sem vínculo'],...Array.from(new Map((c.competencyPeople||[]).flatMap(p=>p.items.filter(x=>x.observed!==null).map(x=>[x.key,x.label]))))])+field('Ação de desenvolvimento','title','','text','required maxlength="150"')+select('Metodologia','mix',[['70','Prática · 70'],['20','Aprendizagem social · 20'],['10','Formação · 10']])+field('Prazo','dueDate',iso(),'date','required')+textarea('Descrição','description','','maxlength="1500"')+button('Criar ação no PDI','perf-pdi',c.id,'primary')+'</form>')}
 
  }
- content+=recommendationEditor17(c)+recommendedPanel17(c.recommendations)
+ content+=recommendationEditor17(c)+recommendedPanel17(c.recommendations)+selfDevelopmentPanel19(c)
  if(c.competencies?.length)content+=panel('Minhas competências','<div class="lxp-stack">'+c.competencies.map(x=>'<div class="lxp-line"><div><b>'+e(x.label)+'</b><small>Observado: '+e(x.observed??'—')+' · Esperado: '+e(x.expected??'—')+(x.suppressed?' · Perspectiva protegida':'')+'</small></div><strong>Gap: '+e(x.gap??'—')+'</strong></div>').join('')+'</div>')
  if(c.results?.length)content+=panel('Meus resultados liberados','<p>Resultado final: <strong>'+e(c.finalScore??'Sem nota')+'</strong></p><div class="lxp-stack">'+c.results.map(x=>'<div class="lxp-line"><b>'+e(perspectiveLabels[x.perspective]||x.perspective)+'</b><strong>'+e(x.suppressed?'Resultado protegido':x.score??'Sem nota')+'</strong></div>').join('')+'</div>')
  const actions=button('Voltar','perf-back')+(c.isManager&&c.status==='draft'?button('Editar rascunho','perf-edit',c.id):'')+(c.isManager&&c.status==='draft'?button('Publicar ciclo','perf-publish',c.id,'primary'):'')+(c.isManager&&c.status==='published'?button('Encerrar ciclo','perf-close',c.id):'')+(c.isManager&&c.status==='closed'&&!c.releaseResults?button('Liberar resultados','perf-release',c.id,'primary'):'')
@@ -280,17 +291,17 @@ async function renderGrowth(){
   const r=await apiLxp('growth');if(!current())return;const items=r.items||[],ownActions=items.filter(x=>x.personId===d.me.id)
   const metrics='<div class="lxp-metrics">'+metric('Ações no escopo',items.length,'em todo o programa')+metric('Em andamento',items.filter(x=>x.status==='doing').length,'práticas de desenvolvimento')+metric('Suas conquistas',ownActions.filter(x=>x.status==='done').length,'ações concluídas')+'</div>'
   const buckets=[['70','Aprender fazendo','Projetos, desafios e experimentação'],['20','Aprender com pessoas','Mentorias, colaboração e feedback'],['10','Aprender estudando','Cursos, leituras e trilhas']]
-  const content=metrics+'<div class="lxp-grid">'+buckets.map(([mix,title,desc])=>'<section class="lxp-panel"><div class="lxp-learning-ribbon">'+mix+'%</div><h2>'+title+'</h2><p>'+desc+'</p><div class="lxp-stack">'+items.filter(x=>x.mix===mix).map(x=>'<article class="lxp-line"><div><strong>'+e(x.title)+'</strong><small>'+e(x.person.name)+' · '+e(x.dueDate?shortDate(x.dueDate):'Sem prazo')+'</small></div>'+status(x.status)+(x.learning?'<div class="pic16-linked"><small>'+e(x.learning.title)+'</small><progress max="100" value="'+e(x.learning.progress??0)+'"></progress><small>'+e(x.learning.available?x.learning.progress+'% · sincronizado com LMS':'Vínculo indisponível')+'</small>'+(x.personId===d.me.id&&x.learning.available?button('Acessar treinamento','growth-launch',x.id):'')+'</div>':'')+button('Editar','growth-edit',x.id)+'</article>').join('')+'</div>'+(items.some(x=>x.mix===mix)?'':empty('Sem ações','Adicione práticas para evoluir.'))+'</section>').join('')+'</div>'
+  const content=metrics+'<div class="lxp-grid">'+buckets.map(([mix,title,desc])=>'<section class="lxp-panel"><div class="lxp-learning-ribbon">'+mix+'%</div><h2>'+title+'</h2><p>'+desc+'</p><div class="lxp-stack">'+items.filter(x=>x.mix===mix).map(x=>'<article class="lxp-line"><div><strong>'+e(x.title)+'</strong><small>'+e(x.person.name)+' · '+e(x.dueDate?shortDate(x.dueDate):'Sem prazo')+'</small></div>'+status(x.status)+(x.learning?'<div class="pic16-linked"><small>'+e(x.learning.title)+'</small><progress max="100" value="'+e(x.learning.progress??0)+'"></progress><small>'+e(x.learning.available?x.learning.progress+'% · sincronizado com LMS':'Vínculo indisponível')+'</small>'+(x.personId===d.me.id&&x.learning.available?button('Acessar treinamento','growth-launch',x.id):'')+'</div>':'')+(x.source?.cycleId?'<small class="lxp-muted">Origem: avaliação · '+e(x.source.competency?.label||'Plano de desenvolvimento')+'</small>':'')+button('Editar','growth-edit',x.id)+'</article>').join('')+'</div>'+(items.some(x=>x.mix===mix)?'':empty('Sem ações','Adicione práticas para evoluir.'))+'</section>').join('')+'</div>'
   enterScreen(screen('Plano de desenvolvimento','Meu desenvolvimento','70–20–10 é uma referência para diversificar experiências, não uma obrigação matemática.',content+linkLegacy('PDI'),button('Nova ação','growth-new','','primary')))
  })}
-async function openGrowthEditor(id=''){
+async function openGrowthEditor(id='',initial=null){
  const anchor=root(),token=++renderToken,viewer=d.me.id
  const data=await apiLxp('growth');if(page!=='PDI'||root()!==anchor||token!==renderToken||viewer!==d?.me?.id)return
- const found=data.items.find(x=>x.id===id)||null,choices=[['70','70 — Experiência prática'],['20','20 — Aprendizagem social'],['10','10 — Aprendizagem formal']]
+ const found=data.items.find(x=>x.id===id)||null,prefill=found||initial,choices=[['70','70 — Experiência prática'],['20','20 — Aprendizagem social'],['10','10 — Aprendizagem formal']]
  if(id&&!found){notify('Ação indisponível.');return}
  const canManagePeople=['Administrador','RH/DHO','Líder'].includes(d.me.role)
  const selectPeople=found?'<input type="hidden" name="personId" value="'+e(found.personId)+'"><p>'+e(found.person.name)+'</p>':canManagePeople?select('Pessoa','personId',[[d.me.id,d.me.name],...personOptions().map(x=>[x.id,x.name])],d.me.id):'<input type="hidden" name="personId" value="'+e(d.me.id)+'">'
- const html=panel('Plano de ação','<form id="lxpGrowthEditor">'+selectPeople+field('Qual habilidade ou objetivo deseja desenvolver?','title',found?.title||'','text','required maxlength="150"')+textarea('Descreva a ação','description',found?.description||'','maxlength="1500"')+select('Tipo de aprendizagem','mix',choices,found?.mix||'70')+'<div id="growthLearning16" hidden></div>'+select('Situação','status',[['todo','Planejado'],['doing','Em andamento'],['done','Concluído']],found?.status||'todo')+field('Prazo (opcional)','dueDate',found?.dueDate||'','date')+textarea('Evidências e entregas','evidence',found?.evidence||'','maxlength="1500"')+'<div class="lxp-form-actions">'+button('Voltar','growth-back')+'<button type="submit" class="lxp-btn primary">Salvar ação</button></div></form>')
+ const html=panel('Plano de ação','<form id="lxpGrowthEditor">'+selectPeople+field('Qual habilidade ou objetivo deseja desenvolver?','title',prefill?.title||'','text','required maxlength="150"')+textarea('Descreva a ação','description',prefill?.description||'','maxlength="1500"')+select('Tipo de aprendizagem','mix',choices,prefill?.mix||'70')+'<div id="growthLearning16" hidden></div>'+select('Situação','status',[['todo','Planejado'],['doing','Em andamento'],['done','Concluído']],found?.status||'todo')+field('Prazo (opcional)','dueDate',found?.dueDate||'','date')+textarea('Evidências e entregas','evidence',found?.evidence||'','maxlength="1500"')+'<div class="lxp-form-actions">'+button('Voltar','growth-back')+'<button type="submit" class="lxp-btn primary">Salvar ação</button></div></form>')
  enterScreen(screen('Desenvolvimento na prática',found?'Editar ação':'Nova ação do PDI','Cada ação deve gerar aprendizado observável.',html))
  const form=$('lxpGrowthEditor'),linkBox=$('growthLearning16'),valid=()=>form.isConnected&&page==='PDI'&&root()===anchor&&token===renderToken&&viewer===d?.me?.id;let optionRun=0,selectedLink=null
  async function populate(){const run=++optionRun,personId=form.elements.personId.value,mix=form.elements.mix.value;selectedLink=null;form.elements.status.disabled=false;linkBox.hidden=mix!=='10';linkBox.replaceChildren();if(mix!=='10')return
@@ -362,7 +373,7 @@ async function showProfile16(personId){
    'Treinamentos':panel('Cursos atribuídos',rows(x.courses,k=>row(k.title,k.minutes+' min · '+(k.completed?'Concluído':'Em aberto'),meter(k.progress))))+panel('Trilhas atribuídas',rows(x.missions,k=>row(k.title,k.minutes+' min',meter(k.progress))))+(x.self?button('Ir para catálogo','goto','Catálogo LMS','primary'):''),
    'PDI':panel('Plano de desenvolvimento',rows(x.pdi,k=>row(k.title,k.mix+'% · '+(k.dueDate?shortDate(k.dueDate):'Sem prazo')+(k.learning?' · '+k.learning.title:''),status(k.status)+(k.learning?meter(k.learning.progress):''))))+(x.self?button('Abrir meu PDI','goto','PDI','primary'):''),
    'Metas':panel('OKRs individuais',rows(x.okrs,k=>row(k.title,shortDate(k.startsOn)+' a '+shortDate(k.endsOn),meter(k.progress))))+(x.self?button('Abrir OKRs','goto','OKR','primary'):''),
-   'Avaliações':panel('Resultados liberados',rows(x.cycles,k=>'<div class="pic16-review">'+row(k.title,shortDate(k.endDate),'<b>'+e(k.score??'—')+'</b>')+k.competencies.map(v=>row(v.label,v.suppressed?'Perspectivas pequenas protegidas':'Proficiência observada / esperada','<b>'+e(v.observed??'—')+' / '+e(v.expected??'—')+'</b>')).join('')+recommendedPanel17(k.recommendations,x.self)+'</div>'))
+   'Avaliações':panel('Resultados liberados',rows(x.cycles,k=>'<div class="pic16-review">'+row(k.title,shortDate(k.endDate),'<b>'+e(k.score??'—')+'</b>')+k.competencies.map(v=>row(v.label,v.suppressed?'Perspectivas pequenas protegidas':'Proficiência observada / esperada','<b>'+e(v.observed??'—')+' / '+e(v.expected??'—')+'</b>')).join('')+recommendedPanel17(k.recommendations,x.self)+(x.self?selfDevelopmentPanel19(k):'')+'</div>'))
   }
   wrap.innerHTML='<header><div class="pic16-avatar">'+e(p.name.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase())+'</div><div class="pic16-identity"><h2>'+e(p.name)+'</h2><p>'+e(p.position||'Cargo não informado')+'</p><small>'+e([p.companyName,p.departmentName,p.managerName?'Gestor: '+p.managerName:''].filter(Boolean).join(' · '))+'</small></div><button type="button" class="lxp-btn" data-pic16-close>Fechar</button></header><div class="pic16-tabs" role="group" aria-label="Seções do perfil">'+Object.keys(data).map((k,i)=>'<button type="button" class="lxp-btn" data-pic16-tab="'+e(k)+'" aria-pressed="'+(i===0)+'">'+e(k)+'</button>').join('')+'</div><div class="pic16-content"></div><small class="pic16-foot">Consulta · até '+x.limit+' registros por seção. Informações privadas e respostas de Pulse não são exibidas.</small>'
   const show=tab=>{wrap.querySelector('.pic16-content').innerHTML=data[tab];wrap.querySelectorAll('[data-pic16-tab]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.pic16Tab===tab)))};show('Visão geral')
@@ -423,6 +434,182 @@ document.addEventListener('click',event=>{
 },true)
 window.addEventListener('popstate',()=>{if(modalElement?.open&&modalElement.classList.contains('lxp-immersive'))modalElement.close()})
 
+
+// Original practice guides: reading alone never awards hours, completion or certificates.
+const academyGuides19=[
+ {
+  "id": "feedback",
+  "title": "Feedback e feedforward",
+  "category": "Relações",
+  "module": "Feedback",
+  "mix": "20",
+  "action": "Pedir feedback sobre uma entrega e experimentar uma melhoria",
+  "intro": "Registre situações concretas e converse sobre o efeito do comportamento. Combine uma próxima tentativa e volte ao tema com exemplos, respeitando a privacidade da conversa.",
+  "steps": [
+   "Escolher uma entrega recente e uma pessoa que a acompanhou.",
+   "Pedir um exemplo do que funcionou e uma sugestão para a próxima vez.",
+   "Registrar uma prática a experimentar e revisar o resultado em 1:1."
+  ],
+  "source": "https://help.qulture.rocks/b%C3%B4nus"
+ },
+ {
+  "id": "blitz",
+  "title": "Mobilização de feedbacks",
+  "category": "Relações",
+  "module": "Feedback",
+  "mix": "20",
+  "action": "Realizar uma rodada voluntária de pedidos de feedback",
+  "intro": "Uma mobilização precisa de propósito, ajuda para começar e espaço para dúvidas. A qualidade da troca vale mais que uma competição por quantidade.",
+  "steps": [
+   "Convidar colegas e explicar a finalidade de desenvolvimento.",
+   "Demonstrar como solicitar feedback em ambiente privado.",
+   "Ouvir dificuldades de uso e combinar uma revisão dos aprendizados."
+  ],
+  "source": "https://help.qulture.rocks/para-que-serve-uma-blitz-de-feedbacks"
+ },
+ {
+  "id": "checkin",
+  "title": "Conversas 1:1 e check-ins",
+  "category": "Liderança",
+  "module": "1:1",
+  "mix": "20",
+  "action": "Revisar prioridades, obstáculos e desenvolvimento em uma 1:1",
+  "intro": "Prepare a conversa com o liderado. Dedique espaço às suas prioridades e registre poucos combinados, com prazo e acompanhamento. Anotações pessoais não substituem os acordos compartilhados.",
+  "steps": [
+   "Levar uma prioridade, um obstáculo e uma necessidade de apoio.",
+   "Revisar uma meta e uma ação do PDI com evidências.",
+   "Registrar o próximo passo e combinar quando retomá-lo."
+  ],
+  "source": "https://help.qulture.rocks/tldr"
+ },
+ {
+  "id": "pdi",
+  "title": "Competências e plano de desenvolvimento",
+  "category": "Desenvolvimento",
+  "module": "PDI",
+  "mix": "70",
+  "action": "Aplicar uma competência em uma atividade real e reunir evidências",
+  "intro": "Escolha um comportamento observável para desenvolver. Use resultados liberados como ponto de partida e confirme o diagnóstico com exemplos. Prática, colaboração e estudo podem compor o mesmo plano.",
+  "steps": [
+   "Escolher uma competência prioritária e uma situação de aplicação.",
+   "Definir uma ação, prazo e evidência de progresso.",
+   "Relacionar treinamento atribuído quando útil e revisar a aplicação com a liderança."
+  ],
+  "source": "https://help.qulture.rocks/treinamento-de-pdi-central-de-conhecimento-qulture.rocks"
+ },
+ {
+  "id": "okr",
+  "title": "Objetivos, resultados e visibilidade",
+  "category": "Resultados",
+  "module": "OKR",
+  "mix": "70",
+  "action": "Construir uma meta mensurável e acompanhar o progresso",
+  "intro": "Descreva o resultado desejado, a medida usada e o período. Diferencie execução de tarefas e mudança de resultado. Defina o público autorizado antes de compartilhar informações sensíveis.",
+  "steps": [
+   "Definir objetivo e resultado-chave com valor inicial, alvo e prazo.",
+   "Confirmar responsável e alinhamento com a empresa ou área.",
+   "Atualizar o indicador com evidências e discutir obstáculos nos check-ins."
+  ],
+  "source": "https://help.qulture.rocks/tldr-1"
+ },
+ {
+  "id": "launch",
+  "title": "Lançamento e rede de multiplicadores",
+  "category": "Adoção",
+  "module": "PDI",
+  "mix": "70",
+  "action": "Planejar um piloto de adoção com apoio de multiplicadores",
+  "intro": "Comece com um grupo representativo, apoio da liderança e um objetivo de uso claro. Multiplicadores apoiam dúvidas de navegação sem receber acesso adicional a registros privados.",
+  "steps": [
+   "Escolher um fluxo útil para o piloto e seu público.",
+   "Preparar comunicação, ajuda e demonstração da primeira atividade.",
+   "Verificar adesão e dificuldades antes de ampliar o lançamento."
+  ],
+  "source": "https://help.qulture.rocks/o-que-s%C3%A3o-champions-e-por-que-voc%C3%AA-precisa-deles"
+ },
+ {
+  "id": "talent",
+  "title": "Talent review e desenvolvimento responsável",
+  "category": "Liderança",
+  "module": "PDI",
+  "mix": "20",
+  "action": "Preparar evidências de desenvolvimento para uma revisão de talentos",
+  "intro": "Uma revisão exige critérios claros, evidências e discussão humana. Potencial e desempenho são hipóteses distintas e precisam de contexto. Restrinja dados individuais ao público autorizado.",
+  "steps": [
+   "Organizar entregas e comportamentos observáveis do período.",
+   "Discutir critérios e divergências em reunião autorizada.",
+   "Registrar necessidades de desenvolvimento e revisar conclusões; a matriz não decide emprego."
+  ],
+  "source": "https://help.qulture.rocks/o-modelo-tradicional"
+ },
+ {
+  "id": "culture",
+  "title": "Cultura, propósito e comportamentos",
+  "category": "Cultura",
+  "module": "PDI",
+  "mix": "70",
+  "action": "Traduzir um valor da empresa em uma prática observável",
+  "intro": "Conecte o propósito a decisões do trabalho. Valores precisam aparecer em exemplos cotidianos, ser discutidos com a equipe e orientar reconhecimento consistente.",
+  "steps": [
+   "Escolher um valor institucional e um comportamento associado.",
+   "Aplicar o comportamento em uma entrega real.",
+   "Ouvir a equipe e registrar o que favoreceu ou dificultou a prática."
+  ],
+  "source": "https://help.qulture.rocks/o-guia-de-cultura-central-de-conhecimento-qulture.rocks"
+ },
+ {
+  "id": "org",
+  "title": "Estrutura e colaboração entre áreas",
+  "category": "Organização",
+  "module": "PDI",
+  "mix": "20",
+  "action": "Mapear uma dependência entre áreas e acordar uma forma de colaboração",
+  "intro": "A estrutura deve ajudar as pessoas a saber quem decide, quem executa e onde pedir apoio. Grupos de troca podem complementar a hierarquia sem alterar permissões ou gestores automaticamente.",
+  "steps": [
+   "Mapear uma entrega que depende de duas áreas.",
+   "Confirmar responsáveis e pontos de passagem.",
+   "Experimentar uma rotina de troca e revisar seu efeito."
+  ],
+  "source": "https://help.qulture.rocks/tribos"
+ },
+ {
+  "id": "motivation",
+  "title": "Autonomia, aprendizado e motivação",
+  "category": "Liderança",
+  "module": "1:1",
+  "mix": "20",
+  "action": "Conversar sobre autonomia e condições para aprender",
+  "intro": "Converse sobre o que ajuda a pessoa a realizar um bom trabalho. Combine autonomia com clareza e recursos. Reconhecimento e desenvolvimento precisam considerar o contexto de cada atividade.",
+  "steps": [
+   "Perguntar que apoio e autonomia a pessoa necessita.",
+   "Combinar uma oportunidade de aprendizado e critérios de sucesso.",
+   "Revisar as condições de trabalho na próxima conversa."
+  ],
+  "source": "https://help.qulture.rocks/sobre-motiva%C3%A7%C3%A3o-b%C3%B4nus-e-daniel-pink-central-de-conhecimento-qulture.rocks"
+ },
+ {
+  "id": "data",
+  "title": "Perfil integrado e leitura dos indicadores",
+  "category": "Desenvolvimento",
+  "module": "Meu acesso",
+  "mix": "70",
+  "action": "Revisar meus registros e conferir uma evidência de evolução",
+  "intro": "Consulte sua trajetória para conectar aprendizagem, metas e desenvolvimento. Indicadores precisam de período e definição; ausência de informação não representa resultado zero.",
+  "steps": [
+   "Conferir empresa e área no perfil e solicitar correção quando necessário.",
+   "Revisar cursos, metas e ações de desenvolvimento disponíveis.",
+   "Usar uma evidência do período para planejar o próximo passo."
+  ],
+  "source": "https://help.qulture.rocks/perfil-integrado-do-colaborador-o-que-%C3%A9-e-como-funciona"
+ }
+]
+function renderAcademy19(id=''){
+ const guide=academyGuides19.find(x=>x.id===id)
+ if(guide){enterScreen(screen('Academia de práticas',guide.title,guide.category,panel('Levar para o dia a dia','<p>'+e(guide.intro)+'</p><ol>'+guide.steps.map(x=>'<li>'+e(x)+'</li>').join('')+'</ol><p class="lxp-note">Aplique com acompanhamento humano e evidências. Este guia não emite certificado nem registra horas de treinamento.</p><a href="'+e(guide.source)+'" target="_blank" rel="noopener noreferrer">Consultar referência conceitual da Qulture.Rocks</a>')+panel('Próxima ação','<p>'+e(guide.action)+'</p><div class="lxp-heading-actions">'+button('Preparar ação no meu PDI','academy-pdi',guide.id,'primary')+button('Abrir '+guide.module,'goto',guide.module)+'</div>'),button('Todos os guias','academy-back')));return}
+ enterScreen(screen('Aprender para aplicar','Academia de práticas','Orientações originais para conectar conversas, resultados e desenvolvimento.',panel('Encontre uma prática','<div class="pdi-learning-search">'+field('Buscar guia','academyQuery19','','search','maxlength="120" placeholder="Ex.: feedback, metas ou liderança"')+select('Tema','academyCategory19',[['','Todos os temas'],...Array.from(new Set(academyGuides19.map(x=>x.category))).map(x=>[x,x])])+'</div><p role="status" aria-live="polite" id="academyCount19"></p>')+'<div class="lxp-grid" id="academyCards19"></div>'))
+ const query=root().querySelector('[name=academyQuery19]'),category=root().querySelector('[name=academyCategory19]'),normalize=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR'),filter=()=>{const q=normalize(query.value),rows=academyGuides19.filter(x=>(!category.value||x.category===category.value)&&normalize(x.title+' '+x.category+' '+x.intro).includes(q));$('academyCount19').textContent=rows.length+' guia(s) disponível(is).';$('academyCards19').innerHTML=rows.length?rows.map(x=>'<article class="lxp-card"><small>'+e(x.category)+'</small><h2>'+e(x.title)+'</h2><p>'+e(x.intro)+'</p>'+button('Explorar prática','academy-open',x.id)+'</article>').join(''):empty('Nenhum guia encontrado','Experimente outro termo ou tema.')};query.oninput=filter;category.onchange=filter;filter()
+}
+
 // Event handling: synchronous action dispatch, existing app nav remains in control.
 document.addEventListener('click',event=>{
  const control=event.target.closest('[data-lxp]');if(!control)return
@@ -441,6 +628,8 @@ document.addEventListener('click',event=>{
  'perf-task':()=>openTask(id),'perf-task-save':()=>submitTask(false),'perf-task-submit':()=>submitTask(true),
   'perf-add-question':()=>{syncQuestions(document);questionCollections[id].push({type:'rating',title:'',weight:1,required:true});drawQuestions()},
   'perf-remove-question':()=>{syncQuestions(document);const [group,index]=id.split(':');questionCollections[group].splice(Number(index),1);drawQuestions()},
+  'self-development':()=>openSelfDevelopment19(JSON.parse(id)),
+  'academy-open':()=>renderAcademy19(id),'academy-back':()=>renderAcademy19(),'academy-pdi':()=>{const g=academyGuides19.find(x=>x.id===id);if(!g)return;page='PDI';draw();void openGrowthEditor('',{title:g.action,description:g.steps.join('\n'),mix:g.mix})},
   'growth-new':()=>openGrowthEditor(),'growth-edit':()=>openGrowthEditor(id),'growth-back':renderGrowth,
   'growth-launch':async()=>{const response=await apiLxp('growth'),action=response.items.find(item=>item.id===id&&item.personId===d.me.id);if(!action?.learning?.available)throw Error('Treinamento indisponível para o seu acesso.');await refresh({social:false});if(action.learning.kind==='mission')openMission(action.learning.id);else learn(action.learning.id)},
   'meeting-new':()=>openMeetingEditor(),'meeting-edit':()=>openMeetingEditor(id),'meeting-back':renderMeetings,

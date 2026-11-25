@@ -1,3 +1,24 @@
+# Checkpoint — Learning Academy / V20
+
+- 25/11/2026: pedido adicional de identidade e login integrado sobre a V19 local ac76fd2. Branch de publicação work/learning-academy-v19 → homologacao-dna; main preservada.
+- Componentes de autenticação em web-auth-v20.js/css, SVG e favicon próprios, metadados e e-mails padrão Learning Academy; personalização e dados dos clientes preservados. APIs e regras de segurança mantidas.
+- Duas imagens recebidas e inspecionadas; símbolo e composição ajustados em SVG/CSS. Comparação da renderização final ainda depende de QA visual. Prévia local bloqueada por política do navegador. Nova suíte V20 com 32 verificações; ver README-V20.md para limites.
+- Publicação ainda deve ser confirmada pelo SHA remoto/árvore e status Railway. Não declarar entregue antes dessa verificação.
+
+## Checkpoint V19 preservado
+
+# Checkpoint — Learning Academy / V19
+
+- 25/11/2026: continuidade sobre V18 f99dca5; destino homologacao-dna, main preservada.
+- Domínio https://learningacademy.up.railway.app/; serviço, banco e volume existentes preservados.
+- Entrega: conexão do próprio resultado liberado com PDI, habilitada no rascunho do ciclo; ação auditável, treinamento recomendado opcional e progresso do LMS. Academia com 11 guias originais e aplicação no PDI.
+- Persistência aditiva no agregado existente, sem mudanças de tabelas. Nova suíte V19: 48 verificações SQLite aprovadas. npm test completo aprovado novamente após ajustes de interface e API documentada.
+- Matriz de referências e lacunas em INTEGRACOES-QULTURE-V19.md; instruções e limites em README-V19.md.
+- Prévia visual local bloqueada por política do navegador; QA responsivo e autenticado ainda pendente. Integração GitHub retorna 403 para escrita; usar interface autorizada, conferir árvore e deploy pelo SHA antes de declarar publicado.
+- Nenhuma sincronização externa Qulture configurada. Convites sem provedor de e-mail. Backup independente operacional ainda pendente; nenhum banco/volume substituído.
+
+## Checkpoint V18 preservado
+
 # Checkpoint — Learning Academy / V18
 
 - Atualizado em 25/11/2026 a partir do checkout completo. Branch de entrega: `homologacao-dna`; base V17 `8f889a49eca2cee0d8ca3fedc4624a9eb02be543`. Produção `main` preservada.

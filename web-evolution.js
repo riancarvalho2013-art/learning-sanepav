@@ -50,12 +50,12 @@ function applyBrand(){
  if(!document.querySelector('.shell'))return
  const el=document.querySelector('aside .brand')
  if(el){
-   el.innerHTML=(dnaBrand.logoVersion&&dnaCompany?'<img src="'+esc(brandMedia(dnaCompany))+'" alt="Logo" onerror="this.src=\'/marca.png\'">':'<img src="/marca.png" alt="Logo">')+
+   el.innerHTML=(dnaBrand.logoVersion&&dnaCompany?'<img src="'+esc(brandMedia(dnaCompany))+'" alt="Logo" onerror="this.src=\'/academy-mark.svg\'">':'<img src="/academy-mark.svg" alt="Logo">')+
      '<span class="dna-brand-copy"><strong>'+esc(dnaBrand.title)+'</strong><small>'+esc(dnaBrand.subtitle||'DNA do Desenvolvimento')+'</small></span>'
  }
  const head=document.querySelector('header .breadcrumb')
- if(head)head.textContent=(dnaBrand.title||'Learning Sanepav')+' / '+page
- document.title=(dnaBrand.title||'Learning Sanepav')+' · '+page
+ if(head)head.textContent=(dnaBrand.title||'Learning Academy')+' / '+page
+ document.title=(dnaBrand.title||'Learning Academy')+' · '+page
 }
 async function syncBrand(target=currentCompany()){
  if(!d?.me||!target){dnaBrand={...companyBrandFallback};dnaCompany='';applyBrand();return}

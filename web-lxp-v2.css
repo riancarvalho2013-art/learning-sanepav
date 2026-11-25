@@ -85,7 +85,7 @@ dialog.lxp-editor-immersive .course-upload{width:100%}
 .dna-home button,.inside button:not(.lxp-btn):not(.lxp-module-card){transition:transform .16s,border-color .16s,background-color .16s}
 .inside button:not(.lxp-btn):hover{border-color:#7cb9e4}
 .lxp-page .lxp-btn{background:#fff}
-.lxp-page .lxp-btn.primary{background:linear-gradient(110deg,#196dbc,#4c9bd9)!important}
+.lxp-page .lxp-btn.primary{background:linear-gradient(110deg,#196dbc,#4c9bd9)}
 @media(max-width:1100px){.lxp-workspace{grid-template-columns:1fr}.lxp-workspace-side{position:static}.lxp-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.lxp-heading{flex-direction:column;align-items:start;min-height:150px;padding:23px}.lxp-heading-actions{align-self:start;justify-content:start}.lxp-form-grid{grid-template-columns:1fr}.lxp-emotion-grid{gap:4px}.lxp-emotion>span{min-height:78px}.lxp-emotion b{font-size:23px}.lxp-emotion small{font-size:9px}.lxp-bar-row{grid-template-columns:85px 1fr 23px;gap:8px}.lxp-hero-personal{padding:23px}.lxp-hero-personal>svg{display:none}dialog.lxp-immersive .lxp-lesson-top{grid-template-columns:1fr;padding:20px 15px}dialog.lxp-immersive #modalBody{padding:0 12px 40px}dialog.lxp-immersive #modalBody>#editor{padding:16px}}
 @media(max-width:480px){.lxp-metrics{grid-template-columns:1fr 1fr;gap:9px}.lxp-metric{padding:15px;min-height:105px}.lxp-metric strong{font-size:25px}.lxp-heading h1{font-size:29px}.lxp-panel{padding:19px}.lxp-card{padding:19px}.lxp-emotion small{display:none}.lxp-emotion>span{min-height:60px}.lxp-rate span{width:45px;height:49px}.lxp-form-actions{align-items:stretch}.lxp-form-actions button{flex:1}}

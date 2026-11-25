@@ -118,5 +118,37 @@
   "/auth-v20.js": {
     "file": "web-auth-v20.js",
     "mime": "text/javascript;charset=utf-8"
+  },
+  "/design-v21/04-hero-completo-sem-texto.svg": {
+    "file": "design-v21/04-hero-completo-sem-texto.svg",
+    "mime": "image/svg+xml"
+  },
+  "/design-v21/icons.svg": {
+    "file": "design-v21/icons.svg",
+    "mime": "image/svg+xml"
+  },
+  "/design-v21/09-modal-ondas-transparente.svg": {
+    "file": "design-v21/09-modal-ondas-transparente.svg",
+    "mime": "image/svg+xml"
+  },
+  "/design-v21/07-canvas-claro.svg": {
+    "file": "design-v21/07-canvas-claro.svg",
+    "mime": "image/svg+xml"
+  },
+  "/design-v21/08-card-curso-sem-texto.svg": {
+    "file": "design-v21/08-card-curso-sem-texto.svg",
+    "mime": "image/svg+xml"
+  },
+  "/design-v21/06-sidebar-completo.svg": {
+    "file": "design-v21/06-sidebar-completo.svg",
+    "mime": "image/svg+xml"
+  },
+  "/design-v21.css": {
+    "file": "web-design-v21.css",
+    "mime": "text/css;charset=utf-8"
+  },
+  "/design-v21.js": {
+    "file": "web-design-v21.js",
+    "mime": "text/javascript;charset=utf-8"
   }
 }

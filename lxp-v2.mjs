@@ -286,7 +286,11 @@ async function endpoint(req,ctx){
  }
  if(path==='growth/learning-options'&&method==='GET'){
   const p=url.searchParams.get('person')||user.id;err(uuid(p)&&profileScope(state,DOMAIN,user,p),'Pessoa fora do escopo.',403)
-  return reply({items:linkedOptions(state,p).slice(0,2000)})
+  const query=url.searchParams.get('q')||'',kind=url.searchParams.get('kind')||''
+  err(query.length<=120&&['','course','mission'].includes(kind),'Filtro de treinamento inválido.')
+  const normalize=value=>String(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR')
+  const items=linkedOptions(state,p).filter(item=>(!kind||item.kind===kind)&&normalize(item.title).includes(normalize(query.trim())))
+  return reply({items:items.slice(0,2000),total:items.length,truncated:items.length>2000})
  }
  if(path==='okr'&&method==='GET')return reply(listOKR(db,state,DOMAIN,user))
  if(path.startsWith('okr/')&&method==='POST'){

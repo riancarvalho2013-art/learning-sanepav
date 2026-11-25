@@ -16,6 +16,12 @@ const BUCKET={async get(k){const x=db.prepare('SELECT * FROM objects WHERE key=?
 let checks=0;const eq=(a,b)=>{assert.deepEqual(a,b);checks++};async function call(path,actor=worker,body,status=200,base='/api/lxp/v2/',requestOrigin=origin){const req=new Request(origin+base+path,{method:body?'POST':'GET',headers:{origin:requestOrigin,cookie:'learning='+actor,'oai-authenticated-user-id':'qa','content-type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});const response=await (base.includes('reports')?handleReportsV3:handleLxpV2)(req,{BUCKET,DOMAIN});const result=await response.json();assert.equal(response.status,status,JSON.stringify(result));checks++;return result}
 try{
  const opts=await call('growth/learning-options');eq(opts.items.map(x=>x.id),[e1,e2,mission]);await call('growth/learning-options?person='+peer,leader,undefined,403);await call('growth/learning-options?person='+worker,hr,undefined,403)
+ eq((await call('growth/learning-options?kind=mission&q=TRILHA')).items.map(x=>x.id),[mission])
+ eq((await call('growth/learning-options?kind=course&q=curso%20b')).items.map(x=>x.id),[e2])
+ eq((await call('growth/learning-options?q=inexistente')).items,[])
+ eq((await call('growth/learning-options?kind=course')).total,2)
+ await call('growth/learning-options?kind=invalid',worker,undefined,400)
+ await call('growth/learning-options?q='+encodeURIComponent('a'.repeat(121)),worker,undefined,400)
  const input={personId:worker,title:'Desenvolver comunicação',mix:'10',status:'done',learningLink:{kind:'course',id:e1}}
  await call('growth',peer,input,403);await call('growth',leader,{...input,learningLink:{kind:'course',id:ePeer}},403);await call('growth',worker,{...input,learningLink:{kind:'mission',id:otherMission}},403);await call('growth',worker,{...input,learningLink:{kind:'course',id:edraft}},403);await call('growth',worker,{...input,mix:'70'},400);await call('growth',worker,input,403,undefined,'https://evil.test')
  const action=await call('growth',leader,input,201);eq(action.status,'doing');const track=await call('growth',worker,{...input,title:'Trilha',learningLink:{kind:'mission',id:mission}},201);eq(track.status,'doing');let rows=(await call('growth')).items;eq(rows.find(x=>x.id===action.id).learning.progress,30);eq(rows.find(x=>x.id===track.id).learning.progress,15)

@@ -13,7 +13,7 @@
 .r3-filters label{font-weight:700;font-size:12px;display:grid;gap:6px;margin:0;color:#48708e}
 .r3-filters select,.r3-filters input{margin:0;height:44px;max-width:100%;min-width:0;padding:7px 10px;border:1px solid #cfdfec;border-radius:10px;color:#173a5e;background:#f8fbff;font-size:13px}
 .r3-filter-actions,.r3-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.r3-btn,.r3-pager button{display:inline-flex;justify-content:center;align-items:center;white-space:nowrap;gap:5px;border:1px solid #c5ddef;background:#fff;color:#225c91;padding:11px 15px;text-decoration:none;border-radius:11px;font-weight:750;font-size:13px;cursor:pointer;min-height:44px}
-.r3-primary{color:white!important;background:linear-gradient(110deg,#1a6bc0,#4c9bdb)!important;border:0!important}.r3-btn:focus-visible,.r3-tab:focus-visible{outline:3px solid #9bd0f9;outline-offset:2px}
+.r3-primary{color:white;background:linear-gradient(110deg,#1a6bc0,#4c9bdb);border:0!important}.r3-btn:focus-visible,.r3-tab:focus-visible{outline:3px solid #9bd0f9;outline-offset:2px}
 .r3-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:0 0 22px}
 .r3-card{min-width:0;border-radius:18px;padding:20px 21px;background:#fff;border:1px solid var(--r3-edge);box-shadow:0 8px 30px #1966ad0b}
 .r3-card-label{font-size:13px;color:#577796;font-weight:700;line-height:1.45;min-height:37px}

@@ -54,3 +54,6 @@ body:has(.shell) #modal .scorm-v3-canvas{border-radius:18px;border-color:#d2e3f7
 .shell aside .brand img{width:52px;height:52px}
 .shell aside .brand:has(img[src^="/api/evo/brand/logo"]) img{width:90px;background:#fff;border-radius:8px;padding:5px}
 .shell .dna-brand-copy strong{color:white}.shell .dna-brand-copy{font-size:17px}
+
+.shell .dna-hero-orbit{border-color:#7bcfff80;color:#fff;background:#07398080}.shell .dna-hero-orbit :is(strong,em,span){color:#fff}.shell .dna-hero .over{color:#e4f1ff}
+@media(max-width:700px){.shell.open>aside{position:relative;left:auto;top:auto;bottom:auto;width:100%;max-height:70dvh}.shell>main>header .breadcrumb{white-space:normal;overflow-wrap:anywhere}}

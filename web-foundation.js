@@ -195,33 +195,36 @@ document.addEventListener('click',async event=>{
 })
 
 function showRecoveryRequest(available){
- $('modalBody').innerHTML='<div class="heading"><h2>Recuperar acesso</h2>'+btn('Fechar','close')+'</div>'+
-  (available?'<form id="recoverForm">'+fld('E-mail cadastrado','email','','email','required autocomplete="email"')+'<button class="primary">Enviar orientações</button><p class="err" role="alert"></p><p role="status" id="recoveryStatus"></p></form>':'<p>A recuperação por e-mail ainda precisa ser configurada. Solicite apoio à administração da plataforma.</p>')
+ modal.classList.add('academy-auth-recovery')
+ modal.addEventListener('close',()=>modal.classList.remove('academy-auth-recovery'),{once:true})
+ $('modalBody').innerHTML='<div class="academy-recovery-close">'+btn('Fechar','close')+'</div><div class="academy-auth">'+academyAuth.recovery(available)+'</div>'
  if(!modal.open)modal.showModal()
  if(!available)return
  $('recoverForm').onsubmit=async event=>{
   event.preventDefault()
-  const editor=event.target,button=editor.querySelector('button')
-  button.disabled=true
+  const editor=event.target,button=editor.querySelector('[type=submit]')
+  if(button.disabled)return
+  academyAuth.busy(editor,true)
   try{
    const result=await api('request-password-reset',{email:editor.elements.email.value})
    $('recoveryStatus').textContent=result.message
-  }catch(error){editor.querySelector('.err').textContent=error.message;button.disabled=false}
+  }catch(error){editor.querySelector('.err').textContent=error.message;academyAuth.busy(editor,false)}
  }
 }
 function passwordResetScreen(token){
- app.innerHTML='<section class="login"><div class="loginArt"><span class="over">Acesso corporativo</span><h1>Sanepav Learning</h1></div><form class="loginForm" id="resetForm">'+brand()+'<h2>Definir nova senha</h2>'+fld('Nova senha','password','','password','required minlength="12" maxlength="150" autocomplete="new-password"')+fld('Confirmar nova senha','confirmation','','password','required minlength="12" maxlength="150" autocomplete="new-password"')+'<button class="primary">Salvar nova senha</button><p class="err" role="alert"></p><p role="status" id="resetStatus"></p></form></section>'
+ app.innerHTML=academyAuth.reset();academyAuth.bind($('resetForm'))
  $('resetForm').onsubmit=async event=>{
   event.preventDefault()
-  const editor=event.target,button=editor.querySelector('button')
+  const editor=event.target,button=editor.querySelector('[type=submit]')
   editor.querySelector('.err').textContent=''
   if(editor.elements.password.value!==editor.elements.confirmation.value){editor.querySelector('.err').textContent='As senhas precisam ser iguais.';return}
-  button.disabled=true
+  if(button.disabled)return
+  academyAuth.busy(editor,true)
   try{
    const result=await api('reset-password',{token,password:editor.elements.password.value})
    history.replaceState(null,'',location.pathname)
    await start();toast(result.message)
-  }catch(error){editor.querySelector('.err').textContent=error.message;button.disabled=false}
+  }catch(error){editor.querySelector('.err').textContent=error.message;academyAuth.busy(editor,false)}
  }
 }
 

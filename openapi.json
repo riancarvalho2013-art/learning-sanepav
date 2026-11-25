@@ -644,6 +644,101 @@
         },
         "description": "Administrador ou RH/DHO. Todas as pessoas devem estar ativas e no escopo. Atribuição atômica e idempotente; novas matrículas recebem os pré-requisitos da trilha."
       }
+    },
+    "/api/lxp/v2/performance/my-development": {
+      "post": {
+        "summary": "Criar ação no próprio PDI a partir de competência de resultado liberado",
+        "description": "Requer participante ativo na mesma empresa, ciclo encerrado com resultados liberados e selfPdiEnabled=true. A chave é de competência visível com nota. RH habilita selfPdiEnabled ao configurar o rascunho em POST /api/lxp/v2/performance. Não altera ciclos publicados nem concede matrículas. Idempotência pelo requestId e conteúdo; autorização revalidada ao gravar.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "requestId",
+                  "competencyKey",
+                  "title",
+                  "mix",
+                  "dueDate"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "requestId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "competencyKey": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "title": {
+                    "type": "string",
+                    "maxLength": 150
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 1500
+                  },
+                  "mix": {
+                    "type": "string",
+                    "enum": [
+                      "70",
+                      "20",
+                      "10"
+                    ]
+                  },
+                  "dueDate": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "learningLink": {
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "id"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "course",
+                          "mission"
+                        ]
+                      },
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Ação criada ou reenvio idempotente"
+          },
+          "400": {
+            "description": "Dados inválidos"
+          },
+          "401": {
+            "description": "Sessão inválida"
+          },
+          "403": {
+            "description": "Origem, pessoa, empresa ou aprendizagem fora do escopo"
+          },
+          "409": {
+            "description": "Ciclo não liberado, competência indisponível, conflito ou identificador reutilizado"
+          }
+        }
+      }
     }
   },
   "components": {

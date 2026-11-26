@@ -186,5 +186,37 @@
   "/design-v22/sidebar-ondas.webp": {
     "file": "design-v22/sidebar-ondas.webp",
     "mime": "image/webp"
+  },
+  "/design-v23.css": {
+    "file": "web-design-v23.css",
+    "mime": "text/css;charset=utf-8"
+  },
+  "/design-v23.js": {
+    "file": "web-design-v23.js",
+    "mime": "text/javascript;charset=utf-8"
+  },
+  "/design-v23/compliance.webp": {
+    "file": "design-v23/compliance.webp",
+    "mime": "image/webp"
+  },
+  "/design-v23/journey.webp": {
+    "file": "design-v23/journey.webp",
+    "mime": "image/webp"
+  },
+  "/design-v23/pdf.webp": {
+    "file": "design-v23/pdf.webp",
+    "mime": "image/webp"
+  },
+  "/design-v23/people.webp": {
+    "file": "design-v23/people.webp",
+    "mime": "image/webp"
+  },
+  "/design-v23/scorm.webp": {
+    "file": "design-v23/scorm.webp",
+    "mime": "image/webp"
+  },
+  "/design-v23/video.webp": {
+    "file": "design-v23/video.webp",
+    "mime": "image/webp"
   }
 }

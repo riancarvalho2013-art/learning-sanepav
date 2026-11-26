@@ -1,7 +1,7 @@
 /* Visual adapter only: no API calls, event replacement, or injected business controls. */
 (() => {
 'use strict';
-const icons={'Painel':'home','Catálogo LMS':'book','Missões':'route','Relatórios':'report','OKR':'target','PDI':'trend','1:1':'calendar','Feedback':'chat','Elogio':'star','Pulse':'pulse','Desempenho':'chart','Rede social':'people','Pessoas':'people','Identidade visual':'edit','Auditoria':'shield','Matriz 9 Box':'grid','Minha jornada':'route','Academia de práticas':'cap','Meu acesso':'lock','Meu perfil':'user','Estrutura':'org','Estrutura organizacional':'org','Indicadores estratégicos':'chart','Evolução da plataforma':'trend','Organograma':'org','People Analytics':'chart'};
+const icons={'Painel':'home','Catálogo LMS':'book','Missões':'route','Relatórios':'report','OKR':'target','PDI':'trend','1:1':'calendar','Feedback':'chat','Elogio':'award','Pulse':'pulse','Desempenho':'chart','Rede social':'people','Intranet':'people','Pessoas':'people','Identidade visual':'edit','Auditoria':'shield','Matriz 9 Box':'grid','Minha jornada':'route','Academia de práticas':'cap','Meu acesso':'lock','Meu perfil':'user','Estrutura':'org','Estrutura organizacional':'org','Indicadores estratégicos':'chart','Evolução da plataforma':'trend','Organograma':'org','People Analytics':'chart'};
 function enhance(){
  const shell=document.querySelector('.shell');if(!shell)return;
  for(const item of shell.querySelectorAll('aside nav button[data-act="nav"]')){

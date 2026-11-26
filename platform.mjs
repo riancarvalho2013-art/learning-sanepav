@@ -430,7 +430,7 @@ function socialUpdate(state,user,operation,body){
     requireOk(text,'Escreva um comentário.')
     requireOk(post.comments.length<200,'Esta publicação já atingiu o limite de comentários.',409)
     post.comments.push({id:id(),author:user.id,text,at:iso()})
-    if(post.author!==user.id)notify(state,post.author,'Rede social','Novo comentário na sua publicação',user.name,{target:post.id})
+    if(post.author!==user.id)notify(state,post.author,'Intranet','Novo comentário na sua publicação',user.name,{target:post.id})
     return
   }
   requireOk(socialReactions.includes(body.reaction),'Escolha uma reação.')
@@ -441,7 +441,7 @@ function socialUpdate(state,user,operation,body){
     const inbox=state.notifications?.[post.author]||[]
     const title='Nova reação à sua publicação'
     if(!inbox.some(item=>item.title===title&&item.subject===user.name&&Date.now()-Date.parse(item.at)<3600000)){
-      notify(state,post.author,'Rede social',title,user.name,{target:post.id})
+      notify(state,post.author,'Intranet',title,user.name,{target:post.id})
     }
   }
 }
@@ -504,7 +504,7 @@ async function socialFile(req,env,state,path,user){
 }
 
 const emailStateKey='system/email-delivery-v1'
-const emailPages=['OKR','PDI','1:1','Feedback','Elogio','Desempenho','Pulse','Catálogo LMS','Missões','Rede social']
+const emailPages=['OKR','PDI','1:1','Feedback','Elogio','Desempenho','Pulse','Catálogo LMS','Missões','Intranet','Rede social']
 const emailPrivatePages=new Set(['Feedback','Pulse'])
 const emailDay=86400000
 const escapeMail=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))
@@ -719,7 +719,7 @@ async function handle(req,env){
  }
  if(['Apresentação','Documento'].includes(c.type))headers['content-disposition']='attachment'
  return fileResponse(req,obj.body,headers,mime)}
- if(req.method==='POST'&&path.startsWith('/api/')){const op=path.slice(5),b=await req.json();delete b.secret;if(op==='user'&&b.password){assertAdmin(u);b.secret=await password(b.password)}delete b.password
+ if(req.method==='POST'&&path.startsWith('/api/')){const op=path.slice(5),b=await req.json();delete b.secret;if(op==='user'&&b.password){assertAdmin(u);b.secret=await password(b.password)}else if(op==='user'&&!b.id){assertAdmin(u);b.secret=await password(crypto.randomUUID()+crypto.randomUUID())}delete b.password
  await change(env,async s=>{const user=actor(s,digest,identity);const prepared=await prepareVideoPolicy(env.BUCKET,s,user,op,b);return update(s,user,op,prepared)});return response({ok:true})}
  requireOk(false,'Página inexistente.',404)
 }

@@ -218,5 +218,9 @@
   "/design-v23/video.webp": {
     "file": "design-v23/video.webp",
     "mime": "image/webp"
+  },
+  "/design-v26.css": {
+    "file": "web-design-v26.css",
+    "mime": "text/css;charset=utf-8"
   }
 }

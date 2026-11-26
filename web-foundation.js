@@ -142,7 +142,8 @@ function userForm(id){
   sel('Perfil','role',['Colaborador','Líder','RH/DHO','Diretoria','Administrador'],person.role||'Colaborador')+
   sel('Acesso','active',[['1','Ativo'],['0','Bloqueado']],person.active===false?'0':'1')+'</div></fieldset>'+
   organizationFields(person)+sel('Liderança imediata','manager',[['','Sem liderança']],person.manager)+
-  fld(id?'Nova senha (opcional)':'Senha inicial','password','','password',(id?'':'required ')+'minlength="12" maxlength="150" autocomplete="new-password"')+
+  fld(id?'Nova senha (opcional)':'Senha provisória (opcional)','password','','password','minlength="12" maxlength="150" autocomplete="new-password"')+
+  (!id?'<p class="form-hint">Ao criar o acesso, a plataforma enviará automaticamente um convite para o e-mail corporativo. A pessoa definirá a própria senha no primeiro acesso.</p>':'')+
   (!organizationData.companies.length?'<p class="notice">Cadastre uma empresa em Estrutura organizacional antes de criar ou alterar o vínculo.</p>':''),
   async body=>{
    const organization={company_id:body.company_id,unit_id:body.unit_id,department_id:body.department_id,position:body.position,
@@ -151,6 +152,13 @@ function userForm(id){
    await api('user',{id,name:body.name,email:body.email,role:body.role,active:body.active==='1',manager:body.manager,
     password:body.password,area:department?.name||existing.area||'',organization})
    if(id===d.me.id&&body.password){modal.close();await start()}
+   if(!id){
+    const current=await api('v2/organization'),created=current.people.find(item=>item.email?.toLowerCase()===body.email.trim().toLowerCase())
+    if(!created)return {message:'Acesso criado. Atualize a lista para enviar o convite.'}
+    try{const invitation=await api('first-access/invite',{personId:created.id,requestId:crypto.randomUUID()});return {message:'Acesso criado. '+invitation.message}}
+    catch(error){return {message:'Acesso criado; convite pendente: '+error.message}}
+   }
+   return {message:'Cadastro e vínculo atualizados.'}
   },id?'Salvar cadastro e empresa':'Criar usuário')
  bindOrganizationFields(editor,person)
 }

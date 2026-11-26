@@ -150,3 +150,74 @@ body:has(#app) #modal #okr13Form fieldset[data-okr-kr] {
   #modal #okr13Form fieldset[data-okr-kr] > .lxp-field:has(input[name=krTitle]) {grid-column:1}
   #modal #okr13Form > .lxp-heading-actions > button {flex:1 1 100px}
 }
+
+/* V29.1 — Functional refinement of the original identity.
+   No new palette, background, logo, art, theme, routes or business rules.
+   Preserve V28 modal fixes and existing learning/player layouts. */
+#app .shell[data-la22-route]>aside>nav {
+  min-height:0;min-width:0;max-width:100%;flex:1 1 auto;
+  overscroll-behavior-y:contain;scrollbar-width:thin;
+  scrollbar-color:#6083b8 transparent;
+}
+#app .shell[data-la22-route]>aside>:is(.la21-product,.brand,.profile){flex-shrink:0;min-width:0}
+#app .shell[data-la22-route]>aside :is(.la21-product,.brand,.profile) :is(b,small,strong,span,div){min-width:0;overflow-wrap:anywhere}
+#app .shell[data-la22-route]>aside nav button{min-width:0;white-space:normal;overflow-wrap:anywhere;scroll-margin-block:8px}
+#app .shell[data-la22-route]>aside nav button .ico{flex-shrink:0}
+@media(min-width:901px) and (min-height:620px){
+  #app .shell[data-la22-route]>aside{box-sizing:border-box;overflow:hidden;min-height:0;max-height:100dvh}
+  #app .shell[data-la22-route]>aside>nav{overflow-y:auto;overflow-x:hidden}
+}
+@media(max-height:619px){
+  #app .shell[data-la22-route]>aside{overflow-y:auto}
+  #app .shell[data-la22-route]>aside>nav{flex:0 0 auto;overflow:visible}
+}
+/* Header: keep every actual action visible; no clipping of the organization selector. */
+#app .shell.la23-shell[data-la22-route]>main>header.la23-header{box-sizing:border-box;flex-wrap:wrap;min-width:0;max-width:100%;gap:10px 14px}
+#app .shell.la23-shell[data-la22-route]>main>header.la23-header .global-search{min-width:0;max-width:100%;flex:1 1 220px}
+#app .shell.la23-shell[data-la22-route] .la23-header .company-context{min-width:0;max-width:100%;flex:0 1 auto}
+#app .shell.la23-shell[data-la22-route] .la23-header .company-context select{max-width:min(230px,100%);min-width:0;text-overflow:ellipsis}
+#app .shell.la23-shell[data-la22-route] .la23-header .global-search-results{max-height:min(55dvh,400px);overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;max-width:100%}
+#app .shell.la23-shell[data-la22-route] .la23-header .global-search-results button{white-space:normal;overflow-wrap:anywhere}
+@media(max-width:900px){
+  #app .shell.la23-shell[data-la22-route]>main>header.la23-header .global-search{flex:1 0 100%;order:5}
+  #app .shell[data-la22-route]>aside>nav{flex:0 0 auto;overflow:visible}
+  #app .shell[data-la22-route]>aside{overflow-y:auto}
+}
+@media(max-width:430px){
+  #app .shell.la23-shell[data-la22-route]>main>header.la23-header{gap:8px;padding-inline:10px}
+  #app .shell.la23-shell[data-la22-route] .la23-header .company-context{flex:1 1 140px}
+  #app .shell.la23-shell[data-la22-route] .la23-header .company-context select{max-width:min(190px,100%)}
+}
+/* Profile: eight native fields fill balanced rows. Long values never escape the card. */
+#app .shell[data-la22-route] [data-la22-page=profile]>.profile-details{container:la-profile / inline-size;min-width:0;max-width:100%}
+#app .shell[data-la22-route] [data-la22-page=profile] .profile-details dl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0;align-items:stretch}
+#app .shell[data-la22-route] [data-la22-page=profile] .profile-details dl>div{min-width:0;max-width:100%;box-sizing:border-box}
+#app .shell[data-la22-route] [data-la22-page=profile] .profile-details :is(dt,dd){min-width:0;max-width:100%;overflow-wrap:anywhere;white-space:normal;line-height:1.5}
+#app .shell[data-la22-route] [data-la22-page=profile] .profile-details .heading>*{min-width:0;max-width:100%;overflow-wrap:anywhere}
+#app .shell[data-la22-route] [data-la22-page=profile]>.card{min-width:0;max-width:100%;align-self:start}
+#app .shell[data-la22-route] [data-la22-page=profile]>.card .row{gap:12px;align-items:baseline}
+#app .shell[data-la22-route] [data-la22-page=profile]>.card .row>*{min-width:0;overflow-wrap:anywhere}
+#app .shell[data-la22-route] [data-la22-page=profile]>.card .row>b{flex-shrink:0;font-variant-numeric:tabular-nums}
+@container la-profile (max-width:850px){#app .shell[data-la22-route] [data-la22-page=profile] .profile-details dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container la-profile (max-width:420px){#app .shell[data-la22-route] [data-la22-page=profile] .profile-details dl{grid-template-columns:minmax(0,1fr)}}
+/* Shared interactions: maintain all existing colors, geometry of complex charts and media. */
+#app .shell[data-la22-route] .inside :is(.heading,.actions,.lxp-heading-actions,.page-actions){min-width:0;max-width:100%;flex-wrap:wrap;row-gap:8px}
+#app .shell[data-la22-route] .inside :is(.heading,.actions,.lxp-heading-actions,.page-actions)>*{min-width:0;max-width:100%;overflow-wrap:anywhere}
+#app .shell[data-la22-route] .inside :is(.heading,.actions,.lxp-heading-actions,.page-actions) button{white-space:normal;overflow-wrap:anywhere}
+#app .shell[data-la22-route] .inside :is(.table-scroll,.report-table,.r3-table-scroll,.lxp-table-wrap,.a6-table-scroll,.d4-table-wrap,.bulk-table){max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain}
+#app .shell[data-la22-route] :is(button,a,input,select,textarea,summary):focus-visible{outline:2px solid #0777c9;outline-offset:2px}
+#app .shell[data-la22-route]>aside :is(button,a):focus-visible{outline-color:#b9e9ff;outline-offset:-2px}
+#app .shell[data-la22-route] button:disabled{cursor:not-allowed}
+@media(prefers-reduced-motion:no-preference){
+  #app .shell[data-la22-route] :is(button:not(:disabled),a.lxp-btn){transition-property:background-color,border-color,box-shadow,color,opacity;transition-duration:160ms;transition-timing-function:ease-out}
+  #app .shell[data-la22-route] :is(input,select,textarea){transition:border-color 160ms ease-out,box-shadow 160ms ease-out}
+}
+@media(prefers-reduced-motion:reduce){
+  #app .shell[data-la22-route] :is(button,a,input,select,textarea){transition:none!important;animation:none!important}
+  #app .shell[data-la22-route]>aside>nav{scroll-behavior:auto}
+}
+/* Native legends outside the OKR editor: keep text away from the border.
+   Limit to existing professional forms; do not change assessment/SCORM fieldsets. */
+#modal:not(.lxp-immersive):not(.a6-immersive):not([data-la22-modal=player]) fieldset.professional-fields{min-inline-size:0;max-inline-size:100%;box-sizing:border-box}
+#modal:not(.lxp-immersive):not(.a6-immersive):not([data-la22-modal=player]) fieldset.professional-fields>legend{float:left;width:100%;margin:0 0 12px;padding:0 0 8px;border-bottom:1px solid #d2e3f7;box-sizing:border-box;overflow-wrap:anywhere}
+#modal:not(.lxp-immersive):not(.a6-immersive):not([data-la22-modal=player]) fieldset.professional-fields>.professional-grid{clear:both;min-width:0}

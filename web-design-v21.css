@@ -84,3 +84,8 @@ body:has(#app .shell) #modal .la21-mission-detail .learning-cover{width:100%;hei
 body:has(#app .shell) #modal .journey-step{background:#fff;border:1px solid #d2e3f7;border-radius:14px;margin:10px 0;padding:14px}
 @media(max-width:1000px){#app .shell .la21-overview,#app .shell .la21-split{grid-template-columns:1fr}#app .shell .la21-hero-copy{display:none}}
 @media(max-width:700px){#app .shell .journey-card{grid-template-columns:1fr}#app .shell .journey-card>*{grid-column:1!important}#app .shell .journey-card .learning-cover{grid-row:auto;width:100%;height:140px}#app .shell .lxp-heading-body{align-items:flex-start;gap:12px}#app .shell .la21-module-icon{width:44px;height:44px;border-radius:12px}#app .shell .la21-feedback-card{grid-template-columns:36px minmax(0,1fr)}#app .shell .la21-feedback-card>.lxp-pill{grid-column:2}body:has(#app .shell) #modal .la21-mission-detail{grid-template-columns:1fr}}
+#app .shell .lxp-heading h1 span{font:inherit;letter-spacing:inherit;color:#52f3ff}
+#app .shell .la21-overview .lxp-metrics{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+#app .shell .la21-overview .lxp-metric{min-height:110px;padding:14px}
+#app .shell .la21-overview .lxp-metric small{font-size:12px;line-height:1.4}
+@media(max-width:700px){#app .shell .la21-overview .lxp-metrics{grid-template-columns:1fr}}

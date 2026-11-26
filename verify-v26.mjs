@@ -27,6 +27,6 @@ check(foundation.includes('plataforma enviará automaticamente um convite'),'cad
 check(foundation.includes("api('first-access/invite'"),'cadastro dispara convite de primeiro acesso')
 check(lxp.includes("el.textContent='Acessos criados. Enviando convites corporativos"),'importação em lote dispara convites automáticos')
 check(platform.includes("else if(op==='user'&&!b.id)"),'novo acesso recebe segredo técnico não utilizável')
-check(index.includes('/design-v26.css?v=26.1')&&manifest['/design-v26.css'],'camada V26.1 incluída no build')
+check(index.includes('/design-v26.css?v=26.1')&&index.includes('/lxp-v2.js?v=26.2')&&manifest['/design-v26.css'],'camada V26.2 e cache seguro do OKR incluídos no build')
 
 console.log('PASS V26: '+checks+' verificações de banners, relatórios, OKR, Intranet, 9Box, convites e remoção de estrelas.')

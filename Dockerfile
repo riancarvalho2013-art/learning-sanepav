@@ -1,7 +1,11 @@
 FROM node:24-bookworm-slim
 WORKDIR /app
 COPY . .
-RUN npm test && mkdir -p /data
+# Tests run with external services disabled; the user never needs a local terminal.
+RUN npm install --no-save --package-lock=false --ignore-scripts --omit=dev --no-audit --no-fund @aws-sdk/client-s3@3.1174.0 \
+    && LEARNING_MEDIA_MODE=sqlite LEARNING_BACKUP_DIRECTORY= npm test \
+    && LEARNING_BACKUP_DIRECTORY= node verify-enterprise-v27.mjs \
+    && mkdir -p /data
 ENV NODE_ENV=production LEARNING_DB=/data/learning.sqlite
 EXPOSE 8080
 CMD ["node","serve.mjs"]

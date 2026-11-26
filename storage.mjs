@@ -6,6 +6,9 @@ import {DatabaseSync,backup} from 'node:sqlite'
 import {randomUUID,createHash} from 'node:crypto'
 import {mkdirSync,existsSync,chmodSync,renameSync} from 'node:fs'
 import {dirname,join} from 'node:path'
+import {mediaConfig,createS3Store,createMediaAdapter,verifyRemote} from './media-storage-v27.mjs'
+import {startBackupScheduler} from './backup-scheduler-v27.mjs'
+import {scheduledBackup} from './recovery-v13.mjs'
 const databasePath=process.env.LEARNING_DB||'data/learning.sqlite'
 const existingDatabase=databasePath!==':memory:'&&existsSync(databasePath)
 if(databasePath!==':memory:')mkdirSync(dirname(databasePath),{recursive:true})
@@ -34,7 +37,7 @@ DOMAIN.historicalIndex=ids=>readHistoricalIndex(db,ids)
 
 // Includes direct v2 organizational edits which do not necessarily change the legacy ETag.
 function organizationRevision(){const h=createHash('sha256');for(const table of ['companies','units','departments','person_organizations','company_access'])h.update(JSON.stringify(db.prepare(`SELECT * FROM ${table} ORDER BY ${table==='company_access'?'person_id,company_id':table==='person_organizations'?'person_id':'id'}`).all()));return h.digest('hex')}
-export const BUCKET = {
+const legacy = {
  // Delete only unpublished video parts whose server-issued ID was authorized by the upload session.
  async deleteSocialVideoParts(id){
   if(!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(id))throw new TypeError('Identificador inválido.')
@@ -88,3 +91,16 @@ export const BUCKET = {
   }
  }
 }
+// Default is exactly the legacy adapter. The S3 SDK is loaded only after explicit opt-in.
+const configuration=mediaConfig()
+const remote=configuration.mode==='sqlite'?null:await createS3Store(configuration)
+const adapter=createMediaAdapter({db,legacy,config:configuration,remote})
+if(configuration.mode==='external')await verifyRemote(configuration,remote)
+if(configuration.mode==='rehydrate'){
+ const restored=await adapter.rehydrate()
+ console.info(JSON.stringify({event:'media_v27_rehydrated',objects:restored,remaining:adapter.externalCount()}))
+}
+export const BUCKET=adapter.bucket
+
+// Explicit opt-in only; the scheduler refuses the same device and never deletes backups.
+if(configuration.mode!=='rehydrate')startBackupScheduler(databasePath,scheduledBackup)

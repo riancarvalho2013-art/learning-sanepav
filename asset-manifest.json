@@ -119,10 +119,6 @@
     "file": "web-design-v22.css",
     "mime": "text/css;charset=utf-8"
   },
-  "/design-v22.js": {
-    "file": "web-design-v22.js",
-    "mime": "text/javascript;charset=utf-8"
-  },
   "/zip.js": {
     "file": "web-zip.js",
     "mime": "text/javascript"
@@ -187,6 +183,10 @@
     "file": "design-v22/sidebar-ondas.webp",
     "mime": "image/webp"
   },
+  "/design-v22.js": {
+    "file": "web-design-v22.js",
+    "mime": "text/javascript;charset=utf-8"
+  },
   "/design-v23.css": {
     "file": "web-design-v23.css",
     "mime": "text/css;charset=utf-8"
@@ -222,5 +222,13 @@
   "/design-v26.css": {
     "file": "web-design-v26.css",
     "mime": "text/css;charset=utf-8"
+  },
+  "/design-v27.css": {
+    "file": "web-design-v27.css",
+    "mime": "text/css;charset=utf-8"
+  },
+  "/okr-report-v27.js": {
+    "file": "web-okr-report-v27.js",
+    "mime": "text/javascript;charset=utf-8"
   }
 }

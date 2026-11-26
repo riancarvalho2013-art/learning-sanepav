@@ -639,6 +639,7 @@ async function handle(req,env){
  if(req.method==='POST'&&['/api/request-password-reset','/api/reset-password'].includes(path))return env.DOMAIN.recovery(req,identity)
  if(path==='/api/login'&&req.method==='POST'){
  const b=await req.json(),email=str(b.email).toLowerCase(),token=id()+id(),tokenHash=await hash(token),key=await hash(identity+'|'+(req.headers.get('cf-connecting-ip')||'')+'|'+email);const result=await change(env,async s=>{
+ requireOk(!env.tenantPilotLogin||s.users.length>0,'Piloto indisponível.',403)
  const f=s.fails[key];requireOk(!f||f.since<Date.now()-900000||f.n<8,'Muitas tentativas. Aguarde 15 minutos.',429)
  let u=s.users.find(p=>p.email===email);if(!s.users.length){requireOk(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)&&str(b.name),'Informe nome e e-mail.');u={id:id(),email,name:str(b.name,90),role:roles[0],area:'DHO',manager:'',active:true,...await password(b.password)};s.users.push(u);starter(s,u)}
  if(!u?.active||typeof b.password!=='string'||b.password.length<12||b.password.length>150||!await verifyPassword(b.password,u)){s.fails[key]=f&&f.since>Date.now()-900000?{...f,n:f.n+1}:{n:1,since:Date.now()};audit(s,null,'Tentativa de acesso recusada');return false}

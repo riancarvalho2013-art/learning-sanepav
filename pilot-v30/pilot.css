@@ -1,0 +1,15 @@
+:root { font-family: system-ui, sans-serif; color: #092756; background: #f0f5fa; }
+body { margin: 0; }
+header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 5vw; background: #092756; color: white; border-bottom: 4px solid #33c5e9; }
+main { max-width: 66rem; margin: 2rem auto; padding: 0 1rem; }
+form, section { background: white; border: 1px solid #cedbea; border-radius: 1rem; padding: 1.5rem; margin-bottom: 1rem; }
+form { max-width: 24rem; margin-inline: auto; }
+label, input { display: block; }
+label { margin: 0 0 1rem; }
+input { box-sizing: border-box; width: 100%; padding: .65rem; margin-top: .3rem; border: 1px solid #637995; border-radius: .35rem; font: inherit; }
+button, a { font: inherit; }
+button { cursor: pointer; border: 1px solid transparent; border-radius: .4rem; padding: .6rem 1rem; color: #092756; background: #33c5e9; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid #006889; outline-offset: 3px; }
+li { margin-block: .5rem; }
+header img { display: block; width: 9rem; height: 3rem; object-fit: contain; background: white; border-radius: .4rem; }
+iframe { display: block; width: 100%; min-height: 14rem; border: 1px solid #cedbea; margin-top: .75rem; }

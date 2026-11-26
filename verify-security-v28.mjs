@@ -5,7 +5,7 @@ import {join} from 'node:path'
 import {spawn} from 'node:child_process'
 import {createServer} from 'node:net'
 const source=readFileSync(new URL('./serve.mjs',import.meta.url),'utf8')
-const section=source.split('// BEGIN V28 INGRESS\n')[1]?.split('// END V28 INGRESS')[0]
+const section=source.split(/\/\/ BEGIN V28 INGRESS\r?\n/)[1]?.split('// END V28 INGRESS')[0]
 assert.ok(section,'Ingress code missing')
 const {inspectRequest,parseAllowedHosts,securityHeaders,logRoute,createAuthGate}=await import('data:text/javascript;base64,'+Buffer.from(section+'\nexport {inspectRequest,parseAllowedHosts,securityHeaders,logRoute,createAuthGate}').toString('base64'))
 let n=0

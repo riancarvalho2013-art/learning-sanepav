@@ -97,7 +97,10 @@ const devMode=process.env.NODE_ENV!=='production'&&portArgument>=0
 if(tenantReadPilot&&!devMode)throw Error('Piloto disponível somente em loopback com --port.')
 const listenPort=Number(devMode?process.argv[portArgument+1]:(process.env.PORT||8080))
 const protocol=devMode?'http:':'https:'
-const allowedHosts=parseAllowedHosts(process.env.LEARNING_ALLOWED_HOSTS||'')
+const browserPilot=process.env.LEARNING_TENANT_BROWSER_MODE==='pilot'
+if(browserPilot&&(!advancedPilot||!devMode||process.env.NODE_ENV!=='test'||!process.env.LEARNING_DB||process.env.LEARNING_BACKUP_DIRECTORY||process.env.RESEND_API_KEY))throw Error('Piloto de navegador requer SQLite explícito e execução local isolada.')
+const allowedHosts=browserPilot?new Set(['127.0.0.1:'+listenPort]):parseAllowedHosts(process.env.LEARNING_ALLOWED_HOSTS||'')
+const browserRoutes=browserPilot?(await import('./tenant-browser-v30.mjs')).browserRoutes:null
 const authGate=createAuthGate()
 const configuredCode = process.env.SETUP_KEY
 const validSetupKey = /^[A-Za-z0-9_-]{32,128}$/
@@ -183,7 +186,7 @@ const server=http.createServer({headersTimeout:15000,requestTimeout:300000,keepA
       res.writeHead(303,{'Set-Cookie':cookieName+'='+issueActivation()+cookieFlags+'; Max-Age=600',Location:'/'})
       return res.end()
     }
-    if (url.pathname === '/api/login' && req.method === 'POST') {
+    if (!tenantReadPilot && url.pathname === '/api/login' && req.method === 'POST') {
       const stored = await BUCKET.get('system/state-v1')
       const initialized = stored && (await stored.json()).users.length > 0
       const code = (req.headers.cookie || '').split('; ').find(v=>v.startsWith(cookieName+'='))?.slice(cookieName.length+1)
@@ -211,7 +214,10 @@ const server=http.createServer({headersTimeout:15000,requestTimeout:300000,keepA
       }
     }
     const request = new Request(url,options)
-    const result = tenantReadPilot
+    const browserRoute=browserRoutes?.get(request.method+' '+url.pathname)
+    const result = browserRoute
+      ? await browserRoute(request,context,app)
+      : tenantReadPilot
       ? (advancedPilot&&request.method==='POST'&&url.pathname==='/api/progress' ? await (await import('./tenant-progress-v30.mjs')).pilotProgress(request,context,handleCompletionV11) : advancedPilot&&request.method==='GET'&&(await import('./tenant-api-v30.mjs')).pilotApiPaths.has(url.pathname) ? await (await import('./tenant-api-v30.mjs')).pilotApiRead(request,context) : governanceMode==='pilot'&&url.pathname.startsWith('/api/tenant/v30/') ? (advancedPilot&&request.method==='POST'?await (await import('./tenant-admin-v30.mjs')).pilotAdminWrite(request,context):await (await import('./tenant-governance-v30.mjs')).pilotGovernance(request,context,{xlsx:advancedPilot})) : tenantScormPilot&&(url.pathname.startsWith('/api/scorm/v3/')||url.pathname.startsWith('/scorm/v3/')) ? await scormPilot(request,context) : tenantMediaPilot&&request.method==='POST'&&url.pathname.startsWith('/api/tenant-media/v30/') ? await (await import('./tenant-media-v30.mjs')).pilotMedia(request,context) : tenantWritePilot&&request.method==='POST' ? await (await import('./tenant-write-v30.mjs')).pilotWrite(request,context) : await (await import('./tenant-read-v30.mjs')).pilotRead(request,context,(r,c)=>guardLegacyOKR(r,c,q=>app.fetch(q,c)),{corporateAlias:advancedPilot}))
       : await routeRequest(request)
     if(req.method==='GET'&&url.pathname==='/api/access'&&result.ok){

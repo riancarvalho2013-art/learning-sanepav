@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Learning Academy</title>
+  <link rel="stylesheet" href="/pilot.css">
+  <script src="/pilot.js" defer></script>
+</head>
+<body>
+  <header><img src="/pilot-logo.png" alt="Learning Academy"><button id="logout" hidden>Sair</button></header>
+  <main>
+    <form id="login" hidden>
+      <h1>Entrar</h1>
+      <label>E-mail <input name="email" type="email" autocomplete="username" required></label>
+      <label>Senha <input name="password" type="password" autocomplete="current-password" required></label>
+      <button>Entrar</button>
+    </form>
+    <p id="status" role="status"></p>
+    <div id="dashboard" hidden></div>
+  </main>
+</body>
+</html>

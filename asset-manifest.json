@@ -15,26 +15,6 @@
     "file": "web-style.css",
     "mime": "text/css;charset=utf-8"
   },
-  "/evolution.css": {
-    "file": "web-evolution.css",
-    "mime": "text/css;charset=utf-8"
-  },
-  "/zip.js": {
-    "file": "web-zip.js",
-    "mime": "text/javascript"
-  },
-  "/app.js": {
-    "file": "web-app.js",
-    "mime": "text/javascript;charset=utf-8"
-  },
-  "/foundation.js": {
-    "file": "web-foundation.js",
-    "mime": "text/javascript;charset=utf-8"
-  },
-  "/evolution.js": {
-    "file": "web-evolution.js",
-    "mime": "text/javascript;charset=utf-8"
-  },
   "/favicon.png": {
     "file": "web-favicon-256.png",
     "mime": "image/png"
@@ -42,6 +22,18 @@
   "/favicon-32.png": {
     "file": "web-favicon-32.png",
     "mime": "image/png"
+  },
+  "/academy-mark.svg": {
+    "file": "web-academy-mark.svg",
+    "mime": "image/svg+xml"
+  },
+  "/evolution.css": {
+    "file": "web-evolution.css",
+    "mime": "text/css;charset=utf-8"
+  },
+  "/evolution.js": {
+    "file": "web-evolution.js",
+    "mime": "text/javascript;charset=utf-8"
   },
   "/lxp-v2.css": {
     "file": "web-lxp-v2.css",
@@ -59,13 +51,13 @@
     "file": "web-scorm-v3.js",
     "mime": "text/javascript;charset=utf-8"
   },
-  "/reports-v3.js": {
-    "file": "web-reports-v3.js",
-    "mime": "text/javascript;charset=utf-8"
-  },
   "/reports-v3.css": {
     "file": "web-reports-v3.css",
     "mime": "text/css;charset=utf-8"
+  },
+  "/reports-v3.js": {
+    "file": "web-reports-v3.js",
+    "mime": "text/javascript;charset=utf-8"
   },
   "/discovery-v4.css": {
     "file": "web-discovery-v4.css",
@@ -75,13 +67,13 @@
     "file": "web-discovery-v4.js",
     "mime": "text/javascript;charset=utf-8"
   },
-  "/pulse-v5.js": {
-    "file": "web-pulse-v5.js",
-    "mime": "text/javascript;charset=utf-8"
-  },
   "/pulse-v5.css": {
     "file": "web-pulse-v5.css",
     "mime": "text/css;charset=utf-8"
+  },
+  "/pulse-v5.js": {
+    "file": "web-pulse-v5.js",
+    "mime": "text/javascript;charset=utf-8"
   },
   "/assessments-v6.css": {
     "file": "web-assessments-v6.css",
@@ -91,25 +83,21 @@
     "file": "web-assessments-v6.js",
     "mime": "text/javascript;charset=utf-8"
   },
-  "/kirkpatrick-v7.js": {
-    "file": "web-kirkpatrick-v7.js",
-    "mime": "text/javascript;charset=utf-8"
-  },
   "/kirkpatrick-v7.css": {
     "file": "web-kirkpatrick-v7.css",
     "mime": "text/css;charset=utf-8"
   },
-  "/orgchart-v9.js": {
-    "file": "web-orgchart-v9.js",
+  "/kirkpatrick-v7.js": {
+    "file": "web-kirkpatrick-v7.js",
     "mime": "text/javascript;charset=utf-8"
   },
   "/orgchart-v9.css": {
     "file": "web-orgchart-v9.css",
     "mime": "text/css;charset=utf-8"
   },
-  "/academy-mark.svg": {
-    "file": "web-academy-mark.svg",
-    "mime": "image/svg+xml"
+  "/orgchart-v9.js": {
+    "file": "web-orgchart-v9.js",
+    "mime": "text/javascript;charset=utf-8"
   },
   "/auth-v20.css": {
     "file": "web-auth-v20.css",
@@ -117,6 +105,34 @@
   },
   "/auth-v20.js": {
     "file": "web-auth-v20.js",
+    "mime": "text/javascript;charset=utf-8"
+  },
+  "/design-v21.css": {
+    "file": "web-design-v21.css",
+    "mime": "text/css;charset=utf-8"
+  },
+  "/design-v21.js": {
+    "file": "web-design-v21.js",
+    "mime": "text/javascript;charset=utf-8"
+  },
+  "/design-v22.css": {
+    "file": "web-design-v22.css",
+    "mime": "text/css;charset=utf-8"
+  },
+  "/design-v22.js": {
+    "file": "web-design-v22.js",
+    "mime": "text/javascript;charset=utf-8"
+  },
+  "/zip.js": {
+    "file": "web-zip.js",
+    "mime": "text/javascript"
+  },
+  "/app.js": {
+    "file": "web-app.js",
+    "mime": "text/javascript;charset=utf-8"
+  },
+  "/foundation.js": {
+    "file": "web-foundation.js",
     "mime": "text/javascript;charset=utf-8"
   },
   "/design-v21/04-hero-completo-sem-texto.svg": {
@@ -143,12 +159,32 @@
     "file": "design-v21/06-sidebar-completo.svg",
     "mime": "image/svg+xml"
   },
-  "/design-v21.css": {
-    "file": "web-design-v21.css",
-    "mime": "text/css;charset=utf-8"
+  "/design-v22/background-original.webp": {
+    "file": "design-v22/background-original.webp",
+    "mime": "image/webp"
   },
-  "/design-v21.js": {
-    "file": "web-design-v21.js",
-    "mime": "text/javascript;charset=utf-8"
+  "/design-v22/beta-clean-capa.png": {
+    "file": "design-v22/beta-clean-capa.png",
+    "mime": "image/png"
+  },
+  "/design-v22/beta-clean-logo.png": {
+    "file": "design-v22/beta-clean-logo.png",
+    "mime": "image/png"
+  },
+  "/design-v22/canvas-claro.webp": {
+    "file": "design-v22/canvas-claro.webp",
+    "mime": "image/webp"
+  },
+  "/design-v22/course-cover.webp": {
+    "file": "design-v22/course-cover.webp",
+    "mime": "image/webp"
+  },
+  "/design-v22/hero-original-adaptado.webp": {
+    "file": "design-v22/hero-original-adaptado.webp",
+    "mime": "image/webp"
+  },
+  "/design-v22/sidebar-ondas.webp": {
+    "file": "design-v22/sidebar-ondas.webp",
+    "mime": "image/webp"
   }
 }

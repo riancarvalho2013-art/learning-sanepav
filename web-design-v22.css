@@ -1,0 +1,213 @@
+/* Learning Academy V22 | original raster artwork + route-specific layouts.
+   Scoped to authenticated UI; no login, certificate document or SCORM iframe changes. */
+#app .shell[data-la22-route]{--la22-ink:#081d50;--la22-blue:#0754e7;--la22-cyan:#00dbe9;--la22-line:#d0e3f8;--la22-surface:#fff;--la22-shadow:0 5px 15px #1765b51c,0 1px 2px #174b9510;--la22-primary:linear-gradient(105deg,#0739f2,#0078ed 65%,#00c5d8);--ink:var(--la22-ink);--muted:#4e6481;--line:var(--la22-line);color:var(--la22-ink);background:#eaf3ff url('/design-v22/canvas-claro.webp') center/cover fixed;grid-template-columns:clamp(220px,18.5vw,310px) minmax(0,1fr);font-family:Inter,"Segoe UI",Arial,sans-serif}
+#app .shell[data-la22-route]>aside{background:#061c50 url('/design-v22/sidebar-ondas.webp') center/100% 100% no-repeat;position:sticky;top:0;height:100dvh;padding:26px 16px;overflow-y:auto;scrollbar-width:thin;gap:12px;border:0;color:#fff}
+#app .shell[data-la22-route] .la21-product{padding:12px 9px 23px;gap:12px;align-items:center;font-size:clamp(20px,1.8vw,28px);letter-spacing:-.045em}
+#app .shell[data-la22-route] .la21-product img{width:56px;height:56px}
+#app .shell[data-la22-route] .la21-product em{color:#37ebff;font-weight:800}
+#app .shell[data-la22-route]>aside nav button{font-size:14px;font-weight:500;line-height:1.3;border-radius:15px;padding:10px 13px;min-height:43px;gap:12px;box-shadow:none;text-align:left}
+#app .shell[data-la22-route]>aside nav button.sel{background:linear-gradient(105deg,#0055f4,#007fe9 60%,#00c5d8);box-shadow:inset 0 1px 0 #bffaff50,0 4px 12px #001c5750;color:#fff;font-weight:700}
+#app .shell[data-la22-route]>aside nav small{font-size:10px;letter-spacing:.10em;color:#b8d2fa;margin:17px 0 6px}
+#app .shell[data-la22-route]>aside nav .ico{width:24px;min-width:24px}
+.la22-svg{width:23px;height:23px;display:inline-block;vertical-align:middle;flex:none;color:inherit}
+#app .shell[data-la22-route]>main{min-width:0}
+#app .shell[data-la22-route]>main>header{background:linear-gradient(120deg,#eaf4ffea,#f4f9fff5);padding:12px clamp(16px,2vw,30px);gap:14px;min-height:72px;box-shadow:0 2px 10px #1452ac10;border:0;align-items:center;justify-content:space-between}
+#app .shell[data-la22-route]>main>header .breadcrumb{font-size:11px;flex-basis:auto;max-width:220px;line-height:1.4}
+#app .shell[data-la22-route]>main>header .global-search{flex:1 1 240px;max-width:740px}
+#app .shell[data-la22-route]>main>header .global-search input{border:1px solid #b9d6f4;background:#f8fcff;border-radius:999px;box-shadow:0 4px 12px #2f72ba12;padding:10px 18px}
+#app .shell[data-la22-route] .inside{max-width:1800px;padding:20px clamp(16px,2vw,30px) 32px;min-width:0;animation:none}
+#app .shell[data-la22-route] .inside h1{font-size:clamp(28px,3vw,48px);letter-spacing:-.045em;line-height:1.08;color:var(--la22-ink)}
+#app .shell[data-la22-route] .inside h2{font-size:clamp(17px,1.45vw,22px);letter-spacing:-.025em;line-height:1.25}
+#app .shell[data-la22-route] .inside h3{font-size:16px;letter-spacing:-.015em}
+/* The original clean background is raster artwork, not a CSS simulation. */
+#app .shell[data-la22-route] .la22-hero{position:relative;isolation:isolate;display:flex;align-items:center;gap:clamp(12px,1.6vw,24px);flex-wrap:wrap;min-height:172px;padding:clamp(20px,2vw,34px) clamp(18px,2.8vw,44px);margin:0 0 18px;border-radius:21px;border:1px solid #74d8ff9c;background:#073a95 url('/design-v22/hero-original-adaptado.webp') center/100% 100% no-repeat;box-shadow:0 7px 16px #154fb42b;overflow:hidden;color:white}
+#app .shell[data-la22-route] .la22-hero::after{display:none}
+#app .shell[data-la22-route] .la22-hero :is(h1,h2,h3){color:white;margin:0 0 7px;overflow-wrap:anywhere}
+#app .shell[data-la22-route] .la22-hero h1 :is(span,em),#app .shell[data-la22-route] .la22-hero .la22-title-accent{font:inherit;letter-spacing:inherit;color:#58f7ff;-webkit-text-fill-color:#58f7ff}
+#app .shell[data-la22-route] .la22-hero :is(p,small,.muted,.over,.dna-eyebrow,.lxp-overline,.r3-overline,.p5-eyebrow,.a6-kicker,.d4-over,.la22-kicker){color:#eff8ff}
+#app .shell[data-la22-route] .la22-hero p{font-size:clamp(14px,1.15vw,18px);line-height:1.45;max-width:66ch;margin:0 0 6px}
+#app .shell[data-la22-route] .la22-hero :is(.over,.dna-eyebrow,.lxp-overline,.r3-overline,.p5-eyebrow,.a6-kicker,.d4-over,.la22-kicker){display:block;letter-spacing:.18em;text-transform:uppercase;font-size:11px;font-weight:700;margin-bottom:10px}
+#app .shell[data-la22-route] .la22-hero-icon,#app .shell[data-la22-route] .la22-hero .la21-module-icon{display:grid;place-items:center;flex:0 0 65px;width:65px;height:65px;border-radius:19px;color:#082757;background:linear-gradient(135deg,#66f5ff,#00c9ea 50%,#0054f9);box-shadow:inset 0 2px 0 #d5ffff8c,0 8px 20px #031b5d40}
+#app .shell[data-la22-route] .la22-hero-icon svg,#app .shell[data-la22-route] .la22-hero .la21-module-icon svg{width:36px;height:36px}
+#app .shell[data-la22-route] .la22-hero>div:first-of-type:not(.la22-hero-copy):not(.la21-hero-copy){flex:1 1 360px;min-width:0}
+#app .shell[data-la22-route] .la22-hero .lxp-heading-body{display:flex;align-items:center;flex:1 1 410px;max-width:none;min-width:0;gap:19px}
+#app .shell[data-la22-route] .la22-hero .lxp-heading-body>div{min-width:0}
+#app .shell[data-la22-route] .la22-hero :is(.la22-hero-copy,.la21-hero-copy){color:#eafaff;flex:0 1 224px;max-width:224px;font-size:clamp(14px,1.15vw,18px);line-height:1.45;border-left:1px solid #a9e9ff9c;padding:5px 0 5px 18px;margin-left:auto}
+#app .shell[data-la22-route] .la22-hero :is(.r3-hero-mark,.p5-hero-mark){display:none}
+#app .shell[data-la22-route] .la22-hero :is(.page-actions,.lxp-heading-actions,.dna-hero-actions,.social-post-header){display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:0 1 auto}
+#app .shell[data-la22-route] .la22-hero button:not(.primary){background:#f5fbff;color:#154393;border:1px solid #cbeaff;min-height:39px}
+/* Flat heading routes and the journey banner keep real existing actions. */
+#app .shell[data-la22-route] .la22-hero.heading,#app .shell[data-la22-route] .la22-hero.hero:has(>h1){display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:18px;row-gap:9px}
+#app .shell[data-la22-route] .la22-hero.heading>.la22-hero-icon,#app .shell[data-la22-route] .la22-hero.hero:has(>h1)>.la22-hero-icon{grid-column:1;grid-row:1/4}
+#app .shell[data-la22-route] .la22-hero.heading>:is(h1,.la22-kicker),#app .shell[data-la22-route] .la22-hero.hero:has(>h1)>:is(h1,.over,p){grid-column:2}
+#app .shell[data-la22-route] .la22-hero.heading>.page-actions,#app .shell[data-la22-route] .la22-hero.hero:has(>h1)>button{grid-column:2;justify-self:start}
+#app .shell[data-la22-route] .la22-hero.heading>.la22-hero-copy,#app .shell[data-la22-route] .la22-hero.hero:has(>h1)>.la22-hero-copy{grid-column:3;grid-row:1/5}
+/* Surfaces and component primitives shared by every route. */
+#app .shell[data-la22-route] .inside :is(.card,.stat,.dna-metric,.dna-surface,.dna-featured,.dna-featured-card,.dna-cert-card,.lxp-panel,.lxp-card,.lxp-metric,.lxp-module-card,.r3-panel,.r3-card,.d4-section,.d4-course,.d4-kpis>article,.p5-card,.a6-card,.kp7-panel,.kp7-stat,.oc-stat,.oc-map-card){border:1px solid #d6e6f8;background:linear-gradient(145deg,#fff,#f1f7ff);border-radius:17px;box-shadow:var(--la22-shadow);min-width:0}
+#app .shell[data-la22-route] .inside :is(.stats,.dna-metrics,.lxp-metrics,.r3-metrics,.d4-kpis,.oc-stats,.a6-kpis,.p5-kpis,.kp7-stats){display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:12px;margin:0 0 18px;align-items:stretch}
+#app .shell[data-la22-route] .inside :is(.stat,.dna-metric,.lxp-metric,.r3-card,.oc-stat,.d4-kpis>article,.a6-kpis>article,.p5-kpis>article,.kp7-stat){padding:14px 15px;min-height:90px;position:relative;min-width:0;text-align:left}
+#app .shell[data-la22-route] .inside :is(.stat,.dna-metric,.lxp-metric,.r3-card,.oc-stat,.d4-kpis>article,.a6-kpis>article,.p5-kpis>article,.kp7-stat):has(>.la22-metric-icon){padding-left:60px}
+#app .shell[data-la22-route] .inside :is(.la22-metric-icon,.dna-metric-icon){display:grid;place-items:center;position:absolute;left:12px;top:16px;width:38px;height:38px;border-radius:11px;color:#0754e7;background:linear-gradient(145deg,#d8e9ff,#e0f8ff)}
+#app .shell[data-la22-route] .inside :is(.la22-metric-icon,.dna-metric-icon) svg{width:23px;height:23px}
+#app .shell[data-la22-route] .inside :is(.dna-metric):has(.dna-metric-icon){padding-left:62px}
+#app .shell[data-la22-route] .inside :is(.stat b,.lxp-metric strong,.dna-metric strong,.r3-number,.oc-stat strong,.d4-kpis b,.kp7-stat strong){font-size:clamp(22px,2.1vw,32px);color:#081d50;line-height:1.2;font-weight:800;overflow-wrap:anywhere}
+#app .shell[data-la22-route] .inside :is(.stat span,.lxp-metric small,.dna-metric small,.r3-card-label,.oc-stat span){font-size:12px;color:#27466e;line-height:1.4}
+#app .shell[data-la22-route] :is(button.primary,.lxp-btn.primary,.r3-primary,.a6-primary,.p5-primary,.kp7-primary,.d4-button,.dna-btn-link){background:linear-gradient(105deg,#0739e5,#0070db 68%,#00869d);color:#fff;border:1px solid transparent;border-radius:12px;box-shadow:0 3px 8px #0e56ac16;font-weight:650}
+#app .shell[data-la22-route] :is(button.primary,.lxp-btn.primary,.r3-primary,.a6-primary,.p5-primary,.kp7-primary,.d4-button,.dna-btn-link):hover{filter:brightness(1.05)}
+#app .shell[data-la22-route] :is(.bar span,.lxp-progress-track>span,.lxp-bar>span,.r3-track>div,.p5-track>div){background:linear-gradient(90deg,#0545f4,#00cbdc);border-radius:999px}
+#app .shell[data-la22-route] .inside :is(.filters,.r3-filters,.d4-filter,.oc-tools,.a6-toolbar,.okr-filters){background:#f8fbffdb;border:1px solid #d5e5f8;padding:13px;border-radius:15px;box-shadow:var(--la22-shadow);gap:10px;margin-bottom:14px}
+#app .shell[data-la22-route] .inside :is(.r3-tabs,.oc-tabs,.lxp-tabs){gap:7px;flex-wrap:wrap}
+#app .shell[data-la22-route] .inside :is(.r3-tab.is-active,.oc-tabs .is-active,.lxp-tab.active){background:linear-gradient(105deg,#0539dc,#0079e6);color:white;border-color:#0754d9}
+#app .shell[data-la22-route] .inside :is(.r3-table-scroll,.table-scroll,.lxp-table-wrap,.d4-table-wrap,.a6-table-scroll){border-radius:12px;overflow-x:auto;max-width:100%}
+#app .shell[data-la22-route] .inside :is(.r3-table-scroll,.table-scroll,.lxp-table-wrap,.d4-table-wrap,.a6-table-scroll) table{margin:0}
+#app .shell[data-la22-route] .inside :is(th,td){padding:11px 13px;font-size:13px}
+#app .shell[data-la22-route] .inside :is(th){background:#e3eefc;color:#193d76}
+#app .shell[data-la22-route] .inside :is(.card,.lxp-panel,.r3-panel,.d4-section,.p5-card,.a6-card,.kp7-panel){padding:19px;margin-bottom:14px}
+#app .shell[data-la22-route] .inside :is(.lxp-grid,.tiles,.dna-featured-grid,.dna-cert-grid,.p5-grid,.a6-grid,.d4-grid)>*{margin-bottom:0}
+#app .shell[data-la22-route] .inside :is(.lxp-card-icon,.flow-icon,.dna-cert-icon){color:#065be0;background:linear-gradient(135deg,#d9eaff,#e0faff);border-radius:13px}
+/* Painel: metric strip, current lesson with real cover, right-hand evolution, suggestions. */
+#app .shell[data-la22-route] [data-la22-page=dashboard] .dna-hero{min-height:185px}
+#app .shell[data-la22-route] [data-la22-page=dashboard] .dna-hero-orbit{flex:0 0 145px;width:145px;height:145px}
+#app .shell[data-la22-route] [data-la22-page=dashboard] .dna-home-columns{display:grid;grid-template-columns:minmax(0,2.25fr) minmax(0,1fr);gap:16px;align-items:stretch;margin-bottom:16px}
+#app .shell[data-la22-route] [data-la22-page=dashboard] .dna-home-columns .dna-surface{padding:19px;margin:0}
+#app .shell[data-la22-route] [data-la22-page=dashboard] .dna-next{display:grid;grid-template-columns:minmax(110px,32%) minmax(0,1fr) auto;gap:13px;align-items:center;border:1px solid #d5e5f8;background:#f8fbff;border-radius:15px;padding:12px}
+#app .shell[data-la22-route] [data-la22-page=dashboard] .dna-next-icon{width:100%;height:auto;aspect-ratio:16/9;overflow:hidden;border-radius:12px;background:#08347d url('/design-v22/course-cover.webp') center/cover}
+#app .shell[data-la22-route] .la22-next-cover{display:block;width:100%;height:100%;object-fit:cover}
+#app .shell[data-la22-route] [data-la22-page=dashboard] .dna-featured{padding:16px}
+#app .shell[data-la22-route] [data-la22-page=dashboard] .dna-featured-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:13px}
+#app .shell[data-la22-route] [data-la22-page=dashboard] .dna-featured-card{padding:12px;display:flex;flex-direction:column;align-items:stretch;overflow:hidden}
+#app .shell[data-la22-route] .la22-course-visual{height:auto;aspect-ratio:16/8;width:100%;background:#08347d url('/design-v22/course-cover.webp') center/cover;color:#bafaff;border-radius:12px;display:grid;place-items:center;margin-bottom:12px}
+#app .shell[data-la22-route] .la22-course-visual svg{width:43px;height:43px}
+/* Catálogo: actual native cards, view selector with no fake filters. */
+#app .shell[data-la22-route] .la22-grid-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0 12px}
+#app .shell[data-la22-route] .la22-grid-tools h2{margin:0}
+#app .shell[data-la22-route] .la22-view-switch{display:flex;gap:5px;padding:3px;border-radius:12px;background:#f8fbff;border:1px solid #d5e5f8}
+#app .shell[data-la22-route] .la22-view-switch button{min-height:36px;padding:7px 10px;color:#0a4298;background:transparent;border:0}
+#app .shell[data-la22-route] .la22-view-switch button[aria-pressed=true]{background:#0754e7;color:white}
+#app .shell[data-la22-route] .la22-catalog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,245px),1fr));gap:14px}
+#app .shell[data-la22-route] .la22-catalog-grid .learning-card{padding:13px;border-radius:17px;gap:5px;overflow:hidden}
+#app .shell[data-la22-route] .la22-catalog-grid .learning-cover{aspect-ratio:16/9;object-fit:cover;width:100%;margin:0 0 8px;border-radius:12px}
+#app .shell[data-la22-route] .la22-catalog-grid[data-la22-view=list]{grid-template-columns:1fr}
+#app .shell[data-la22-route] .la22-catalog-grid[data-la22-view=list] .learning-card{display:grid;grid-template-columns:170px minmax(0,1fr);align-items:start;gap:7px 16px}
+#app .shell[data-la22-route] .la22-catalog-grid[data-la22-view=list] .learning-cover{grid-column:1;grid-row:1/10}
+#app .shell[data-la22-route] .la22-catalog-grid[data-la22-view=list] .learning-card>:not(.learning-cover){grid-column:2}
+/* Trilhas / PDI / feedback: preserve the V21 functional layout, refine proportions. */
+#app .shell[data-la22-route] [data-la22-page=journeys] .la21-split,#app .shell[data-la22-route] [data-la22-page=feedback] .la21-split{grid-template-columns:minmax(0,2.3fr) minmax(210px,1fr);gap:16px}
+#app .shell[data-la22-route] [data-la22-page=journeys] .la21-split>aside.card{display:block;position:static;height:auto;overflow:visible;color:#081d50;background:linear-gradient(145deg,#fff,#edf6ff);padding:19px}
+#app .shell[data-la22-route] [data-la22-page=journeys] .journey-card{grid-template-columns:clamp(115px,14vw,200px) minmax(0,1fr);gap:6px 16px;padding:13px}
+#app .shell[data-la22-route] [data-la22-page=journeys] .journey-card .learning-cover{width:100%;height:auto;aspect-ratio:16/11;object-fit:cover;grid-row:1/9}
+#app .shell[data-la22-route] [data-la22-page=pdi] .la21-overview{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:15px}
+#app .shell[data-la22-route] [data-la22-page=pdi] .la21-overview .lxp-metrics{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
+#app .shell[data-la22-route] [data-la22-page=pdi] .la21-overview .lxp-metric{min-height:110px;padding:12px}
+#app .shell[data-la22-route] [data-la22-page=pdi] .la21-overview .lxp-metric .la22-metric-icon{position:static;margin-bottom:5px;width:28px;height:28px}
+#app .shell[data-la22-route] [data-la22-page=feedback] .la21-feedback-card{border-radius:16px;box-shadow:var(--la22-shadow);padding:16px;align-items:start}
+#app .shell[data-la22-route] [data-la22-page=feedback] .la21-quick button{border:1px solid #d0e3f8;background:#f8fbff;color:#10469b;min-height:49px}
+/* OKR: stacked objectives with real KR controls and measurable results. */
+#app .shell[data-la22-route] [data-la22-page=okr] #okrCards{display:grid;gap:12px}
+#app .shell[data-la22-route] [data-la22-page=okr] #okrCards>.lxp-panel{margin:0;padding:19px;border-radius:17px}
+#app .shell[data-la22-route] [data-la22-page=okr] #okrCards .lxp-line{border-bottom:1px solid #d7e6f6;padding:12px 4px;gap:10px}
+#app .shell[data-la22-route] [data-la22-page=okr] .okr-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+/* Reports and analytics: responsive chart/table composition, real source data only. */
+#app .shell[data-la22-route] [data-la22-page=reports] .r3-wrapper{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+#app .shell[data-la22-route] [data-la22-page=reports] .r3-wrapper>*{grid-column:1/-1;min-width:0;margin:0}
+#app .shell[data-la22-route] [data-la22-page=reports] .r3-wrapper>.la22-report-chart{grid-column:1/-1}
+#app .shell[data-la22-route] [data-la22-page=reports] .r3-chart{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 22px;padding:12px 0}
+#app .shell[data-la22-route] [data-la22-page=reports] .r3-chart-row{padding:10px;border-radius:10px;background:#eff6ff;min-width:0}
+#app .shell[data-la22-route] [data-la22-page=reports] .r3-chart-label{display:flex;justify-content:space-between;gap:8px;align-items:center;overflow-wrap:anywhere}
+#app .shell[data-la22-route] [data-la22-page=analytics] .foundation-stats{grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr))}
+#app .shell[data-la22-route] [data-la22-page=analytics] .company-chart-row{display:grid;grid-template-columns:minmax(120px,1fr) minmax(100px,3fr) auto;align-items:center;gap:18px;width:100%;background:#f6fbff;border:1px solid #d7e6fa;margin:8px 0;padding:13px}
+#app .shell[data-la22-route] [data-la22-page=analytics] .company-chart-row meter{width:100%;height:18px}
+#app .shell[data-la22-route] [data-la22-page=analytics] meter::-webkit-meter-optimum-value{background:linear-gradient(90deg,#0754e7,#00c9dd)}
+/* 1:1 and performance: existing cycle/meeting cards in a readable timeline/list. */
+#app .shell[data-la22-route] :is([data-la22-page=meetings],[data-la22-page=performance]) .lxp-page>.lxp-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+#app .shell[data-la22-route] :is([data-la22-page=meetings],[data-la22-page=performance]) .lxp-page>.lxp-grid>.lxp-card{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-height:180px}
+#app .shell[data-la22-route] :is([data-la22-page=meetings],[data-la22-page=performance]) .lxp-card-actions{margin-top:auto;display:flex;gap:8px;flex-wrap:wrap}
+#app .shell[data-la22-route] [data-la22-page=meetings] .lxp-card>small:first-of-type{background:#e5f0ff;padding:6px 11px;border-radius:8px;color:#0d4baa;font-weight:650}
+/* Pulse, Pulse Seguro and assessment builders, results and cards. */
+#app .shell[data-la22-route] :is([data-la22-page=pulse],[data-la22-page=securepulse],[data-la22-page=assessments]) :is(.lxp-grid,.p5-grid,.a6-grid){display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,285px),1fr));gap:15px}
+#app .shell[data-la22-route] :is([data-la22-page=pulse],[data-la22-page=securepulse],[data-la22-page=assessments]) :is(.p5-card,.a6-card,.lxp-card){border-top:3px solid #0b7cf1;display:flex;flex-direction:column;gap:9px}
+#app .shell[data-la22-route] :is([data-la22-page=pulse],[data-la22-page=securepulse]) :is(.p5-notice,.lxp-note){border:1px solid #b9d9f7;background:#eaf5ff;color:#214b78;border-radius:12px;padding:13px}
+#app .shell[data-la22-route] [data-la22-page=effectiveness] .kp7-root{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+#app .shell[data-la22-route] [data-la22-page=effectiveness] .kp7-root>*{grid-column:1/-1;min-width:0;margin:0}
+#app .shell[data-la22-route] [data-la22-page=effectiveness] .kp7-root>.kp7-panel:has(form){grid-column:auto;border-top:3px solid #0b7cf1}
+/* People, professional profile and organization. */
+#app .shell[data-la22-route] [data-la22-page=profile]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+#app .shell[data-la22-route] [data-la22-page=profile]>.la22-hero,#app .shell[data-la22-route] [data-la22-page=profile]>.profile-details{grid-column:1/-1}
+#app .shell[data-la22-route] [data-la22-page=profile] .profile-details dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:12px}
+#app .shell[data-la22-route] [data-la22-page=profile] .profile-details dl>div{padding:12px;background:#eff6ff;border-radius:12px}
+#app .shell[data-la22-route] [data-la22-page=people] .directory-panel,#app .shell[data-la22-route] [data-la22-page=organization] .card{border-radius:16px}
+#app .shell[data-la22-route] [data-la22-page=orgchart] .oc-map-card{padding:12px;overflow:hidden}
+#app .shell[data-la22-route] [data-la22-page=orgchart] .oc-tools{background:#f7fbff;border-radius:14px}
+/* 9Box: preserve semantic performance/potential colors, axis and actual occupants. */
+#app .shell[data-la22-route] [data-la22-page=ninebox] .la22-nine{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:15px}
+#app .shell[data-la22-route] [data-la22-page=ninebox] .la22-nine .cell{min-height:105px;border:1px solid #a9c5dc;border-radius:13px;padding:14px;background:#e6f1ff;color:#173d62;overflow-wrap:anywhere}
+#app .shell[data-la22-route] [data-la22-page=ninebox] .la22-nine .cell:nth-child(1),#app .shell[data-la22-route] [data-la22-page=ninebox] .la22-nine .cell:nth-child(5),#app .shell[data-la22-route] [data-la22-page=ninebox] .la22-nine .cell:nth-child(9){background:#fff1cf;border-color:#ead391}
+#app .shell[data-la22-route] [data-la22-page=ninebox] .la22-nine .cell:nth-child(2),#app .shell[data-la22-route] [data-la22-page=ninebox] .la22-nine .cell:nth-child(3),#app .shell[data-la22-route] [data-la22-page=ninebox] .la22-nine .cell:nth-child(6){background:#e1f6e8;border-color:#9fd7b1}
+#app .shell[data-la22-route] [data-la22-page=ninebox] .la22-nine .cell:nth-child(7){background:#ffe5e6;border-color:#edb5bc}
+/* Intranet and recognition: feed layout and native actions, without altering posts. */
+#app .shell[data-la22-route] [data-la22-page=social] .social-feed{max-width:960px;margin:0 auto}
+#app .shell[data-la22-route] [data-la22-page=social] [data-social-card]{background:#fff;border-radius:17px;border:1px solid #d4e6fb;box-shadow:var(--la22-shadow);margin-bottom:16px}
+#app .shell[data-la22-route] [data-la22-page=praise] .praise-card{border-radius:17px;background:linear-gradient(145deg,#fff,#eaf4ff);border:1px solid #d3e4fa;box-shadow:var(--la22-shadow)}
+/* Certificates, gradebook and personal journey. */
+#app .shell[data-la22-route] [data-la22-page=certificates] .dna-cert-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:15px}
+#app .shell[data-la22-route] [data-la22-page=certificates] .dna-cert-card{border-top:4px solid #0b83e7;padding:20px}
+#app .shell[data-la22-route] [data-la22-page=gradebook] .dna-grade-table{min-width:600px}
+#app .shell[data-la22-route] [data-la22-page=myjourney] .lxp-hero-personal{background:#0b347e url('/design-v22/course-cover.webp') center/cover;color:#fff;border-radius:17px;margin-bottom:16px}
+#app .shell[data-la22-route] [data-la22-page=myjourney] .lxp-hero-personal :is(h2,p,span){color:#fff}
+#app .shell[data-la22-route] :is([data-la22-page=myjourney],[data-la22-page=academy]) .lxp-module-card{text-align:left;padding:16px;min-height:112px}
+#app .shell[data-la22-route] [data-la22-page=access] .lxp-stack>.lxp-line{padding:14px;background:#f0f6ff;border-radius:10px}
+/* Saved courses: real bookmark and rating actions remain untouched. */
+#app .shell[data-la22-route] [data-la22-page=saved] .d4-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,235px),1fr));gap:14px}
+#app .shell[data-la22-route] [data-la22-page=saved] .d4-course{display:flex;flex-direction:column;gap:8px;padding:13px;min-width:0}
+#app .shell[data-la22-route] .la22-saved-cover{width:100%;aspect-ratio:16/8;display:grid;place-items:center;background:#073c8d url('/design-v22/course-cover.webp') center/cover;border-radius:12px;overflow:hidden;color:#bbf8ff}
+#app .shell[data-la22-route] .la22-saved-cover svg{width:36px;height:36px}
+#app .shell[data-la22-route] .la22-saved-cover img{width:100%;height:100%;object-fit:cover}
+#app .shell[data-la22-route] .la22-saved-progress{display:grid;gap:3px}
+#app .shell[data-la22-route] .la22-saved-progress progress{height:8px}
+#app .shell[data-la22-route] [data-la22-page=saved] .d4-actions{margin-top:auto}
+#app .shell[data-la22-route] [data-la22-page=discovery] .d4-kpis{grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))}
+#app .shell[data-la22-route] :is([data-la22-page=branding],[data-la22-page=theme],[data-la22-page=audit],[data-la22-page=evolution]) .card{padding:22px}
+/* All existing modal types, full page editors, native nested dialogs. */
+body:has(#app .shell[data-la22-route]) #modal{background:#f4f9ff url('/design-v22/canvas-claro.webp') center/cover;border:1px solid #b9d6f7;border-radius:24px;box-shadow:0 22px 80px #001b5e65;padding:24px;max-height:92dvh;width:min(900px,96vw);color:#081d50}
+body:has(#app .shell[data-la22-route]) #modal::backdrop{background:#092957a3;backdrop-filter:blur(2px)}
+body:has(#app .shell[data-la22-route]) #modal[data-la22-modal=mission]{width:min(1150px,96vw)}
+body:has(#app .shell[data-la22-route]) #modal[data-la22-modal=player]{width:min(1500px,98vw);padding:12px}
+body:has(#app .shell[data-la22-route]) #modal[data-la22-modal=exam]{width:min(1050px,96vw)}
+body:has(#app .shell[data-la22-route]) #modal .la22-modal-title{font-size:clamp(22px,2.2vw,33px);letter-spacing:-.035em;color:#081d50}
+body:has(#app .shell[data-la22-route]) #modal :is(.lxp-lesson-top,.scorm-v3-top){background:#073a95 url('/design-v22/hero-original-adaptado.webp') center/100% 100%;border-radius:16px;padding:18px;color:white}
+body:has(#app .shell[data-la22-route]) #modal :is(.lxp-lesson-top,.scorm-v3-top) :is(h1,h2,p,small,span){color:#fff}
+body:has(#app .shell[data-la22-route]) #modal .la21-mission-detail{display:grid;grid-template-columns:minmax(180px,30%) minmax(0,1fr);gap:22px;align-items:start}
+body:has(#app .shell[data-la22-route]) #modal .la21-mission-detail>section:first-child{background:#fff;border:1px solid #d2e3f7;border-radius:15px;padding:15px;box-shadow:0 5px 14px #164c8714}
+body:has(#app .shell[data-la22-route]) #modal .journey-step{display:grid;grid-template-columns:36px minmax(0,1fr) auto;align-items:center;gap:10px;background:#fff;border-radius:13px;border:1px solid #cfe1f8;padding:12px;margin:8px 0}
+body:has(#app .shell[data-la22-route]) #modal .journey-step .step-number{display:grid;place-items:center;border-radius:10px;background:#dceeff;color:#0754d9;width:34px;height:34px;font-weight:750}
+body:has(#app .shell[data-la22-route]) #modal .journey-step.is-complete .step-number{background:#e1f7ea;color:#087c4d}
+body:has(#app .shell[data-la22-route]) #modal .journey-step.is-locked .step-number{background:#e5eaf2;color:#556987}
+body:has(#app .shell[data-la22-route]) #modal .mission-steps{list-style:none;padding:0}
+body:has(#app .shell[data-la22-route]) #modal :is(.lxp-panel,.a6-question,.p5-editor,.a6-editor,.professional-fields,.lxp-question){background:#fff;border:1px solid #d5e6fa;border-radius:14px;padding:15px}
+body:has(#app .shell[data-la22-route]) #modal :is(button.primary,.lxp-btn.primary,.p5-primary,.a6-primary,.kp7-primary){background:linear-gradient(105deg,#0739e5,#0070db 68%,#00869d);color:#fff;border-radius:12px}
+body:has(#app .shell[data-la22-route]) #modal :is(.actions,.lxp-form-actions,.p5-footer,.a6-form-footer){gap:10px;flex-wrap:wrap}
+/* Responsive: no fixed desktop widths on mobile. */
+@media(max-width:1250px){#app .shell[data-la22-route] .la22-hero :is(.la22-hero-copy,.la21-hero-copy){flex-basis:170px;max-width:170px;font-size:14px}#app .shell[data-la22-route] [data-la22-page=dashboard] .dna-next{grid-template-columns:120px minmax(0,1fr)}#app .shell[data-la22-route] [data-la22-page=dashboard] .dna-next>div:last-child{grid-column:2}}
+@media(max-width:1050px){#app .shell[data-la22-route]{grid-template-columns:210px minmax(0,1fr)}#app .shell[data-la22-route] .la22-hero :is(.la22-hero-copy,.la21-hero-copy){display:none}#app .shell[data-la22-route] .la22-hero.heading,#app .shell[data-la22-route] .la22-hero.hero:has(>h1){grid-template-columns:auto minmax(0,1fr)}#app .shell[data-la22-route] [data-la22-page=dashboard] .dna-home-columns,#app .shell[data-la22-route] [data-la22-page=pdi] .la21-overview,#app .shell[data-la22-route] :is([data-la22-page=journeys],[data-la22-page=feedback]) .la21-split{grid-template-columns:1fr}#app .shell[data-la22-route] [data-la22-page=dashboard] .dna-hero-orbit{display:none}}
+@media(max-width:760px){#app .shell[data-la22-route]{display:block}#app .shell[data-la22-route]>aside{display:none;height:auto;position:relative;max-height:65dvh;width:100%}#app .shell[data-la22-route].open>aside{display:flex}#app .shell[data-la22-route] .menuBtn{display:inline-block}#app .shell[data-la22-route]>main>header{gap:8px;padding:10px 12px}#app .shell[data-la22-route]>main>header .breadcrumb{max-width:none;flex-basis:auto}#app .shell[data-la22-route]>main>header .global-search{flex-basis:100%;order:5;max-width:none}#app .shell[data-la22-route] .inside{padding:12px}#app .shell[data-la22-route] .la22-hero{min-height:135px;padding:17px;background-position:70% center;background-size:cover;gap:12px}#app .shell[data-la22-route] .la22-hero>div:first-of-type:not(.la22-hero-copy):not(.la21-hero-copy){flex-basis:200px}#app .shell[data-la22-route] .la22-hero-icon,#app .shell[data-la22-route] .la22-hero .la21-module-icon{width:42px;height:42px;flex-basis:42px;border-radius:12px}#app .shell[data-la22-route] .la22-hero-icon svg,#app .shell[data-la22-route] .la22-hero .la21-module-icon svg{width:25px;height:25px}#app .shell[data-la22-route] .inside h1{font-size:29px}#app .shell[data-la22-route] .la22-hero .lxp-heading-body{flex-basis:100%;gap:11px}#app .shell[data-la22-route] .inside :is(.stats,.dna-metrics,.lxp-metrics,.r3-metrics,.d4-kpis,.oc-stats,.a6-kpis,.p5-kpis,.kp7-stats){grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}#app .shell[data-la22-route] .inside :is(.stat,.dna-metric,.lxp-metric,.r3-card,.oc-stat,.d4-kpis>article,.a6-kpis>article,.p5-kpis>article,.kp7-stat){padding:12px;min-height:80px}#app .shell[data-la22-route] .inside :is(.stat,.dna-metric,.lxp-metric,.r3-card,.oc-stat,.d4-kpis>article,.a6-kpis>article,.p5-kpis>article,.kp7-stat):has(>.la22-metric-icon),#app .shell[data-la22-route] .inside .dna-metric:has(.dna-metric-icon){padding-left:12px}#app .shell[data-la22-route] .inside :is(.la22-metric-icon,.dna-metric-icon){position:static;width:28px;height:28px;margin-bottom:5px}#app .shell[data-la22-route] .inside :is(.la22-metric-icon,.dna-metric-icon) svg{width:18px;height:18px}#app .shell[data-la22-route] [data-la22-page=pdi] .la21-overview .lxp-metrics,#app .shell[data-la22-route] [data-la22-page=profile],#app .shell[data-la22-route] [data-la22-page=reports] .r3-wrapper,#app .shell[data-la22-route] [data-la22-page=reports] .r3-chart,#app .shell[data-la22-route] [data-la22-page=effectiveness] .kp7-root,#app .shell[data-la22-route] :is([data-la22-page=meetings],[data-la22-page=performance]) .lxp-page>.lxp-grid{grid-template-columns:1fr}#app .shell[data-la22-route] [data-la22-page=profile]>*{grid-column:1}#app .shell[data-la22-route] [data-la22-page=journeys] .journey-card,#app .shell[data-la22-route] .la22-catalog-grid[data-la22-view=list] .learning-card{grid-template-columns:1fr}#app .shell[data-la22-route] [data-la22-page=journeys] .journey-card>*,#app .shell[data-la22-route] .la22-catalog-grid[data-la22-view=list] .learning-card>*{grid-column:1!important;grid-row:auto!important}#app .shell[data-la22-route] [data-la22-page=journeys] .journey-card .learning-cover{aspect-ratio:16/8}#app .shell[data-la22-route] [data-la22-page=okr] .okr-filters{grid-template-columns:1fr}#app .shell[data-la22-route] [data-la22-page=ninebox] .la22-nine{gap:5px}#app .shell[data-la22-route] [data-la22-page=ninebox] .la22-nine .cell{padding:8px;font-size:11px}body:has(#app .shell[data-la22-route]) #modal{padding:15px}body:has(#app .shell[data-la22-route]) #modal .la21-mission-detail{grid-template-columns:1fr}body:has(#app .shell[data-la22-route]) #modal .journey-step{grid-template-columns:30px minmax(0,1fr)}body:has(#app .shell[data-la22-route]) #modal .journey-step>button{grid-column:2;justify-self:start}}
+@media(prefers-reduced-motion:reduce){#app .shell[data-la22-route] *,body:has(#app .shell[data-la22-route]) #modal *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+#app .shell[data-la22-route] .inside .la22-hero h1{color:white}
+#app .shell[data-la22-route] .inside .la22-hero>.la22-hero-copy{min-width:0}
+#app .shell[data-la22-route] .inside .la22-hero .dna-hero-orbit{flex:0 0 145px;max-width:145px}
+#app .shell[data-la22-route] .inside .la22-hero .dna-hero-orbit .orbit{pointer-events:none}
+#app .shell[data-la22-route] .inside .la22-hero .page-actions>button{margin:0}
+#app .shell[data-la22-route] .inside .la22-hero .la22-hero-icon{align-self:center}
+@media(max-width:760px){#app .shell[data-la22-route] .inside .la22-hero .dna-hero-orbit{display:none}#app .shell[data-la22-route] .inside .la22-hero .la22-hero-copy{display:none}}
+/* Concept composition refinements using the existing live values. */
+#app .shell[data-la22-route] [data-la22-page=dashboard] .dna-hero-orbit[hidden]{display:none!important}
+#app .shell[data-la22-route] .la22-ring-block{display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;text-align:center;min-width:0;padding:14px;color:#24466f;font-size:13px;font-weight:600}
+#app .shell[data-la22-route] .la22-ring{width:clamp(100px,10vw,150px);aspect-ratio:1;border-radius:50%;background:conic-gradient(#0754e7 0%,#00c5de var(--pct),#dce8f6 var(--pct),#dce8f6 100%);display:grid;place-items:center;position:relative}
+#app .shell[data-la22-route] .la22-ring::before{content:"";position:absolute;inset:12%;background:#f8fcff;border-radius:50%}
+#app .shell[data-la22-route] .la22-ring b{position:relative;color:#081d50;font-size:29px}
+#app .shell[data-la22-route] .la22-chart-split{display:grid;grid-template-columns:minmax(0,2.5fr) minmax(145px,1fr);gap:18px;align-items:center}
+#app .shell[data-la22-route] .la22-okr-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}
+#app .shell[data-la22-route] .la22-summary-stat{display:flex;align-items:center;gap:12px;border:1px solid #d5e6f8;background:linear-gradient(145deg,#fff,#f1f7ff);box-shadow:var(--la22-shadow);border-radius:16px;padding:15px;min-width:0}
+#app .shell[data-la22-route] .la22-summary-stat small{display:block;font-size:12px;color:#29496f}
+#app .shell[data-la22-route] .la22-summary-stat strong{font-size:28px;line-height:1.2;color:#081d50;overflow-wrap:anywhere}
+#app .shell[data-la22-route] .la22-summary-icon{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:12px;background:#e2f1ff;color:#0754e7}
+@media(max-width:760px){#app .shell[data-la22-route] .la22-okr-summary,#app .shell[data-la22-route] .la22-chart-split{grid-template-columns:1fr}}

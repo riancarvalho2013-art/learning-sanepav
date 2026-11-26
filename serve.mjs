@@ -69,8 +69,32 @@ function createAuthGate({max=8,activationMax=20,windowMs=600000,clock=Date.now}=
 }
 // END V28 INGRESS
 
+// V30.2A: a read-only pilot, never available in production.
+const tenantReadMode=process.env.LEARNING_TENANT_READ_MODE||'legacy'
+if(!['legacy','pilot'].includes(tenantReadMode)||tenantReadMode==='pilot'&&process.env.NODE_ENV==='production')throw Error('LEARNING_TENANT_READ_MODE inválido ou não permitido em produção.')
+const tenantReadPilot=tenantReadMode==='pilot'
+// V30.2B: opt-in metadata writes, restricted to synthetic test environment.
+const tenantWriteMode=process.env.LEARNING_TENANT_WRITE_MODE||'off'
+if(!['off','pilot'].includes(tenantWriteMode)||tenantWriteMode==='pilot'&&(!tenantReadPilot||process.env.NODE_ENV!=='test'))throw Error('LEARNING_TENANT_WRITE_MODE inválido ou não permitido.')
+const tenantWritePilot=tenantWriteMode==='pilot' 
+const tenantMediaMode=process.env.LEARNING_TENANT_MEDIA_MODE||'off'
+if(!['off','pilot'].includes(tenantMediaMode)||tenantMediaMode==='pilot'&&(!tenantWritePilot||process.env.NODE_ENV!=='test'||(process.env.LEARNING_MEDIA_MODE||'sqlite')!=='sqlite'))throw Error('LEARNING_TENANT_MEDIA_MODE inválido ou não permitido.')
+const tenantMediaPilot=tenantMediaMode==='pilot'
+const tenantScormMode=process.env.LEARNING_TENANT_SCORM_MODE||'off'
+if(!['off','pilot'].includes(tenantScormMode)||tenantScormMode==='pilot'&&(!tenantReadPilot||process.env.NODE_ENV!=='test'||(process.env.LEARNING_MEDIA_MODE||'sqlite')!=='sqlite'))throw Error('LEARNING_TENANT_SCORM_MODE inválido ou não permitido.')
+const tenantScormPilot=tenantScormMode==='pilot'
+const checkpointMode=process.env.LEARNING_TENANT_CHECKPOINT_MODE||'off'
+if(!['off','pilot'].includes(checkpointMode)||checkpointMode==='pilot'&&(!tenantScormPilot||!tenantWritePilot||process.env.NODE_ENV!=='test'))throw Error('Checkpoint piloto inválido.')
+const governanceMode=process.env.LEARNING_TENANT_GOVERNANCE_MODE||'off'
+if(!['off','pilot'].includes(governanceMode)||governanceMode==='pilot'&&(!tenantReadPilot||process.env.NODE_ENV!=='test'||(process.env.LEARNING_MEDIA_MODE||'sqlite')!=='sqlite'))throw Error('Governança piloto inválida.')
+const advancedMode=process.env.LEARNING_TENANT_ADVANCED_MODE||'off'
+if(!['off','pilot'].includes(advancedMode)||advancedMode==='pilot'&&(!tenantScormPilot||!tenantWritePilot||governanceMode!=='pilot'||process.env.NODE_ENV!=='test'||checkpointMode!=='off'))throw Error('Piloto avançado inválido.')
+const advancedPilot=advancedMode==='pilot'
+const scormPilot=tenantScormPilot?(await import('./tenant-scorm-v30.mjs')).createTenantScormPilot(handleScormV3,{checkpoints:checkpointMode==='pilot',completion:advancedPilot}):null
+
 const portArgument=process.argv.indexOf('--port')
 const devMode=process.env.NODE_ENV!=='production'&&portArgument>=0
+if(tenantReadPilot&&!devMode)throw Error('Piloto disponível somente em loopback com --port.')
 const listenPort=Number(devMode?process.argv[portArgument+1]:(process.env.PORT||8080))
 const protocol=devMode?'http:':'https:'
 const allowedHosts=parseAllowedHosts(process.env.LEARNING_ALLOWED_HOSTS||'')
@@ -145,6 +169,7 @@ const server=http.createServer({headersTimeout:15000,requestTimeout:300000,keepA
       }
     }
     if (url.pathname === '/ativar') {
+      if(tenantReadPilot){res.writeHead(403,{'Cache-Control':'no-store'});return res.end()}
       res.setHeader('Cache-Control','no-store')
       res.setHeader('Content-Security-Policy',"default-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
       res.setHeader('X-Frame-Options','DENY')
@@ -172,7 +197,7 @@ const server=http.createServer({headersTimeout:15000,requestTimeout:300000,keepA
     headers.set('cf-connecting-ip',req.socket.remoteAddress || 'local')
     const options = {method:req.method,headers}
     if (!['GET','HEAD','OPTIONS'].includes(req.method)) {
-      const upload = ['/api/upload','/api/socialUpload','/api/evo/brand/logo','/api/evo/certificate/background'].includes(url.pathname)
+      const upload = ['/api/upload','/api/socialUpload','/api/evo/brand/logo','/api/evo/certificate/background'].includes(url.pathname)||(tenantMediaPilot&&/^\/api\/tenant-media\/v30\/[a-f0-9-]{36}\/upload$/.test(url.pathname))
       if (upload) Object.assign(options,{body:Readable.toWeb(req),duplex:'half'})
       else {
         let bytes=0
@@ -186,7 +211,9 @@ const server=http.createServer({headersTimeout:15000,requestTimeout:300000,keepA
       }
     }
     const request = new Request(url,options)
-    const result = await routeRequest(request)
+    const result = tenantReadPilot
+      ? (advancedPilot&&request.method==='POST'&&url.pathname==='/api/progress' ? await (await import('./tenant-progress-v30.mjs')).pilotProgress(request,context,handleCompletionV11) : advancedPilot&&request.method==='GET'&&(await import('./tenant-api-v30.mjs')).pilotApiPaths.has(url.pathname) ? await (await import('./tenant-api-v30.mjs')).pilotApiRead(request,context) : governanceMode==='pilot'&&url.pathname.startsWith('/api/tenant/v30/') ? (advancedPilot&&request.method==='POST'?await (await import('./tenant-admin-v30.mjs')).pilotAdminWrite(request,context):await (await import('./tenant-governance-v30.mjs')).pilotGovernance(request,context,{xlsx:advancedPilot})) : tenantScormPilot&&(url.pathname.startsWith('/api/scorm/v3/')||url.pathname.startsWith('/scorm/v3/')) ? await scormPilot(request,context) : tenantMediaPilot&&request.method==='POST'&&url.pathname.startsWith('/api/tenant-media/v30/') ? await (await import('./tenant-media-v30.mjs')).pilotMedia(request,context) : tenantWritePilot&&request.method==='POST' ? await (await import('./tenant-write-v30.mjs')).pilotWrite(request,context) : await (await import('./tenant-read-v30.mjs')).pilotRead(request,context,(r,c)=>guardLegacyOKR(r,c,q=>app.fetch(q,c)),{corporateAlias:advancedPilot}))
+      : await routeRequest(request)
     if(req.method==='GET'&&url.pathname==='/api/access'&&result.ok){
       const data=await result.json()
       if(data.setup){

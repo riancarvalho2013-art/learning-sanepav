@@ -37,7 +37,20 @@ DOMAIN.historicalIndex=ids=>readHistoricalIndex(db,ids)
 
 // Includes direct v2 organizational edits which do not necessarily change the legacy ETag.
 function organizationRevision(){const h=createHash('sha256');for(const table of ['companies','units','departments','person_organizations','company_access'])h.update(JSON.stringify(db.prepare(`SELECT * FROM ${table} ORDER BY ${table==='company_access'?'person_id,company_id':table==='person_organizations'?'person_id':'id'}`).all()));return h.digest('hex')}
+// V30 advanced pilot: assessment criteria and attempts are read from the same
+// SQLite database as the enrollment, and compared inside BEGIN IMMEDIATE.
+function tenantAssessmentSnapshot(scope){
+ if(!scope||!['companyId','courseId','userId'].every(k=>typeof scope[k]==='string'&&scope[k].length>0&&scope[k].length<=128))throw new TypeError('Escopo inválido.')
+ const present=db.prepare("SELECT count(*) n FROM sqlite_master WHERE type='table' AND name IN ('assessment_v6_forms','assessment_v6_attempts')").get().n
+ if(present!==2)return null
+ const forms=db.prepare("SELECT id,title,revision,status,kind FROM assessment_v6_forms WHERE company_id=? AND course_id=? AND kind='final' ORDER BY id").all(scope.companyId,scope.courseId)
+ const attempts=db.prepare("SELECT a.id,a.form_id,a.score,a.passed,a.submitted_at FROM assessment_v6_attempts a JOIN assessment_v6_forms f ON f.id=a.form_id WHERE f.company_id=? AND f.course_id=? AND f.kind='final' AND a.user_id=? ORDER BY a.form_id,a.score DESC,a.submitted_at,a.id").all(scope.companyId,scope.courseId,scope.userId)
+ const requirements=forms.filter(f=>f.status==='published').map(({id,title,revision})=>({id,title,revision}))
+ const passes=[];for(const f of requirements){const a=attempts.find(x=>x.form_id===f.id&&x.passed===1);if(a)passes.push({formId:f.id,attemptId:a.id,score:a.score})}
+ return {revision:createHash('sha256').update(JSON.stringify([scope.companyId,scope.courseId,scope.userId,forms,attempts])).digest('hex'),requirements,passes}
+}
 const legacy = {
+ async tenantAssessmentSnapshot(scope){return tenantAssessmentSnapshot(scope)},
  // Delete only unpublished video parts whose server-issued ID was authorized by the upload session.
  async deleteSocialVideoParts(id){
   if(!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(id))throw new TypeError('Identificador inválido.')
@@ -68,6 +81,8 @@ const legacy = {
    // OKR authorization is tied to the organization/session snapshot, not just the LXP revision.
    if(options?.requireStateEtag!==undefined&&db.prepare('SELECT etag FROM objects WHERE key=?').get('system/state-v1')?.etag!==options.requireStateEtag){db.exec('ROLLBACK');return null}
    if(options?.requireOrganizationRevision!==undefined&&organizationRevision()!==options.requireOrganizationRevision){db.exec('ROLLBACK');return null}
+   if(options?.requireTenantSessionUntil!==undefined&&(!Number.isFinite(options.requireTenantSessionUntil)||options.requireTenantSessionUntil<=Date.now())){db.exec('ROLLBACK');return null}
+   if(options?.requireTenantAssessmentRevision!==undefined){const proof=options.requireTenantAssessmentRevision;const current=tenantAssessmentSnapshot(proof);if(key!=='system/state-v1'||!current||current.revision!==proof.revision){db.exec('ROLLBACK');return null}}
    const result=expected
     ? db.prepare('UPDATE objects SET etag=?,body=? WHERE key=? AND etag=?').run(etag,body,key,expected)
     : db.prepare('INSERT OR IGNORE INTO objects VALUES(?,?,?)').run(key,etag,body)

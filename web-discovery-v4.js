@@ -6,7 +6,7 @@
  let mine=null,loading=false,metricData=null
  const isManager=()=>['Administrador','RH/DHO','Líder','Diretoria'].includes(d?.me?.role)
  const safe=v=>esc(v)
- const glyph=(name)=>({bookmark:'♡',saved:'♥',star:'★',open:'↗',chart:'◫'})[name]||'•'
+ const glyph=(name)=>({bookmark:'♡',saved:'♥',star:'●',open:'↗',chart:'◫'})[name]||'•'
  async function send(type,courseId){
   if(!d?.me)return
   try{await fetch('/api/discovery/v4/events',{method:'POST',headers:{'content-type':'application/json'},credentials:'same-origin',
@@ -46,7 +46,7 @@
     '<section class="d4-section"><div class="d4-section-head"><h2>Explore novos conteúdos</h2><span>Por afinidade de trilhas já concluídas</span></div>'+
      (recommended.length?'<div class="d4-grid">'+recommended.map(courseCard).join('')+'</div>':empty('Sem novas sugestões','As recomendações aparecerão quando houver novos cursos publicados.'))+'</section>'+
     '<section class="d4-section"><div class="d4-section-head"><h2>Avalie o que aprendeu</h2><span>Somente cursos concluídos</span></div>'+
-      (rated.length?'<div class="d4-rating-list">'+rated.map(c=>'<div class="d4-rating-row"><div><strong>'+safe(c.title)+'</strong><small>Seu feedback ajuda a melhorar os conteúdos</small></div><div class="d4-stars" role="group" aria-label="Avalie '+safe(c.title)+' de 1 a 5">'+Array.from({length:5},(_,i)=>'<button type="button" data-d4="rate" data-course="'+safe(c.id)+'" data-score="'+(i+1)+'" aria-label="'+(i+1)+' estrela(s)" class="'+(c.myRating>=i+1?'selected':'')+'">★</button>').join('')+'</div></div>').join('')+'</div>':empty('Nenhuma conclusão registrada','Conclua um curso para poder avaliá-lo.'))+'</section></section>'
+      (rated.length?'<div class="d4-rating-list">'+rated.map(c=>'<div class="d4-rating-row"><div><strong>'+safe(c.title)+'</strong><small>Seu feedback ajuda a melhorar os conteúdos</small></div><div class="d4-stars" role="group" aria-label="Avalie '+safe(c.title)+' de 1 a 5">'+Array.from({length:5},(_,i)=>'<button type="button" data-d4="rate" data-course="'+safe(c.id)+'" data-score="'+(i+1)+'" aria-label="Nota '+(i+1)+' de 5" class="'+(c.myRating>=i+1?'selected':'')+'">'+(i+1)+'</button>').join('')+'</div></div>').join('')+'</div>':empty('Nenhuma conclusão registrada','Conclua um curso para poder avaliá-lo.'))+'</section></section>'
   }catch(error){if(page===pageSaved)root.innerHTML='<section class="d4-screen">'+header('Minha lista','')+empty('Não foi possível carregar',error.message)+'</section>'}
  }
  const nf=n=>new Intl.NumberFormat('pt-BR').format(n||0)

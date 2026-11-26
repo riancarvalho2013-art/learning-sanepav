@@ -3,10 +3,12 @@ const pulseContexts=["Orgulho do time", "Metas claras", "Semana muito produtiva"
 const $=id=>document.getElementById(id),app=$('app'),modal=$('modal')
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 const kinds=['OKR','PDI','1:1','Feedback','Elogio','Pulse','Desempenho']
-const icons=['◎','◫','◷','◇','☆','∿','▥']
+const icons=['◎','◫','◷','◇','◆','∿','▥']
 let refreshSequence=0
 let d,page='Painel',person='',search='',player=null,timer
 const admin=()=>d.me.role==='Administrador',manager=()=>['Administrador','Líder','RH/DHO'].includes(d.me.role)
+const talentReviewer=()=>['Administrador','Líder','RH/DHO','Diretoria'].includes(d.me.role)
+const isIntranet=()=>page==='Intranet'||page==='Rede social'
 const learningAdmin=()=>['Administrador','RH/DHO'].includes(d.me.role)
 const pname=id=>d.people.find(p=>p.id===id)?.name||'Pessoa'
 const cname=id=>d.courses.find(c=>c.id===id)?.title||'Curso'
@@ -35,10 +37,10 @@ async function refresh({social=true}={}){
  d=data;organizationData=organization;theme(d.theme)
  if(page==='Painel'&&d.me.role==='Diretoria')page='Indicadores estratégicos'
  draw();void refreshNotifications()
- if(social&&page==='Rede social')void loadSocial()
+ if(social&&isIntranet())void loadSocial()
 }
 const nav=(p,icon)=>'<button data-act="nav" data-id="'+esc(p)+'" class="'+(p===page?'sel':'')+'"><span aria-hidden="true" class="ico">'+icon+'</span>'+esc(p)+'</button>'
-function draw(){app.innerHTML='<div class="shell"><aside><div class="la21-product"><img src="/academy-mark.svg" alt=""><div>Learning<em>Academy</em></div></div>'+brand()+'<nav><small>Aprendizagem</small>'+nav('Painel','▦')+nav('Catálogo LMS','▤')+nav('Missões','◎')+(manager()?nav('Relatórios','◫'):'')+'<small>Desenvolvimento</small>'+kinds.map((k,i)=>nav(k,icons[i])).join('')+'<small>Intranet</small>'+nav('Rede social','▧')+foundationNavigation()+(manager()?nav('Matriz 9 Box','▦'):'')+(admin()?'<small>Administração</small>'+nav('Pessoas','♧')+nav('Identidade visual','◈')+nav('Auditoria','☷'):'')+'</nav><div class="profile"><b>'+esc(d.me.name)+'</b><small>'+esc(d.me.role)+'</small>'+btn('Sair','logout','','smallBtn')+'</div></aside><main><header>'+btn('Menu','menu','','menuBtn')+'<span class="breadcrumb">'+esc(d.theme.title)+' &nbsp;/&nbsp; '+esc(page)+'</span>'+globalSearch()+companyContext()+notificationBell()+profileButton()+'</header><div class="inside" id="inside"></div></main></div>';body()}
+function draw(){if(page==='Rede social')page='Intranet';app.innerHTML='<div class="shell"><aside><div class="la21-product"><img src="/academy-mark.svg" alt=""><div>Learning<em>Academy</em></div></div>'+brand()+'<nav><small>Aprendizagem</small>'+nav('Painel','▦')+nav('Catálogo LMS','▤')+nav('Missões','◎')+(manager()?nav('Relatórios','◫'):'')+'<small>Desenvolvimento</small>'+kinds.map((k,i)=>nav(k,icons[i])).join('')+'<small>Intranet</small>'+nav('Intranet','▧')+foundationNavigation()+(talentReviewer()?nav('Matriz 9 Box','▦'):'')+(admin()?'<small>Administração</small>'+nav('Pessoas','♧')+nav('Identidade visual','◈')+nav('Auditoria','☷'):'')+'</nav><div class="profile"><b>'+esc(d.me.name)+'</b><small>'+esc(d.me.role)+'</small>'+btn('Sair','logout','','smallBtn')+'</div></aside><main><header>'+btn('Menu','menu','','menuBtn')+'<span class="breadcrumb">'+esc(d.theme.title)+' &nbsp;/&nbsp; '+esc(page)+'</span>'+globalSearch()+companyContext()+notificationBell()+profileButton()+'</header><div class="inside" id="inside"></div></main></div>';body()}
 function filters(q=false){return '<div class="filters">'+(manager()?'<select id="filterPerson" aria-label="Filtrar por pessoa">'+opt([['','Toda a hierarquia'],...d.people.map(p=>[p.id,p.name])],person)+'</select>':'')+(q?'<input id="query" aria-label="Pesquisar cursos" placeholder="Pesquisar curso ou trilha" value="'+esc(search)+'">':'')+'</div>'}
 const visible=a=>a.filter(x=>!person||x.person===person)
 const heading=(title,action='')=>'<div class="heading"><h1>'+esc(title)+'</h1>'+(action?'<div class="page-actions">'+action+'</div>':'')+'</div>'
@@ -46,21 +48,36 @@ function body(){const root=$('inside');if(foundationPages.has(page)){void render
  if(page==='Painel'){
  const done=en.filter(e=>e.progress===100).length,pdi=rec.filter(r=>r.kind==='PDI'&&r.status!=='Concluído').length
  h='<section class="hero"><span class="over">DNA do Desenvolvimento</span><h1>Olá, '+esc(d.me.name.split(' ')[0])+'.</h1><p>Acompanhe as jornadas de aprendizagem e os próximos passos de desenvolvimento.</p>'+btn('Explorar catálogo','nav','Catálogo LMS')+btn('Ver missões','nav','Missões')+'</section>'+nextLearning()+filters()+'<div class="stats">'+[['▤','Matrículas',en.length],['✓','Cursos concluídos',done],['◫','PDIs em aberto',pdi],['◎','OKRs registrados',rec.filter(r=>r.kind==='OKR').length]].map(x=>'<button class="stat" data-act="nav" data-id="'+({'Matrículas':'Catálogo LMS','Cursos concluídos':manager()?'Relatórios':'Catálogo LMS','PDIs em aberto':'PDI','OKRs registrados':'OKR'}[x[1]])+'"><i>'+x[0]+'</i><span>'+x[1]+'</span><b>'+x[2]+'</b></button>').join('')+'</div><div class="duo"><section class="card"><h2>Jornadas de aprendizagem</h2>'+ (en.slice(0,5).map(e=>'<div class="row"><div><b>'+esc(cname(e.course))+'</b><br><small>'+esc(pname(e.person))+'</small></div><strong>'+e.progress+'%</strong></div>').join('')||empty('As matrículas aparecerão aqui.'))+'</section><section class="card"><h2>Desenvolvimento</h2>'+kinds.map(k=>{const rows=rec.filter(r=>r.kind===k);let val=rows.length+' registro(s)';if(k==='Pulse'&&rows.length)val=(rows.reduce((a,r)=>a+r.rating,0)/rows.length).toFixed(1)+' / 5';if(k==='OKR'&&rows.length)val=Math.round(rows.reduce((a,r)=>a+Math.min(1,r.actual/r.target),0)/rows.length*100)+'% da meta';return '<div class="row">'+btn(k,'nav',k,'smallBtn')+'<small>'+val+'</small></div>'}).join('')+(manager()?btn('Ver matriz 9 Box','nav','Matriz 9 Box'):'')+'</section></div>'}
- else if(page==='Rede social'){h=socialPage()}
+ else if(isIntranet()){h=socialPage()}
  else if(page==='Missões'){h=missionsPage()}
  else if(page==='Relatórios'&&manager()){h=learningReport(en)}
  else if(page==='Catálogo LMS'){h=learningCatalog(en)}
  else if(page==='Elogio'){h=praiseWall()}
  else if(kinds.includes(page)){const list=(page==='Pulse'?d.records:rec).filter(r=>r.kind===page).sort((a,b)=>b.updated.localeCompare(a.updated));h=heading(page==='Pulse'?'Meu histórico':page,page==='Pulse'||(page==='Desempenho'&&!manager())?'':btn(recordExperience[page][0],'record','','primary'))+(page==='Pulse'?'':filters())+'<section class="tiles">'+(list.map(r=>'<article class="card experience-card" data-direct="'+esc(r.id)+'">'+(r.kind==='Pulse'?moodBadge(r.rating):'<span class="flow-icon" aria-hidden="true">'+recordExperience[r.kind][3]+'</span>')+tag(r.status)+'<h2>'+esc(r.title)+'</h2><small>'+esc(pname(r.person))+(r.date&&!recordDeadlineKinds.includes(r.kind)?' · '+when(r.date):'')+'</small>'+deadlineBadge(r)+''+(r.note?moreFields('<p class="content">'+esc(r.note)+'</p>','Ver anotação'):'')+''+(r.kind==='Pulse'?contextBadges(r.pulseContexts):details(r))+(r.course?'<p>Curso · '+esc(cname(r.course))+'</p>':'')+(r.link?'<p>Registro vinculado · '+esc(d.records.find(x=>x.id===r.link)?.title)+'</p>':'')+(r.author===d.me.id?btn('Editar','record',r.id,'smallBtn'):'')+'</article>').join('')||empty('Nenhum registro para esta seleção.'))+'</section>'}
- else if(page==='Matriz 9 Box'){let cells='';const last=new Map();for(const r of rec.filter(r=>r.kind==='Desempenho').sort((a,b)=>(a.date||a.updated).localeCompare(b.date||b.updated)||a.updated.localeCompare(b.updated)))last.set(r.person,r);for(let pot=3;pot>=1;pot--)for(let perf=1;perf<=3;perf++){const ps=[...last.values()].filter(r=>r.performance===perf&&r.potential===pot);cells+='<div class="cell"><strong>'+['Baixo','Médio','Alto'][perf-1]+' desempenho</strong><small>Potencial '+['baixo','médio','alto'][pot-1]+'</small><p>'+esc(ps.map(r=>pname(r.person)).join(', ')||'—')+'</p></div>'}h=heading(page)+filters()+'<section class="card"><h2>Desempenho e potencial</h2><p>A avaliação mais recente de cada pessoa define sua posição. '+last.size+' pessoa(s) avaliada(s).</p><div class="nine">'+cells+'</div></section>'}
+ else if(page==='Matriz 9 Box'&&talentReviewer()){h=nineBoxPage(rec)}
  else if(page==='Pessoas'&&admin())h=peopleDirectory()
  else if(page==='Identidade visual')h=heading(page)+'<section class="card"><h2>'+esc(d.theme.title)+'</h2><p>Personalize o nome do ambiente, as cores e o espaçamento das telas de LMS e LXP.</p>'+btn('Configurar identidade','theme','','primary')+'</section>'
  else h=heading('Auditoria')+'<div class="card"><p>Últimos 200 eventos do ambiente.</p>'+d.logs.map(l=>'<div class="row"><b>'+esc(l.event)+'</b><small>'+esc(l.who)+' · '+esc(new Date(l.at).toLocaleString('pt-BR'))+'</small></div>').join('')+'</div>'
  if(page==='Pulse'){h=weeklyPulseCard()+h;const surveys=d.pulses.filter(p=>!person||p.people.includes(person));h='<section class="card pulse-surveys"><div class="heading"><h2>Pesquisas da equipe</h2>'+(manager()?btn('Criar pesquisa','pulse','','primary'):'')+'</div>'+(surveys.map(p=>{const mine=d.records.some(r=>r.pulse===p.id&&r.person===d.me.id);return '<div class="row" data-direct="'+esc(p.id)+'"><div><b>'+esc(p.title)+'</b><br><small>Até '+when(p.date)+' · '+p.responseCount+' de '+p.people.length+' respostas</small></div>'+(p.people.includes(d.me.id)&&!mine?btn('Responder','answerPulse',p.id):'')+'</div>'}).join('')||empty('Nenhuma pesquisa publicada.'))+'</section><br>'+h}
  if(page==='Feedback')h+=sentFeedbackPanel()
  root.innerHTML=h;if($('directoryStatus'))$('directoryStatus').onchange=e=>{directoryStatus=e.target.value;body()};if($('filterPerson'))$('filterPerson').onchange=e=>{person=e.target.value;body()};if($('courseStatusFilter'))$('courseStatusFilter').onchange=e=>{learningStatusFilter=e.target.value;body()};if($('query'))$('query').oninput=e=>{search=e.target.value;body();$('query').focus()}}
+function nineBoxPage(records){
+ const latest=new Map()
+ for(const record of records.filter(item=>item.kind==='Desempenho').sort((a,b)=>(a.date||a.updated).localeCompare(b.date||b.updated)||a.updated.localeCompare(b.updated)))latest.set(record.person,record)
+ const rows=[...latest.values()],labels=['Baixo','Médio','Alto']
+ const highPotential=rows.filter(item=>item.potential===3).length,highPerformance=rows.filter(item=>item.performance===3).length
+ let cells=''
+ for(let potential=3;potential>=1;potential--)for(let performance=1;performance<=3;performance++){
+  const people=rows.filter(item=>item.performance===performance&&item.potential===potential)
+  const tone=potential===3&&performance===3?'strategic':potential===1&&performance===1?'attention':potential+performance>=5?'growth':'steady'
+  cells+='<section class="talent-cell talent-'+tone+'" data-performance="'+performance+'" data-potential="'+potential+'"><header><div><strong>'+labels[performance-1]+' desempenho</strong><small>Potencial '+labels[potential-1].toLowerCase()+'</small></div><b>'+people.length+'</b></header><div class="talent-people">'+(people.map(item=>'<button type="button" class="talent-person" data-act="professionalProfile" data-id="'+esc(item.person)+'"><span>'+esc(pname(item.person).split(' ').map(word=>word[0]).slice(0,2).join(''))+'</span><span><b>'+esc(pname(item.person))+'</b><small>Ver perfil, PDI e histórico</small></span></button>').join('')||'<p>Nenhuma pessoa neste quadrante.</p>')+'</div></section>'
+ }
+ return '<div class="talent-page">'+heading('Matriz 9 Box')+filters()+
+  '<div class="talent-summary"><article><span>Pessoas posicionadas</span><strong>'+rows.length+'</strong><small>última avaliação válida</small></article><article><span>Alto potencial</span><strong>'+highPotential+'</strong><small>para desenvolvimento dirigido</small></article><article><span>Alto desempenho</span><strong>'+highPerformance+'</strong><small>no recorte autorizado</small></article></div>'+
+  '<section class="card talent-matrix"><div class="talent-title"><div><span class="over">Talent Review</span><h2>Desempenho e potencial</h2><p>Cada posição utiliza a avaliação mais recente. Selecione uma pessoa para consultar o perfil integrado, PDI e histórico de desenvolvimento.</p></div><aside>Uso orientativo: a matriz apoia calibração e desenvolvimento; não automatiza decisões de emprego.</aside></div><div class="talent-axis talent-axis-y">Potencial</div><div class="nine">'+cells+'</div><div class="talent-axis talent-axis-x">Desempenho</div></section></div>'
+}
 function details(r){if(r.kind==='OKR')return bar(100*r.actual/r.target)+'<p>'+r.actual+' de '+r.target+'</p>';if(r.kind==='Pulse')return moodBadge(r.rating);if(r.kind==='Desempenho')return '<p>Desempenho '+r.performance+' / 3 · Potencial '+r.potential+' / 3</p>';return ''}
-function form(title,html,submit,action='Salvar'){player=null;$('modalBody').innerHTML='<div class="heading"><h2>'+esc(title)+'</h2>'+btn('Fechar','close','','smallBtn')+'</div><form id="editor">'+html+'<p class="err" role="alert"></p><div class="actions"><button class="primary">'+esc(action)+'</button></div></form>';if(!modal.open)modal.showModal();const f=$('editor');f.onsubmit=async e=>{e.preventDefault();const b=f.querySelector('button.primary');b.disabled=true;try{await submit(Object.fromEntries(new FormData(f)),f);modal.close();await refresh();toast('Dados salvos.')}catch(err){f.querySelector('.err').textContent=err.message}finally{b.disabled=false}};return f}
+function form(title,html,submit,action='Salvar'){player=null;$('modalBody').innerHTML='<div class="heading"><h2>'+esc(title)+'</h2>'+btn('Fechar','close','','smallBtn')+'</div><form id="editor">'+html+'<p class="err" role="alert"></p><div class="actions"><button class="primary">'+esc(action)+'</button></div></form>';if(!modal.open)modal.showModal();const f=$('editor');f.onsubmit=async e=>{e.preventDefault();const b=f.querySelector('button.primary');b.disabled=true;try{const outcome=await submit(Object.fromEntries(new FormData(f)),f);modal.close();await refresh();toast(outcome?.message||'Dados salvos.')}catch(err){f.querySelector('.err').textContent=err.message}finally{b.disabled=false}};return f}
 const peopleOpts=()=>d.people.filter(p=>p.active).map(p=>[p.id,p.name])
 const moods=[['😞','Muito mal'],['😕','Mal'],['😐','Mais ou menos'],['🙂','Bem'],['🤩','Muito bem']]
 function moodPicker(value){
@@ -142,7 +159,7 @@ const recordExperience={
   PDI:['Planejar meu desenvolvimento','Qual habilidade vamos desenvolver?','Qual é o próximo passo?','↗'],
   '1:1':['Preparar conversa','Sobre o que vamos conversar?','Anotações e combinados','☕'],
   Feedback:['Dar feedback','Sobre o que é o feedback?','Descreva a situação e o impacto','💬'],
-  Elogio:['Reconhecer alguém','O que merece reconhecimento?','Conte o que a pessoa fez','✨'],
+  Elogio:['Reconhecer alguém','O que merece reconhecimento?','Conte o que a pessoa fez','✓'],
   Desempenho:['Registrar avaliação','Qual ciclo vamos avaliar?','Evidências e observações','◈']
 }
 function record(id){
@@ -180,7 +197,7 @@ function sentFeedbackPanel(){
 }
 function praiseWall() {
   const cards=[...d.praise].sort((a,b)=>b.updated.localeCompare(a.updated)).map(item=>
-    '<article class="card praise-card" data-direct="'+esc(item.id)+'"><span class="flow-icon" aria-hidden="true">✨</span>'+
+    '<article class="card praise-card" data-direct="'+esc(item.id)+'"><span class="flow-icon" aria-hidden="true">✓</span>'+
     '<h2>'+esc(item.title)+'</h2><p><strong>'+esc(item.sender)+'</strong> reconheceu <strong>'+esc(item.recipient)+'</strong></p>'+
     (item.note?'<p class="content">'+esc(item.note)+'</p>':'')+
     (item.editable?btn('Editar','praise',item.id,'smallBtn'):'')+'</article>')
@@ -191,7 +208,7 @@ function praiseForm(id) {
   const saved=d.praise.find(item=>item.id===id)
   const recipients=d.praiseRecipients.filter(([id])=>id!==d.me.id)
   if(!saved&&!recipients.length){toast('Ainda não há outro colega ativo para elogiar.');return}
-  form(saved?'Editar elogio':'Elogiar colega','<span class="flow-icon" aria-hidden="true">✨</span>'+
+  form(saved?'Editar elogio':'Elogiar colega','<span class="flow-icon" aria-hidden="true">✓</span>'+
     (saved?'':sel('Quem você quer reconhecer?','person',recipients))+
     fld('O que merece reconhecimento?','title',saved?.title)+area('Conte o que a pessoa fez','note',saved?.note)+
     '<p class="privacy-note">Todos os usuários podem ver este elogio no mural.</p>',
@@ -365,7 +382,7 @@ modal.addEventListener('close',()=>{if(player){player=null;$('modalBody').innerH
 document.addEventListener('click',async ev=>{const el=ev.target.closest('[data-act]');if(!el)return;const {act,id}=el.dataset;try{
  if(act==='recoverAccess')showRecoveryRequest(id==='available')
  if(act==='menu')document.querySelector('.shell').classList.toggle('open')
- if(act==='nav'){page=id;search='';draw();window.scrollTo({top:0,behavior:'instant'});if(page==='Rede social')void loadSocial()}
+ if(act==='nav'){page=id==='Rede social'?'Intranet':id;search='';draw();window.scrollTo({top:0,behavior:'instant'});if(isIntranet())void loadSocial()}
  if(act==='close')modal.close()
  if(act==='notifications')toggleNotifications()
  if(act==='readAlerts')await markNotifications({all:true})
@@ -642,9 +659,9 @@ function indicatorGroups() {
     add('Plataforma','Uso','Tentativas recusadas nos últimos 30 dias registradas na auditoria',d.platform.refused30)
     add('Plataforma','Uso','Sessões válidas',d.platform.activeSessions)
     add('Plataforma','Auditoria','Eventos retidos',d.platform.auditEvents)
-    add('Plataforma','Rede social','Publicações',d.platform.socialPosts)
-    add('Plataforma','Rede social','Comentários',d.platform.socialComments)
-    add('Plataforma','Rede social','Reações ativas',d.platform.socialReactions)
+    add('Plataforma','Intranet','Publicações',d.platform.socialPosts)
+    add('Plataforma','Intranet','Comentários',d.platform.socialComments)
+    add('Plataforma','Intranet','Reações ativas',d.platform.socialReactions)
   }
   return sections
 }
@@ -871,12 +888,14 @@ function feedContent(){
     (feedCursor?'<div class="social-more">'+btn(feedBusy?'Carregando…':'Ver mais publicações','socialMore')+'</div>':'')
 }
 function socialPage(){
-  return '<div class="social-hub"><section class="social-hero"><div><h1>Rede social</h1><p>Compartilhe conquistas, novidades e o dia a dia da Sanepav.</p></div>'+
+  const comments=feedItems.reduce((total,item)=>total+(item.comments?.length||item.commentCount||0),0)
+  const reactions=feedItems.reduce((total,item)=>total+Object.values(item.reactions||{}).reduce((sum,value)=>sum+(Array.isArray(value)?value.length:Number(value)||0),0),0)
+  return '<div class="social-hub"><section class="social-hero"><div><span class="over">Comunicação interna</span><h1>Intranet</h1><p>Informações, conquistas e conexões da organização em um único espaço.</p></div>'+
     '<div class="social-post-header">'+btn('Atualizar','socialRefresh')+btn('Criar publicação','composeSocial','','primary')+
-    '</div></section><div class="social-feed" id="socialFeed">'+feedContent()+'</div></div>'
+    '</div></section><div class="intranet-layout"><main><div class="intranet-section-title"><div><h2>Publicações</h2><p>Acompanhe comunicados e histórias compartilhadas no seu escopo.</p></div>'+btn('Nova publicação','composeSocial','','primary')+'</div><div class="social-feed" id="socialFeed">'+feedContent()+'</div></main><aside class="intranet-sidebar"><section class="card"><span class="over">Visão rápida</span><h2>Comunidade</h2><div class="intranet-metrics"><div><strong>'+feedItems.length+'</strong><span>publicações carregadas</span></div><div><strong>'+comments+'</strong><span>comentários visíveis</span></div><div><strong>'+reactions+'</strong><span>reações visíveis</span></div></div></section><section class="card intranet-guidance"><h2>Boas práticas</h2><p>Compartilhe informações úteis, reconheça contribuições e mantenha dados confidenciais nos módulos protegidos.</p></section></aside></div></div>'
 }
 async function loadSocial(more=false){
-  if(feedBusy||!d?.me||page!=='Rede social')return
+  if(feedBusy||!d?.me||!isIntranet())return
   if(more&&!feedCursor)return
   const view=feedVersion
   feedBusy=true
@@ -932,19 +951,19 @@ document.addEventListener('submit',async event=>{
   finally{button.disabled=false}
 })
 
-const directPages=['OKR','PDI','1:1','Feedback','Elogio','Desempenho','Pulse','Catálogo LMS','Missões','Rede social']
+const directPages=['OKR','PDI','1:1','Feedback','Elogio','Desempenho','Pulse','Catálogo LMS','Missões','Intranet','Rede social']
 const directId=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/
 const entrySearch=new URLSearchParams(location.search)
 let directEntry=directPages.includes(entrySearch.get('view'))?{
-  page:entrySearch.get('view'),id:directId.test(entrySearch.get('item')||'')?entrySearch.get('item'):''
+  page:entrySearch.get('view')==='Rede social'?'Intranet':entrySearch.get('view'),id:directId.test(entrySearch.get('item')||'')?entrySearch.get('item'):''
 }:null
 async function openDirect(pageName,itemId){
-  page=pageName
+  page=pageName==='Rede social'?'Intranet':pageName
   person=''
   search=''
-  await refresh({social:pageName!=='Rede social'||!itemId})
+  await refresh({social:!['Rede social','Intranet'].includes(pageName)||!itemId})
   if(!itemId)return
-  if(pageName==='Rede social'){
+  if(['Rede social','Intranet'].includes(pageName)){
     const result=await api('socialFeed?post='+encodeURIComponent(itemId))
     openComments.add(itemId)
     if(result.items.length){

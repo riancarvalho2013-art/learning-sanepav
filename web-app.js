@@ -38,7 +38,7 @@ async function refresh({social=true}={}){
  if(social&&page==='Rede social')void loadSocial()
 }
 const nav=(p,icon)=>'<button data-act="nav" data-id="'+esc(p)+'" class="'+(p===page?'sel':'')+'"><span aria-hidden="true" class="ico">'+icon+'</span>'+esc(p)+'</button>'
-function draw(){app.innerHTML='<div class="shell"><aside>'+brand()+'<nav><small>Aprendizagem</small>'+nav('Painel','▦')+nav('Catálogo LMS','▤')+nav('Missões','◎')+(manager()?nav('Relatórios','◫'):'')+'<small>Desenvolvimento</small>'+kinds.map((k,i)=>nav(k,icons[i])).join('')+'<small>Intranet</small>'+nav('Rede social','▧')+foundationNavigation()+(manager()?nav('Matriz 9 Box','▦'):'')+(admin()?'<small>Administração</small>'+nav('Pessoas','♧')+nav('Identidade visual','◈')+nav('Auditoria','☷'):'')+'</nav><div class="profile"><b>'+esc(d.me.name)+'</b><small>'+esc(d.me.role)+'</small>'+btn('Sair','logout','','smallBtn')+'</div></aside><main><header>'+btn('Menu','menu','','menuBtn')+'<span class="breadcrumb">'+esc(d.theme.title)+' &nbsp;/&nbsp; '+esc(page)+'</span>'+globalSearch()+companyContext()+notificationBell()+profileButton()+'</header><div class="inside" id="inside"></div></main></div>';body()}
+function draw(){app.innerHTML='<div class="shell"><aside><div class="la21-product"><img src="/academy-mark.svg" alt=""><div>Learning<em>Academy</em></div></div>'+brand()+'<nav><small>Aprendizagem</small>'+nav('Painel','▦')+nav('Catálogo LMS','▤')+nav('Missões','◎')+(manager()?nav('Relatórios','◫'):'')+'<small>Desenvolvimento</small>'+kinds.map((k,i)=>nav(k,icons[i])).join('')+'<small>Intranet</small>'+nav('Rede social','▧')+foundationNavigation()+(manager()?nav('Matriz 9 Box','▦'):'')+(admin()?'<small>Administração</small>'+nav('Pessoas','♧')+nav('Identidade visual','◈')+nav('Auditoria','☷'):'')+'</nav><div class="profile"><b>'+esc(d.me.name)+'</b><small>'+esc(d.me.role)+'</small>'+btn('Sair','logout','','smallBtn')+'</div></aside><main><header>'+btn('Menu','menu','','menuBtn')+'<span class="breadcrumb">'+esc(d.theme.title)+' &nbsp;/&nbsp; '+esc(page)+'</span>'+globalSearch()+companyContext()+notificationBell()+profileButton()+'</header><div class="inside" id="inside"></div></main></div>';body()}
 function filters(q=false){return '<div class="filters">'+(manager()?'<select id="filterPerson" aria-label="Filtrar por pessoa">'+opt([['','Toda a hierarquia'],...d.people.map(p=>[p.id,p.name])],person)+'</select>':'')+(q?'<input id="query" aria-label="Pesquisar cursos" placeholder="Pesquisar curso ou trilha" value="'+esc(search)+'">':'')+'</div>'}
 const visible=a=>a.filter(x=>!person||x.person===person)
 const heading=(title,action='')=>'<div class="heading"><h1>'+esc(title)+'</h1>'+(action?'<div class="page-actions">'+action+'</div>':'')+'</div>'
@@ -457,10 +457,10 @@ function missionsPage() {
    '<div class="actions">'+(assigned&&next?btn(steps.some(step=>step?.progress>0)?'Continuar':'Começar','learn',next.id,'primary'):'')+btn('Ver etapas','openMission',mission.id)+
    (learningAdmin()?btn('Editar','newMission',mission.id)+btn('Atribuir','missionAssign',mission.id)+btn('Participantes','missionTeam',mission.id):'')+'</div></article>'
  })
- return heading('Trilhas e missões',learningAdmin()?btn('Criar trilha','newMission','','primary'):'')+
+ return '<section class="hero"><span class="over">TRILHAS / JORNADAS DE APRENDIZAGEM</span><h1>Jornadas de Aprendizagem</h1><p>Percursos estruturados para desenvolver competências e conectar conhecimento à prática.</p>'+(learningAdmin()?btn('Criar trilha','newMission','','primary'):'')+'</section>'+
   '<p class="directory-intro">Desenvolvimento em etapas, com progresso real e o próximo conteúdo disponível para sua jornada.</p><div class="stats">'+
-  [['Minhas trilhas',own.length],['Em andamento',own.length-finished],['Concluídas',finished]].map(([label,value])=>'<div class="stat"><span>'+label+'</span><b>'+value+'</b></div>').join('')+'</div><div class="tiles journey-grid">'+
-  (cards.join('')||empty(learningAdmin()?'Crie uma trilha para organizar os cursos existentes.':'As trilhas atribuídas a você aparecerão aqui.'))+'</div>'
+  [['Minhas trilhas',own.length],['Em andamento',own.length-finished],['Concluídas',finished]].map(([label,value])=>'<div class="stat"><span>'+label+'</span><b>'+value+'</b></div>').join('')+'</div><div class="la21-split"><div class="tiles journey-grid">'+
+  (cards.join('')||empty(learningAdmin()?'Crie uma trilha para organizar os cursos existentes.':'As trilhas atribuídas a você aparecerão aqui.'))+'</div><aside class="card"><h2>Minha evolução nas trilhas</h2><p><strong>'+finished+' de '+own.length+'</strong> trilhas concluídas.</p>'+bar(own.length?Math.round(100*finished/own.length):0)+'<p class="muted">Calculado a partir das etapas concluídas nas trilhas atribuídas a você.</p><h3>Seu próximo passo</h3><p>Abra uma trilha para consultar etapas, pré-requisitos e conteúdos disponíveis.</p></aside></div>'
 }
 function openMission(id) {
  const mission=d.missions.find(item=>item.id===id)
@@ -475,7 +475,7 @@ function openMission(id) {
    (enrollment&&!blocked?btn(enrollment.progress===100?'Revisar':'Acessar','learn',enrollment.id):'')+'</li>'
  })
  $('modalBody').innerHTML='<div class="heading"><h2>'+esc(mission.title)+'</h2>'+btn('Fechar','close','','smallBtn')+'</div><p>'+esc(mission.description||'')+'</p>'+tag(mission.sequential?'Sequência obrigatória para novas matrículas':'Estudo livre')+
-  '<ol class="mission-steps journey-steps">'+rows.join('')+'</ol><p class="privacy-note">Matrículas anteriores mantêm as regras de acesso que já possuíam.</p>'
+  '<div class="la21-mission-detail"><section>'+coverImage('mission',mission)+'<h3>'+esc(mission.title)+'</h3><p>'+mission.courses.length+' etapas</p>'+bar(steps.length?Math.round(100*steps.filter(x=>x?.progress===100).length/steps.length):0)+'</section><section><h3>Etapas da trilha</h3><ol class="mission-steps journey-steps">'+rows.join('')+'</ol></section></div><p class="privacy-note">Matrículas anteriores mantêm as regras de acesso que já possuíam.</p>'
  if(!modal.open)modal.showModal()
 }
 function missionAssignForm(id){

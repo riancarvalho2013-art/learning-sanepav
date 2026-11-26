@@ -1,0 +1,40 @@
+# Auditoria incremental e riscos residuais
+
+Base `53cf2dcec332cbeda818de48b57158b4d6d0ee0a`. Evidência: leitura remota de `serve.mjs`, `platform.mjs` (60–115, 635–648, 674–730), `domain.mjs` (48–123), `okr-v13.mjs`, `credentials.mjs`, `learning-evolution.mjs`, `scorm-v3.mjs`, Dockerfile, scripts de testes, status/árvore GitHub; pacote V27 local. Não houve checkout integral, inspeção de banco real, logs Railway, histórico completo, acesso autenticado nem pentest. Classificações são prioridades de engenharia, não CVSS nem declaração de exploração confirmada.
+
+| ID | Prioridade | Evidência e impacto | Tratamento V28 | Evidência de aceite restante |
+|---|---|---|---|---|
+| SEC-01 | P1 | `serve.mjs` aceitava Host/target sem lista opcional e validação uniforme de autoridade. | Origem-form, validação de autoridade, allowlist opcional, 421; probe isento apenas da lista. | Conferir hosts reais e proxies Railway; habilitar lista. |
+| SEC-02 | P1 | Verificações de origem estavam distribuídas nos módulos; futuras rotas poderiam omitir controle. | Rejeição central de métodos mutáveis sem Origin exato; cross-site bloqueado; preflight SCORM GET preservado. | Regressão HTTP de todos os módulos e player real. |
+| SEC-03 | P1 | `serve.mjs` devolvia SETUP_KEY diretamente no cookie de ativação. | HMAC-SHA256 com expiração de 10 min e nonce, cookie Secure/HttpOnly/SameSite, não ecoa segredo. | Bootstrap real e rotação de chave; replay ainda possível até expiração/primeiro cadastro. |
+| SEC-04 | P2 | Ativação sem teto explícito e operações de autenticação potencialmente custosas em paralelo. | Limite por processo de 8 operações simultâneas e 20 ativações/10min. Limite de login por conta preexistente preservado. | Ajustar sob carga; limite global pode afetar disponibilidade; distribuído/MFA pendentes. |
+| SEC-05 | P2 | Caminhos desconhecidos podiam aparecer em logs como segmentos arbitrários. | Categorias fixas, IDs e queries excluídos, logs de recusas e erros. | Retenção, auditoria autenticada e proteção independente pendentes. |
+| SEC-06 | P2 | Cabeçalhos existentes principalmente em handlers específicos. | HSTS em modo HTTPS, nosniff, no-referrer e Permissions-Policy (câmera/microfone/localização negados); CSP anti-frame em ativação. CSP SCORM original preservada. | QA real; caso mídia educacional exija captura, revisar autorização específica. |
+| SEC-07 | P0 | `platform.mjs` view (cursos/missões), cover e content tratam RH/DHO como gestor amplo; não há associação de proprietário por empresa nessas decisões legadas. Potencial acesso cruzado de material entre clientes em instância compartilhada. | **Não corrigido nesta versão.** Não liberar SaaS multi-cliente; mapear propriedade, adicionar migração, revalidar em cada rota. | Dois tenants com curso/trilha/capa/vídeo/SCORM exclusivos; testes de leitura, edição, atribuição e exportação com todos os perfis. |
+| SEC-08 | P0 | `domain.mjs` allowedCompanies/canSeePerson e `okr-v13.mjs` canManageOKR dão escopo global ao Administrador. Não existe administrador por cliente comprovado. | Não modificado. Bloqueador multi-cliente. Diretoria estratégica da própria empresa preservada. | Separar superadmin e admin corporativo, acesso excepcional, testes adversariais de todas as APIs. |
+| SEC-09 | P1 | `credentials.mjs`: PBKDF2-SHA256 600 mil iterações padrão, legado 100 mil; MFA não demonstrado. Login existente apresenta contagem por e-mail/IP, sem evidência de proteção distribuída. | Não trocado algoritmo; gate de concorrência complementar. | Migração gradual Argon2id/bcrypt, MFA admin, sessões, enumeração/timing, rate limit distribuído. |
+| SEC-10 | P1 | `platform.mjs` upload de curso valida caminho/tamanho, mas inspeção completa de tipos, malware, quotas e vínculo tenant não comprovada; 64 MiB por arquivo. | Limites preservados. | Assinatura, quarentena, quotas, ZIP bomb, vínculo de todos os objetos e SCORM. |
+| SEC-11 | P1 | Backup V27 opcional, bucket externo opcional. SQLite principal; não há prova de backup independente real. | Sem mudança destrutiva; regressão V27 isolada aprovada. | Restore de snapshot + objetos + chaves; medir RPO/RTO. |
+| SEC-12 | P1 | GitHub público; branch de homologação retornou protected=false. Sem workflow .github observado no tree. | Workflow proposto com read-only, checkout fixado e build/test; nenhuma configuração remota alterada. | Scan completo do histórico e segredos (revogar/rotacionar se encontrados), branch protection/ruleset, revisão independente, SAST/SCA/SBOM e imagem. |
+| SEC-13 | P2 | `platform.mjs` notificações têm origem e marca antigas fixas; `recovery.mjs` usa APP_ORIGIN para convites. | Não modificado; manter pendência. | Padronizar links, marca e escopo em todos os e-mails; testar provedor com dados sintéticos. |
+| SEC-14 | P1 | `scorm-v3.mjs` sandbox, CSP e bearer URL existem; suporte SCORM 2004 parcial; isolamento por origem não demonstrado. | Preflight para sandbox preservado; nenhuma alteração no motor. | Pacotes legítimos/hostis sintéticos, mensagens, expiração, revogação, origens, limites de descompactação. |
+| SEC-15 | P2 | Runtime container root (Dockerfile), dependência S3 instalada com versão fixa mas sem lock de árvore transitiva. | Não alterar permissões de volume sem testar; gate CI adicionado. | Imagem não-root com permissões adequadas, lockfile, dependências e atualizações. |
+
+## Matriz mínima de autorização a homologar
+A política-alvo não é o estado atual. `Administrador` atual é global; não o tratar como administrador corporativo. O objetivo é separar operador da plataforma (sem dados de cliente por padrão) e ADM corporativo (empresa própria). Líder: equipe/departamentos sob responsabilidade formal; RH/DHO: atribuição e finalidade; Diretoria: indicadores estratégicos da organização autorizada; colaborador: próprios dados e conteúdos atribuídos. Toda consulta deve aplicar escopo no backend, inclusive exportações.
+
+| Módulo | ADM corporativo-alvo | RH/DHO-alvo | Diretoria-alvo | Líder-alvo | Colaborador-alvo |
+|---|---|---|---|---|---|
+| LMS, trilhas, turmas, certificados, SCORM | Administrar empresa | Gerir conteúdos/matrículas autorizados | Indicadores | Acompanhar equipe | Consumir próprios conteúdos e certificados |
+| Desempenho, 9Box, sucessão | Configurar; dados sensíveis por finalidade | Configurar e avaliar conforme atribuição | Consolidados autorizados | Avaliar equipe | Próprio resultado liberado |
+| OKR | Corporativo e departamental; exportar conforme escopo | Próprio departamento/objetivos | Estratégico da empresa autorizada | Gerir equipe autorizada | Próprios e departamento publicado autorizado |
+| PDI, 1:1, feedback | Administração operacional; conteúdo privado não irrestrito | Dados necessários autorizados | Consolidados | Liderados/participantes | Próprios/participante |
+| Pulse, eNPS, clima, Kirkpatrick | Configuração e consolidados protegidos | Agregados autorizados | Agregados autorizados | Agregados permitidos | Própria resposta |
+| People Analytics, relatórios, dashboard, organograma | Própria empresa | Escopo autorizado | Estratégico | Equipe | Próprio/visão corporativa publicada |
+| Intranet, programas DNA, perfil | Própria empresa | Escopo autorizado | Escopo autorizado | Equipe | Próprio e conteúdos permitidos |
+| Integrações, IA, configurações | Configuração da própria empresa | Funções explicitamente autorizadas | Conforme atribuição | Conforme atribuição | Conforme atribuição |
+
+Para cada módulo, executar matriz CRUD + aprovar/publicar/compartilhar/exportar/administrar, dois tenants e dois departamentos. Não confundir tabela-alvo com autorização implementada.
+
+## Arquitetura proposta, não implantada
+Navegador HTTPS -> gateway Railway -> entrada HTTP V28 -> autenticação/sessão -> autorização por recurso e tenant -> handlers -> SQLite atual / futura persistência relacional -> armazenamento privado de mídia (V27 opcional). Backups independentes e auditoria fora do volume principal. Operador da plataforma separado do administrador corporativo. Não existe evidência de RLS atual; requer PostgreSQL e migração versionada.

@@ -1,7 +1,7 @@
 import http from 'node:http'
 import {Readable} from 'node:stream'
 import {pipeline} from 'node:stream/promises'
-import {createHash, timingSafeEqual, randomUUID} from 'node:crypto'
+import {createHash, createHmac, timingSafeEqual, randomUUID} from 'node:crypto'
 import app from './platform.mjs'
 import {BUCKET,DOMAIN} from './storage.mjs'
 import {handleEvolution} from './learning-evolution.mjs'
@@ -19,24 +19,78 @@ import {createRouteRegistry} from './http-router-v11.mjs'
 import {handleOrganizationHistory} from './organization-history-v11.mjs'
 import {guardLegacyOKR} from './okr-v13.mjs'
 import {handleUserImport} from './user-import-v14.mjs'
+// BEGIN V28 INGRESS
+/** Ingress defense in depth. Module-specific authorization remains mandatory. */
+const methods=new Set(['GET','HEAD','POST','PUT','PATCH','DELETE','OPTIONS'])
+const reads=new Set(['GET','HEAD','OPTIONS'])
+const categories=new Set(['access','login','logout','request-password-reset','reset-password','first-access','progress','completion','organization','orgchart','kirkpatrick','assessment','intelligence','pulse','discovery','reports','scorm','users','lxp','evo','data','upload','socialUpload','socialFeed','socialPost','socialComment','socialReaction','avatar','notifications','record','course','user','assign'])
+function logRoute(path){
+ const parts=String(path||'/').split('?')[0].split('/').filter(Boolean)
+ if(!parts.length)return '/'
+ if(parts[0]==='api')return '/api/'+(categories.has(parts[1])?parts[1]:'other')
+ if(['healthz','readyz','ativar'].includes(parts[0])&&parts.length===1)return '/'+parts[0]
+ if(['scorm','content','cover','social'].includes(parts[0]))return '/'+parts[0]+'/*'
+ return '/other'
+}
+function parseAllowedHosts(value=''){
+ if(!value.trim())return null
+ const hosts=value.split(',').map(x=>x.trim().toLowerCase())
+ if(hosts.some(x=>!validHost(x)))throw Error('LEARNING_ALLOWED_HOSTS inválido.')
+ return new Set(hosts)
+}
+function validHost(host){return typeof host==='string'&&host.length<=253&&/^[a-z0-9.-]+(?::[0-9]{1,5})?$/i.test(host)&&!host.includes('..')&&host.split(':')[0].split('.').every(x=>x&&/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(x))&&(!host.includes(':')||Number(host.split(':')[1])>=1&&Number(host.split(':')[1])<=65535)}
+function inspectRequest({host,target,method,origin,fetchSite,protocol,allowedHosts}){
+ if(!validHost(host))return {status:400,error:'Host inválido.'}
+ // Only origin-form request targets are accepted. URL parsing must not change the authority.
+ if(typeof target!=='string'||!target.startsWith('/')||target.startsWith('//')||/[\\\x00-\x20\x7f]/.test(target)||target.length>16384)return {status:400,error:'Solicitação inválida.'}
+ let url;try{url=new URL(target,protocol+'//'+host)}catch{return {status:400,error:'Solicitação inválida.'}}
+ if(url.origin!==new URL(protocol+'//'+host).origin)return {status:400,error:'Solicitação inválida.'}
+ if(!methods.has(method))return {status:405,error:'Método não permitido.'}
+ // Railway health probes may use an internal Host. They expose no data and bypass only the allowlist.
+ const probe=method==='GET'&&['/healthz','/readyz'].includes(url.pathname)
+ if(!probe&&allowedHosts&&!allowedHosts.has(host.toLowerCase()))return {status:421,error:'Host não autorizado.'}
+ // Origin validation on every mutating route, including newly introduced APIs. Read-only sandbox SCORM stays intact.
+ if(!reads.has(method)&&(origin!==url.origin||fetchSite==='cross-site'))return {status:403,error:'Origem da solicitação inválida.'}
+ if(method==='OPTIONS'&&!url.pathname.startsWith('/scorm/v3/'))return {status:405,error:'Método não permitido.'}
+ return {url}
+}
+function securityHeaders(protocol){
+ return {'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Permissions-Policy':'camera=(), microphone=(), geolocation=()',...(protocol==='https:'?{'Strict-Transport-Security':'max-age=31536000'}:{})}
+}
+// Concurrency protection for expensive authentication operations; no reliance on proxy IP headers.
+function createAuthGate({max=8,activationMax=20,windowMs=600000,clock=Date.now}={}){
+ let active=0,attempts=[]
+ return {enter(path,method){
+  if(method!=='POST'||!['/ativar','/api/login','/api/request-password-reset','/api/reset-password'].includes(path))return {release(){}}
+  if(path==='/ativar'){const t=clock();attempts=attempts.filter(x=>t-x<windowMs);if(attempts.length>=activationMax)return null;attempts.push(t)}
+  if(active>=max)return null
+  active++;let released=false;return {release(){if(!released){released=true;active--}}}
+ }}
+}
+// END V28 INGRESS
 
 const portArgument=process.argv.indexOf('--port')
 const devMode=process.env.NODE_ENV!=='production'&&portArgument>=0
 const listenPort=Number(devMode?process.argv[portArgument+1]:(process.env.PORT||8080))
 const protocol=devMode?'http:':'https:'
+const allowedHosts=parseAllowedHosts(process.env.LEARNING_ALLOWED_HOSTS||'')
+const authGate=createAuthGate()
 const configuredCode = process.env.SETUP_KEY
 const validSetupKey = /^[A-Za-z0-9_-]{32,128}$/
 const digest = value => createHash('sha256').update(value).digest()
 const activationDigest = typeof configuredCode==='string'&&validSetupKey.test(configuredCode) ? digest(configuredCode) : null
 const matches = value => Boolean(activationDigest && value && timingSafeEqual(digest(value), activationDigest))
+// Signed, time-limited bootstrap proof: never send the actual setup secret back in a cookie.
+const activationMac=payload=>createHmac('sha256',activationDigest).update('learning-bootstrap-v28:'+payload).digest('hex')
+const issueActivation=()=>{const payload=String(Date.now()+600000)+'.'+randomUUID();return payload+'.'+activationMac(payload)}
+const validActivation=value=>{
+ if(!activationDigest||typeof value!=='string'||!/^\d{13}\.[a-f0-9-]{36}\.[a-f0-9]{64}$/.test(value))return false
+ const [expires,nonce,mac]=value.split('.'),remaining=Number(expires)-Date.now()
+ if(remaining<=0||remaining>600000)return false
+ return timingSafeEqual(Buffer.from(mac,'hex'),Buffer.from(activationMac(expires+'.'+nonce),'hex'))
+}
 const cookieName = '__Host-learning-activation'
 const cookieFlags = '; Path=/; Secure; HttpOnly; SameSite=Strict'
-// Never place user-controlled path segments, SCORM tickets or personal IDs in logs.
-const safeLogRoute=raw=>{
- const segments=String(raw||'/').split('?')[0].split('/').filter(Boolean)
- const allowed=segments[0]==='api'?2:1
- return '/'+segments.slice(0,allowed).map(x=>x.slice(0,32)).join('/')+(segments.length>allowed?'/*':'')
-}
 // Explicit ownership of HTTP routes; fallback is only for the legacy platform.
 const context={BUCKET,DOMAIN}
 const routeRequest=createRouteRegistry([
@@ -58,26 +112,29 @@ const routeRequest=createRouteRegistry([
  {prefix:'/api/evo/',handler:request=>handleEvolution(request,context)}
 ],request=>guardLegacyOKR(request,context,r=>app.fetch(r,context)))
 const setupPage = '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Ativar Learning Academy</title><form action="/ativar" method="post"><label>Código de ativação <input required type="password" name="code" autocomplete="off"></label><button>Ativar</button></form></html>'
-http.createServer(async (req,res) => {
+const server=http.createServer({headersTimeout:15000,requestTimeout:300000,keepAliveTimeout:5000,maxHeaderSize:16384},async (req,res) => {
   const requestId=randomUUID()
   const requestAt=Date.now()
+  let gate
   res.setHeader('X-Request-ID',requestId)
+  for(const [name,value] of Object.entries(securityHeaders(protocol)))res.setHeader(name,value)
   res.on('finish',()=>{
     const durationMs=Date.now()-requestAt
-    if(process.env.LEARNING_LOG_REQUESTS==='true'||res.statusCode>=500){
-      // Do not log query strings, request bodies, cookies, tokens, IP addresses or personal data.
+    if(process.env.LEARNING_LOG_REQUESTS==='true'||res.statusCode>=500||[401,403,421,429].includes(res.statusCode)){
       console.info(JSON.stringify({type:'http_access',at:new Date().toISOString(),requestId,method:req.method,
-        route:safeLogRoute(req.url),status:res.statusCode,durationMs}))
+        route:logRoute(req.url),status:res.statusCode,durationMs}))
     }
   })
   try {
-    const host = req.headers.host
-    if (!host || !/^[a-zA-Z0-9.:-]+$/.test(host)) {res.writeHead(400);return res.end()}
-    const url = new URL(req.url, protocol+'//' + host)
+    const inspection=inspectRequest({host:req.headers.host,target:req.url,method:req.method,origin:req.headers.origin,fetchSite:req.headers['sec-fetch-site'],protocol,allowedHosts})
+    if(inspection.status){res.writeHead(inspection.status,{'Content-Type':'application/json;charset=utf-8','Cache-Control':'no-store'});return res.end(JSON.stringify({error:inspection.error,requestId}))}
+    const url=inspection.url
+    if(url.pathname.startsWith('/api/'))res.setHeader('Cache-Control','private,no-store')
+    gate=authGate.enter(url.pathname,req.method)
+    if(!gate){res.writeHead(429,{'Content-Type':'application/json;charset=utf-8','Cache-Control':'no-store','Retry-After':'60'});return res.end(JSON.stringify({error:'Muitas solicitações. Tente novamente mais tarde.',requestId}))}
     if(url.pathname==='/healthz'&&req.method==='GET'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});return res.end('{"ok":true}')}
     if(url.pathname==='/readyz'&&req.method==='GET'){
-      // Readiness checks an actual SQLite query via the existing storage adapter.
-      // No user data or sensitive environmental configuration is returned.
+      // Readiness checks SQLite; does not prove object storage or external backups are available.
       try{
         await BUCKET.get('__readiness_check_v1__')
         res.writeHead(200,{'Content-Type':'application/json;charset=utf-8','Cache-Control':'no-store'})
@@ -89,6 +146,8 @@ http.createServer(async (req,res) => {
     }
     if (url.pathname === '/ativar') {
       res.setHeader('Cache-Control','no-store')
+      res.setHeader('Content-Security-Policy',"default-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
+      res.setHeader('X-Frame-Options','DENY')
       if(!activationDigest){res.writeHead(503,{'Content-Type':'text/plain;charset=utf-8'});return res.end('A ativação requer SETUP_KEY própria deste ambiente. Configure uma chave de 32 a 128 caracteres, usando letras, números, hífen ou sublinhado, nas variáveis do serviço.')}
       if (req.method === 'GET') {res.setHeader('Content-Type','text/html;charset=utf-8');return res.end(setupPage)}
       if (req.method !== 'POST' || req.headers.origin !== url.origin) {res.writeHead(403);return res.end()}
@@ -96,14 +155,14 @@ http.createServer(async (req,res) => {
       for await (const part of req) {input += part;if(input.length > 2048){res.writeHead(413);return res.end()}}
       const code = new URLSearchParams(input).get('code')
       if (!matches(code)) {res.writeHead(403);return res.end('Código inválido.')}
-      res.writeHead(303,{'Set-Cookie':cookieName+'='+code+cookieFlags+'; Max-Age=600',Location:'/'})
+      res.writeHead(303,{'Set-Cookie':cookieName+'='+issueActivation()+cookieFlags+'; Max-Age=600',Location:'/'})
       return res.end()
     }
     if (url.pathname === '/api/login' && req.method === 'POST') {
       const stored = await BUCKET.get('system/state-v1')
       const initialized = stored && (await stored.json()).users.length > 0
       const code = (req.headers.cookie || '').split('; ').find(v=>v.startsWith(cookieName+'='))?.slice(cookieName.length+1)
-      if (!initialized && !matches(code)) {
+      if (!initialized && !validActivation(code)) {
         res.writeHead(403,{'Content-Type':'application/json;charset=utf-8'})
         return res.end(JSON.stringify({error:'O administrador deve acessar /ativar com o código de homologação.'}))
       }
@@ -112,7 +171,7 @@ http.createServer(async (req,res) => {
     headers.set('oai-authenticated-user-id','learning-railway')
     headers.set('cf-connecting-ip',req.socket.remoteAddress || 'local')
     const options = {method:req.method,headers}
-    if (!['GET','HEAD'].includes(req.method)) {
+    if (!['GET','HEAD','OPTIONS'].includes(req.method)) {
       const upload = ['/api/upload','/api/socialUpload','/api/evo/brand/logo','/api/evo/certificate/background'].includes(url.pathname)
       if (upload) Object.assign(options,{body:Readable.toWeb(req),duplex:'half'})
       else {
@@ -132,7 +191,7 @@ http.createServer(async (req,res) => {
       const data=await result.json()
       if(data.setup){
         const code=(req.headers.cookie||'').split('; ').find(v=>v.startsWith(cookieName+'='))?.slice(cookieName.length+1)
-        data.activationRequired=!matches(code)
+        data.activationRequired=!validActivation(code)
         data.activationConfigured=Boolean(activationDigest)
       }
       res.writeHead(result.status,Object.fromEntries(result.headers));return res.end(JSON.stringify(data))
@@ -142,7 +201,9 @@ http.createServer(async (req,res) => {
     else res.end()
   } catch(error) {
     console.error(JSON.stringify({type:'unhandled_request_error',at:new Date().toISOString(),requestId,name:error?.name||'Error'}))
-    if(!res.headersSent)res.writeHead(500,{'Content-Type':'application/json;charset=utf-8','Cache-Control':'no-store'})
+    if(res.headersSent){res.destroy();return}
+    res.writeHead(500,{'Content-Type':'application/json;charset=utf-8','Cache-Control':'no-store'})
     res.end(JSON.stringify({error:'Falha interna inesperada.',requestId}))
-  }
-}).listen(listenPort,devMode?'127.0.0.1':'0.0.0.0')
+  } finally {gate?.release()}
+})
+server.listen(listenPort,devMode?'127.0.0.1':'0.0.0.0')

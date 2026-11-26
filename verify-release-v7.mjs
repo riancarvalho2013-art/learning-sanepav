@@ -38,6 +38,6 @@ for(const filepath of ['kirkpatrick-v7.mjs','learning-assessments-v6.mjs','peopl
 }
 assert.ok(packageJson.scripts.test.includes('verify-release-v7.mjs'));checks++
 assert.ok(server.includes("'/readyz'"));checks++
-assert.ok(server.includes('safeLogRoute(req.url)'));checks++
+assert.ok(server.includes('logRoute(req.url)'));checks++
 assert.ok(!/course\.completed/.test(readFileSync('kirkpatrick-v7.mjs','utf8')),'Kirkpatrick não deve escrever conclusão no LMS');checks++
 console.log('PASSOU: Release V7 — '+checks+' verificações de assets, sintaxe, integração e rotas; arquivos da baseline externos ao patch não inspecionados: '+baselineSkipped)

@@ -1,0 +1,1 @@
+Ícones vetoriais reconstruídos para o kit (não são camadas extraídas). Use SVG inline/sprite com currentColor; como img, a cor padrão é preta. Ícones decorativos aria-hidden=true; botões de ícone precisam de aria-label. Grade 24 × 24, traço 1,75, tamanhos 16/20/24/32. Não substituir o texto por ícone sem alternativa.

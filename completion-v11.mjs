@@ -3,6 +3,7 @@ import {createHash, timingSafeEqual} from 'node:crypto'
 import {courseStatus,courseRevision,requireLearningAccess} from './learning.mjs'
 import {readFinalAssessmentRequirements,readFinalAssessmentPasses} from './learning-assessments-v6.mjs'
 import {canReconcileScorm} from './scorm-linear-v12.mjs'
+import {restrictedVideo,videoTick,videoSatisfied} from './video-policy-v25.mjs'
 const ROOT='/api/completion/v11/', STATE='system/state-v1'
 const check=(ok,message,status=400)=>{if(!ok)throw Object.assign(new Error(message),{status})}
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json;charset=utf-8','cache-control':'private,no-store','x-content-type-options':'nosniff'}})
@@ -67,6 +68,7 @@ function prepareEvidence(e,c,state,user,ctx,at){
 function finalize(e,c,state,user,ctx,at){
  const v=e.completionV11
  if(e.progress===100||!v?.content||v.courseRevision!==courseRevision(c)||v.organization.companyId!==org(state,user.id).companyId)return
+ if(restrictedVideo(c)&&!videoSatisfied(e,c))return
  const passes=readFinalAssessmentPasses(ctx,v.requirements.map(r=>r.id),user.id)
  v.requirements=v.requirements.map(r=>({...r,passed:!!passes[r.id],attemptId:passes[r.id]?.id||null,score:passes[r.id]?.score??null}))
  if(v.requirements.some(r=>!r.passed)){e.progress=Math.max(e.progress||0,99);return}
@@ -77,6 +79,8 @@ function finalize(e,c,state,user,ctx,at){
 export function applyProgress(state,user,input,ctx,{scormAuthorized=false,scormPlan=null,at=new Date().toISOString()}={}){
  check(input&&typeof input==='object'&&!Array.isArray(input),'Dados inválidos.')
  const {e,c}=enrollmentFor(state,user,input.id)
+ if(input.videoV25!==undefined){check(!scormAuthorized&&restrictedVideo(c)&&e.progress!==100,'Sessão de vídeo indisponível.',409);check(input.videoV25&&typeof input.videoV25==='object','Sessão inválida.');const result=videoTick(e,c,input.videoV25,Date.parse(at));e.updated=at;return {...status(e,c),videoV25:result}}
+ if(restrictedVideo(c)&&e.progress!==100){check(input.progress===100&&videoSatisfied(e,c),'Assista ao vídeo completo antes de registrar a conclusão.',403)}
  if(c.type==='SCORM'){
   check(scormAuthorized,'Abra a aula SCORM e use a sessão do player.',403)
   if(scormPlan){

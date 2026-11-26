@@ -35,6 +35,11 @@ DOMAIN.historicalIndex=ids=>readHistoricalIndex(db,ids)
 // Includes direct v2 organizational edits which do not necessarily change the legacy ETag.
 function organizationRevision(){const h=createHash('sha256');for(const table of ['companies','units','departments','person_organizations','company_access'])h.update(JSON.stringify(db.prepare(`SELECT * FROM ${table} ORDER BY ${table==='company_access'?'person_id,company_id':table==='person_organizations'?'person_id':'id'}`).all()));return h.digest('hex')}
 export const BUCKET = {
+ // Delete only unpublished video parts whose server-issued ID was authorized by the upload session.
+ async deleteSocialVideoParts(id){
+  if(!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(id))throw new TypeError('Identificador inválido.')
+  db.prepare('DELETE FROM objects WHERE key GLOB ?').run('social-video/'+id+'/*')
+ },
  // Internal read-only batch check; callers must first derive authorized object keys.
  async countExisting(keys){
   if(!Array.isArray(keys)||keys.some(x=>typeof x!=='string'))throw new TypeError('Chaves inválidas.')

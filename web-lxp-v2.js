@@ -408,6 +408,7 @@ async function renderAccess(){
 // ───── Immersive learning: preserve existing player, SCORM bridge and progress handlers ─────
 const modalElement=$('modal')
 let learningImmersive=null
+document.addEventListener('v25-classroom',event=>{learningImmersive={id:event.detail.id,from:page};history.replaceState(null,'','#/aula/'+encodeURIComponent(event.detail.id));decorateLearningModal()})
 function decorateLearningModal(){
  if(!modalElement?.open||!modalElement.classList.contains('lxp-immersive'))return
  const body=$('modalBody');if(!body)return
@@ -417,7 +418,7 @@ function decorateLearningModal(){
   const top=document.createElement('div');top.className='lxp-lesson-top'
   top.innerHTML='<span>DNA DO DESENVOLVIMENTO / SALA DE AULA</span><div><h2>'+e(course?.title||'Sua aula')+'</h2><p>'+e(course?.track||'Aprendizagem')+' · '+e(course?.minutes||'')+' min</p></div><div class="lxp-lesson-progress"><span>'+e(target?.progress||0)+'% concluído</span><div class="lxp-bar"><i style="width:'+Number(target?.progress||0)+'%"></i></div></div>'
   if(course&&course.type!=='SCORM'&&course.type!=='Questionário'){
-   const note=document.createElement('p');note.className='privacy-note';note.textContent='Registrar conclusão confirma que você estudou este conteúdo (autodeclaração). Avaliações finais publicadas para o curso também podem ser necessárias.';top.append(note)
+   const note=document.createElement('p');note.className='privacy-note';note.textContent=course.type==='Vídeo'&&course.allowVideoSkip===false?'Reprodução obrigatória: a conclusão exige assistir ao vídeo em sequência. Avaliações finais podem ser necessárias.':'Registrar conclusão confirma que você estudou este conteúdo (autodeclaração). Avaliações finais publicadas para o curso também podem ser necessárias.';top.append(note)
   }
   body.prepend(top)
  }

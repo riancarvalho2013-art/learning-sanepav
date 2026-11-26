@@ -211,3 +211,28 @@ body:has(#app .shell[data-la22-route]) #modal :is(.actions,.lxp-form-actions,.p5
 #app .shell[data-la22-route] .la22-summary-stat strong{font-size:28px;line-height:1.2;color:#081d50;overflow-wrap:anywhere}
 #app .shell[data-la22-route] .la22-summary-icon{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:12px;background:#e2f1ff;color:#0754e7}
 @media(max-width:760px){#app .shell[data-la22-route] .la22-okr-summary,#app .shell[data-la22-route] .la22-chart-split{grid-template-columns:1fr}}
+
+/* V25: dark translucent layer on all shared image banners, preserving underlying art. */
+#app .shell[data-la22-route] .la22-hero,body:has(#app .shell[data-la22-route]) #modal :is(.lxp-lesson-top,.scorm-v3-top){background-image:linear-gradient(110deg,rgba(3,17,54,.90) 0%,rgba(5,27,76,.75) 42%,rgba(4,32,83,.55) 72%,rgba(4,24,68,.76) 100%),url('/design-v22/hero-original-adaptado.webp');background-size:cover;background-position:center;background-repeat:no-repeat;text-shadow:0 1px 3px #00143999}
+#app .shell[data-la22-route] .la22-hero :is(h1,h2,h3,p,small),body:has(#app .shell[data-la22-route]) #modal :is(.lxp-lesson-top,.scorm-v3-top) :is(h1,h2,p,small,span){color:#fff;line-height:1.35;overflow-wrap:anywhere}
+#app .shell[data-la22-route] .la22-hero :is(.la22-title-accent,h1 span,h1 em){color:#55f7ff;-webkit-text-fill-color:#55f7ff}
+body:has(#app .shell[data-la22-route]) #modal.lxp-immersive{padding:0;max-width:none;max-height:100dvh;width:100vw;margin:0;border-radius:0;overflow-y:auto}
+body:has(#app .shell[data-la22-route]) #modal.lxp-immersive #modalBody{width:min(1280px,100%);max-width:1280px;box-sizing:border-box;padding:18px clamp(12px,3vw,36px) 32px;min-height:100dvh;margin:auto;display:flex;flex-direction:column;gap:12px}
+body:has(#app .shell[data-la22-route]) #modal.lxp-immersive .lxp-lesson-top{width:100%;box-sizing:border-box;grid-template-columns:minmax(0,1fr) minmax(150px,220px);gap:8px 24px;padding:22px 26px;margin:0;min-height:0;border-radius:17px;align-items:center}
+body:has(#app .shell[data-la22-route]) #modal.lxp-immersive .lxp-lesson-top>span,body:has(#app .shell[data-la22-route]) #modal.lxp-immersive .lxp-lesson-top>.privacy-note{grid-column:1/-1}
+body:has(#app .shell[data-la22-route]) #modal.lxp-immersive .lxp-lesson-top>.privacy-note{font-size:12px;padding:8px 11px;background:#031a46ad;border-radius:8px;margin-top:4px;color:white;line-height:1.5}
+body:has(#app .shell[data-la22-route]) #modal.lxp-immersive .lxp-lesson-top h2{font-size:clamp(21px,2.4vw,32px);margin:0 0 5px}
+body:has(#app .shell[data-la22-route]) #modal.lxp-immersive .lxp-lesson-progress .lxp-bar{background:#ffffff45;overflow:hidden;border-radius:999px;height:8px}
+body:has(#app .shell[data-la22-route]) #modal.lxp-immersive .lxp-lesson-progress .lxp-bar i{background:linear-gradient(90deg,#2076ff,#00e0ea)}
+body:has(#app .shell[data-la22-route]) #modal.lxp-immersive #modalBody>.heading{width:100%;box-sizing:border-box;margin:0;padding:10px 18px;position:static;min-height:0;flex-shrink:0}
+body:has(#app .shell[data-la22-route]) #modal.lxp-immersive #modalBody>#editor{width:100%;max-width:none;box-sizing:border-box;margin:0;padding:16px 20px;min-width:0}
+body:has(#app .shell[data-la22-route]) #modal.lxp-immersive #editor video.media{display:block;width:100%;height:auto;aspect-ratio:16/9;max-height:60vh;object-fit:contain;background:#071327;border-radius:12px;margin:12px 0}
+body:has(#app .shell[data-la22-route]) #modal.lxp-immersive #editor>.actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:10px;padding:12px 0;position:static;box-shadow:none}
+.v25-play-note{color:#16366c;font-size:13px;line-height:1.45;padding:10px 12px;border:1px solid #c9def6;border-radius:10px;background:#f0f7ff}
+.v25-next-area{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto}.v25-next-area small{color:#224573;max-width:42ch}.v25-next-area label{display:flex;gap:8px;align-items:center}.v25-next-area button[hidden]{display:none!important}.v25-next-area button:disabled{opacity:.55;cursor:not-allowed}
+.v25-video-policy{padding:12px 14px;margin:12px 0;background:#edf6ff;border:1px solid #c9def6;border-radius:12px}.v25-video-policy p{font-size:12px;color:#284975;margin:7px 0 0}
+@media(max-width:700px){body:has(#app .shell[data-la22-route]) #modal.lxp-immersive .lxp-lesson-top{grid-template-columns:1fr;padding:15px}body:has(#app .shell[data-la22-route]) #modal.lxp-immersive #modalBody>#editor{padding:12px}.v25-next-area{margin-left:0;width:100%}.v25-next-area button{width:100%}}
+body #modal.lxp-immersive #modalBody>.v25-duplicate-heading{display:none!important}
+body:has(#app .shell[data-la22-route]) #modal.lxp-immersive .lxp-lesson-top:has(.v25-close)>span:first-child{grid-column:1;grid-row:1}
+body:has(#app .shell[data-la22-route]) #modal.lxp-immersive .lxp-lesson-top>.v25-close{grid-column:2;grid-row:1;justify-self:end;background:#fff;color:#123974;text-shadow:none;min-height:32px;padding:6px 14px;border-radius:9px}
+@media(max-width:700px){body:has(#app .shell[data-la22-route]) #modal.lxp-immersive .lxp-lesson-top:has(.v25-close){grid-template-columns:minmax(0,1fr) auto}body:has(#app .shell[data-la22-route]) #modal.lxp-immersive .lxp-lesson-top:has(.v25-close)>.lxp-lesson-progress,body:has(#app .shell[data-la22-route]) #modal.lxp-immersive .lxp-lesson-top:has(.v25-close)>div{grid-column:1/-1}}

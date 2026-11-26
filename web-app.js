@@ -305,7 +305,7 @@ function courseForm(){
     editor.querySelector('#extra').innerHTML=type==='Leitura'?area('Texto da aula','body','','required'):
       type==='Questionário'?area('Pergunta','body','','required')+area('Alternativas, uma por linha','options','','required')+
         fld('Número da alternativa correta','answer',1,'number','required min="1" max="8"'):
-      type==='Link'?fld('Endereço HTTPS','url','','url'):courseAssetPicker(type)
+      type==='Link'?fld('Endereço HTTPS','url','','url'):courseAssetPicker(type)+(type==='Vídeo'?videoPolicyField(): '')
   }
   fields()
   editor.elements.type.addEventListener('change',fields)
@@ -356,7 +356,9 @@ function learn(id){const e=d.enroll.find(x=>x.id===id);if(!e){toast('Matrícula 
  if(c.type==='Questionário')html+='<p>'+esc(c.body)+'</p>'+sel('Sua resposta','answer',c.options.map((o,i)=>[i,o]))
  if(c.type==='SCORM'){player={id,key};$('modalBody').innerHTML='<div class="heading"><h2>'+esc(c.title)+'</h2>'+btn('Fechar','close')+'</div><iframe id="sco" sandbox="allow-scripts" title="Conteúdo SCORM" src="'+esc(url)+'?key='+key+'"></iframe><p id="scoStatus">O curso registra o progresso durante a atividade.</p>';modal.showModal();return}
  const f=form(c.title,html,async b=>{await api('progress',{id,progress:100,...b});if(c.type==='Questionário'){const updated=await api('data');if(updated.enroll.find(x=>x.id===id).score===0)throw Error('Resposta incorreta. Revise o conteúdo e tente novamente.')}},c.type==='Questionário'?'Enviar resposta':'Registrar conclusão')
- const viewer=f.querySelector('#slideViewer');if(viewer)void previewSlides(url,viewer);const mediaElement=f.querySelector('video,audio');if(mediaElement)mediaElement.addEventListener('error',()=>{f.querySelector('.err').textContent='Não foi possível reproduzir o arquivo. Para vídeo, use MP4 com H.264 e AAC ou WebM.'});const el=mediaElement;if(el&&e.progress!==100){const b=f.querySelector('.primary');b.disabled=true;el.onended=()=>{b.disabled=false};el.ontimeupdate=()=>{const p=Math.floor(100*el.currentTime/el.duration);if(p>e.progress+9&&p<100){e.progress=p;api('progress',{id,progress:p}).catch(err=>toast(err.message))}}}}
+ const viewer=f.querySelector('#slideViewer');if(viewer)void previewSlides(url,viewer);const mediaElement=f.querySelector('video,audio');if(mediaElement)mediaElement.addEventListener('error',()=>{f.querySelector('.err').textContent='Não foi possível reproduzir o arquivo. Para vídeo, use MP4 com H.264 e AAC ou WebM.'});const el=mediaElement;if(el&&e.progress!==100){const b=f.querySelector('.primary');b.disabled=true;el.onended=()=>{b.disabled=false};el.ontimeupdate=()=>{const p=Math.floor(100*el.currentTime/el.duration);if(p>e.progress+9&&p<100){e.progress=p;api('progress',{id,progress:p}).catch(err=>toast(err.message))}}}
+ v25Classroom(f,e,c)
+}
 let scormQueue=Promise.resolve()
 window.addEventListener('message',ev=>{const p=player;if(!p||ev.source!==$('sco')?.contentWindow||ev.data?.key!==p.key||typeof ev.data.values!=='object')return;const cmi=ev.data.values;scormQueue=scormQueue.then(async()=>{await api('progress',{id:p.id,progress:1,cmi});if($('scoStatus'))$('scoStatus').textContent='Progresso salvo às '+new Date().toLocaleTimeString('pt-BR')}).catch(err=>toast(err.message))})
 modal.addEventListener('close',()=>{if(player){player=null;$('modalBody').innerHTML='';scormQueue.then(refresh).catch(err=>toast(err.message))}})
@@ -389,7 +391,7 @@ document.addEventListener('click',async ev=>{const el=ev.target.closest('[data-a
  if(act==='missionAssign')missionAssignForm(id)
  if(act==='missionTeam')missionTeam(id)
  if(act==='selfAssign'){await api('assign',{course:id,person:d.me.id});await refresh();learn(d.enroll.find(e=>e.course===id&&e.person===d.me.id).id)}
- if(act==='learn')learn(id)
+ if(act==='learn'){v25MissionContext=el.closest('.journey-card')?.dataset.direct||el.closest('.la21-mission-detail')?.dataset.v25Mission||'';learn(id)}
  if(act==='assign')form('Atribuir curso',sel('Curso','course',d.courses.filter(c=>c.status==='published').map(c=>[c.id,c.title]))+sel('Participante','person',peopleOpts(),person)+fld('Prazo de conclusão (opcional)','date','','date',''),b=>api('assign',b),'Matricular')
  if(act==='user')userForm(id)
  if(act==='theme')form('Identidade visual',fld('Nome da plataforma','title',d.theme.title)+fld('Cor institucional','color',d.theme.color,'color')+fld('Cor de destaque','accent',d.theme.accent,'color')+sel('Espaçamento','layout',['Compacto','Confortável'],d.theme.layout),b=>api('theme',b))
@@ -421,6 +423,7 @@ function editCourse(id) {
     fld('Duração em minutos','minutes',course.minutes,'number','required min="1" max="10000"')+
     area('Descrição do curso','description',course.description)+
     (course.type==='Leitura'?area('Texto da aula','body',course.body,'required'):course.type==='Link'?fld('Endereço HTTPS','url',course.url,'url'):'')+coverField()+
+    (course.type==='Vídeo'?videoPolicyField(course):'')+
     (contentFormats[course.type]?.length?moreFields(courseAssetPicker(course.type,false),'Substituir arquivo do curso'):''),
     async(body,element)=>{
       const cover=await uploadCover(element)
@@ -475,7 +478,7 @@ function openMission(id) {
    (enrollment&&!blocked?btn(enrollment.progress===100?'Revisar':'Acessar','learn',enrollment.id):'')+'</li>'
  })
  $('modalBody').innerHTML='<div class="heading"><h2>'+esc(mission.title)+'</h2>'+btn('Fechar','close','','smallBtn')+'</div><p>'+esc(mission.description||'')+'</p>'+tag(mission.sequential?'Sequência obrigatória para novas matrículas':'Estudo livre')+
-  '<div class="la21-mission-detail"><section>'+coverImage('mission',mission)+'<h3>'+esc(mission.title)+'</h3><p>'+mission.courses.length+' etapas</p>'+bar(steps.length?Math.round(100*steps.filter(x=>x?.progress===100).length/steps.length):0)+'</section><section><h3>Etapas da trilha</h3><ol class="mission-steps journey-steps">'+rows.join('')+'</ol></section></div><p class="privacy-note">Matrículas anteriores mantêm as regras de acesso que já possuíam.</p>'
+  '<div class="la21-mission-detail" data-v25-mission="'+esc(mission.id)+'"><section>'+coverImage('mission',mission)+'<h3>'+esc(mission.title)+'</h3><p>'+mission.courses.length+' etapas</p>'+bar(steps.length?Math.round(100*steps.filter(x=>x?.progress===100).length/steps.length):0)+'</section><section><h3>Etapas da trilha</h3><ol class="mission-steps journey-steps">'+rows.join('')+'</ol></section></div><p class="privacy-note">Matrículas anteriores mantêm as regras de acesso que já possuíam.</p>'
  if(!modal.open)modal.showModal()
 }
 function missionAssignForm(id){
@@ -760,7 +763,7 @@ function composeSocial(id){
     '<div class="social-author">'+avatar(d.me)+'<strong>'+esc(d.me.name)+'</strong></div>'+
     area('O que você quer compartilhar?','text',saved?.text,'maxlength="3000"')+
     (saved?'':fld('Adicionar foto ou vídeo','file','','file','accept="'+socialAccept+'"')+
-      '<div class="attachment-preview"></div><p class="privacy-note">Foto até 8 MB ou vídeo até 64 MB.</p>'),
+      '<div class="attachment-preview"></div><p class="privacy-note">Foto até 8 MB ou vídeo MP4/WebM até 1 GB.</p>'),
     async(body,element)=>{
       const file=element.elements.file?.files[0]
       if(!file&&!String(body.text||'').trim()&&!saved?.media)throw Error('Escreva algo ou adicione uma foto ou vídeo.')
@@ -797,12 +800,43 @@ async function sendSocialMedia(file,photoOnly=false){
   if(!['jpg','jpeg','png','webp','gif'].includes(extension)&&(photoOnly||!video)){
     throw Error(photoOnly?'Escolha uma foto JPG, PNG, WebP ou GIF.':'Use JPG, PNG, WebP, GIF, MP4 ou WebM.')
   }
-  const limit=video?64:8
-  if(file.size>limit*1024*1024)throw Error('Arquivo acima de '+limit+' MB.')
+  const limit=video?1024:8
+  if(!file.size||file.size>limit*1024*1024)throw Error(video?'Selecione um vídeo de até 1 GB.':'Selecione uma foto de até 8 MB.')
+  if(video)return sendSocialVideoV24(file,extension)
   const res=await fetch('/api/socialUpload?'+new URLSearchParams({extension}),{method:'POST',body:file})
   const response=await res.json().catch(()=>null)
   if(!res.ok)throw Error(response?.error||'Não foi possível enviar o arquivo.')
   return response.id
+}
+async function sendSocialVideoV24(file,extension){
+ const editor=document.getElementById('editor'),progress=document.createElement('progress'),label=document.createElement('p')
+ progress.max=file.size;progress.value=0;progress.setAttribute('aria-label','Progresso do envio de vídeo');progress.style.width='100%'
+ label.setAttribute('role','status');label.textContent='Preparando envio do vídeo…'
+ const anchor=editor?.querySelector('.attachment-preview');if(anchor)anchor.after(label,progress)
+ let uploadId='',completed=false
+ const controller=new AbortController(),cancel=()=>controller.abort();modal.addEventListener('close',cancel,{once:true})
+ async function request(params,body,signal=controller.signal){
+  const res=await fetch('/api/socialUpload?'+new URLSearchParams(params),{method:'POST',body,signal})
+  const result=await res.json().catch(()=>null);if(!res.ok){const error=Error(result?.error||'Não foi possível enviar o vídeo.');error.status=res.status;throw error}return result
+ }
+ try{
+  const opened=await request({action:'start',extension,size:String(file.size)});uploadId=opened.id
+  const chunkSize=opened.chunkSize;if(!Number.isInteger(chunkSize)||chunkSize<1||chunkSize>8*1024*1024)throw Error('Configuração de envio inválida.')
+  for(let offset=0,index=0;offset<file.size;offset+=chunkSize,index++){
+   const part=file.slice(offset,offset+chunkSize);let lastError
+   for(let attempt=0;attempt<3;attempt++){
+    try{await request({action:'part',id:uploadId,index:String(index)},part);lastError=null;break}
+    catch(error){lastError=error;if(controller.signal.aborted||error.status&&error.status<500&&error.status!==409)throw error;await new Promise(resolve=>setTimeout(resolve,500*(attempt+1)))}
+   }
+   if(lastError)throw lastError
+   progress.value=Math.min(file.size,offset+part.size);label.textContent='Enviando vídeo: '+Math.floor(progress.value/file.size*100)+'%'
+  }
+  label.textContent='Finalizando vídeo…';const result=await request({action:'finish',id:uploadId});completed=true;label.textContent='Vídeo enviado. Publicando…';return result.id
+ }finally{
+  modal.removeEventListener('close',cancel)
+  if(uploadId&&!completed)try{await request({action:'abort',id:uploadId},undefined,AbortSignal.timeout(5000))}catch{}
+  progress.remove();label.remove()
+ }
 }
 const socialTime=stamp=>new Date(stamp).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})
 function socialComments(post){
@@ -987,4 +1021,41 @@ function courseHistory(id){
    esc(pname(row.person))+' · '+esc(new Date(row.at).toLocaleString('pt-BR'))+'</small></div><span>Revisão '+row.revision+'</span></div>').join('')||
    empty('Curso anterior ao controle de versões. As próximas alterações serão registradas.'))
  modal.showModal()
+}
+
+/* Functions appended to web-app.js by installer. Existing event delegation stays intact. */
+function videoPolicyField(course){return '<div class="v25-video-policy">'+sel('Permitir avançar ou pular trechos do vídeo?','allowVideoSkip',[['false','Não — reprodução obrigatória'],['true','Sim — avanço livre']],course?String(course.allowVideoSkip!==false):'false')+'<p>Na reprodução obrigatória, a conclusão depende do progresso de vídeo registrado no servidor.</p></div>'}
+let v25MissionContext='';
+function v25AssignedMissions(enrollment){return (d.missions||[]).filter(m=>m.courses.includes(enrollment.course)&&((d.missionEnrollments||[]).some(x=>x.mission===m.id&&x.person===d.me.id)||(m.sequential===undefined||m.legacyVisibility===true)&&missionProgress(m).every(Boolean)))}
+function v25Classroom(formEl,enrollment,course){
+ const video=formEl.querySelector('video'),strict=course.type==='Vídeo'&&course.allowVideoSkip===false&&enrollment.progress!==100;
+ modal.classList.add('lxp-immersive');document.body.classList.add('lxp-reading');document.dispatchEvent(new CustomEvent('v25-classroom',{detail:{id:enrollment.id}}));modal.scrollTop=0;
+ const head=$('modalBody').querySelector(':scope > .heading'),hero=$('modalBody').querySelector('.lxp-lesson-top'),close=head?.querySelector('button[data-act="close"]');if(hero&&close){close.classList.add('v25-close');hero.append(close);head.classList.add('v25-duplicate-heading')}
+ const actions=formEl.querySelector(':scope > .actions'),submit=actions?.querySelector('button.primary');if(!submit)return;
+ const note=document.createElement('p');note.className='v25-play-note';note.setAttribute('role','status');
+ if(video){video.playsInline=true;video.preload='metadata';video.setAttribute('controlsList','nodownload');video.disablePictureInPicture=strict;video.disableRemotePlayback=strict;formEl.insertBefore(note,actions);note.textContent=strict?'Reprodução obrigatória: assista ao vídeo em sequência.':enrollment.progress===100?'Revisão de conteúdo concluído: avanço livre.':'Avanço livre: você pode avançar ou voltar no vídeo.';if(!strict&&enrollment.progress!==100){video.onended=null;submit.disabled=false;}}
+ const missions=v25AssignedMissions(enrollment);let mission=missions.find(x=>x.id===v25MissionContext)||missions.find(x=>x.id===enrollment.originMission)||(missions.length===1?missions[0]:null);
+ const navigation=document.createElement('div');navigation.className='v25-next-area';const next=document.createElement('button');next.type='button';next.className='primary v25-next';next.textContent='Próximo conteúdo →';const detail=document.createElement('small');
+ function nextInfo(){if(!mission)return null;const i=mission.courses.indexOf(course.id);const cid=mission.courses[i+1];if(!cid)return null;return {en:d.enroll.find(e=>e.person===d.me.id&&e.course===cid),course:d.courses.find(c=>c.id===cid)}}
+ function updateNext(){const n=nextInfo(),current=d.enroll.find(e=>e.id===enrollment.id);next.hidden=!n;next.disabled=!n||current?.progress!==100||!n.en||!n.course||n.course.blockedBy?.length>0||n.course.status==='draft';detail.textContent=n?'Próximo: '+(n.course?.title||'conteúdo indisponível')+(next.disabled?' · Conclua a etapa atual e os requisitos.':''):mission?'Última etapa da trilha.':'';}
+ if(missions.length>1){const label=document.createElement('label');label.textContent='Trilha atual ';const select=document.createElement('select');select.append(new Option('Escolha a trilha',''));for(const m of missions)select.append(new Option(m.title,m.id));select.value=mission?.id||'';select.onchange=()=>{mission=missions.find(m=>m.id===select.value);v25MissionContext=mission?.id||'';updateNext()};label.append(select);navigation.append(label)}
+ if(missions.length){navigation.append(detail,next);actions.append(navigation);updateNext()}
+ next.onclick=async()=>{try{await refresh({social:false});updateNext();if(next.disabled)return;const n=nextInfo();v25MissionContext=mission.id;learn(n.en.id);modal.scrollTop=0;}catch(err){toast(err.message)}};
+ let ready=!strict,dead=false,watched=0,ended=false,queue=Promise.resolve(),lastSent=0,resetting=false,started=false,session=crypto.randomUUID();
+ const err=formEl.querySelector('.err');
+ function active(){return !dead&&formEl.isConnected&&modal.open}
+ function display(r){if(!active())return;watched=r.watched;ended=r.ended;ready=ended;submit.disabled=!ready;note.textContent='Reprodução obrigatória · '+Math.floor(watched/r.duration*100)+'% assistido'+(ended?' · conclusão liberada':'');const progress=$('modalBody').querySelector('.lxp-lesson-progress');if(progress){const span=progress.querySelector('span'),bar=progress.querySelector('i');if(span)span.textContent=Math.min(99,Math.floor(watched/r.duration*100))+'% concluído';if(bar)bar.style.width=Math.min(99,Math.floor(watched/r.duration*100))+'%';}}
+ function send(action,pos=0){queue=queue.catch(()=>{}).then(async()=>{if(!active())return;const r=await api('progress',{id:enrollment.id,videoV25:{action,position:action==='reset'?Math.min(pos,watched):pos,session}});display(r.videoV25);return r}).catch(error=>{if(active()){err.textContent=error.message;video?.pause();if(video&&started){resetting=true;video.currentTime=watched;resetting=false;}ready=false;submit.disabled=true;}});return queue}
+ if(strict&&video){submit.disabled=true;video.onended=null;video.ontimeupdate=null;video.playbackRate=1;video.addEventListener('ratechange',()=>{if(video.playbackRate!==1)video.playbackRate=1});video.addEventListener('seeking',()=>{if(!started||resetting)return;if(video.currentTime>watched+0.25){video.currentTime=watched;} });
+  const init=async()=>{video.pause();const r=await send('start');if(!r||!active())return;started=true;if(Math.abs(video.duration-r.videoV25.duration)>1){err.textContent='A duração do arquivo mudou ou não corresponde aos metadados. Contate o RH.';started=false;ready=false;submit.disabled=true;return}video.currentTime=watched;};
+  if(video.readyState>=1)void init();else video.addEventListener('loadedmetadata',init,{once:true});
+  video.addEventListener('play',()=>{if(!started){video.pause();return}lastSent=performance.now();void send('reset',video.currentTime)});
+  video.addEventListener('timeupdate',()=>{if(started&&!video.paused&&!video.seeking&&performance.now()-lastSent>=3000){lastSent=performance.now();void send('tick',video.currentTime)}});
+  video.addEventListener('pause',()=>{if(started&&!video.ended&&!video.seeking)void send('tick',video.currentTime)});
+  video.addEventListener('seeked',()=>{if(started)void send('reset',video.currentTime)});
+  video.addEventListener('ended',()=>{if(started)void send('end',video.currentTime)});
+  modal.addEventListener('close',()=>{dead=true;video.pause()},{once:true});
+ }
+ // Keep the classroom open on successful completion so that the next item can be opened immediately.
+ if(video||missions.length){formEl.onsubmit=async ev=>{ev.preventDefault();if(submit.disabled||strict&&!ready)return;submit.disabled=true;err.textContent='';try{await queue;const result=await api('progress',{...Object.fromEntries(new FormData(formEl)),id:enrollment.id,progress:100});if(result.progress!==100){if(result.pendingAssessment)throw Error('Conteúdo registrado. Conclua as avaliações finais obrigatórias.');throw Error('Conclusão pendente. Revise o conteúdo e tente novamente.')}await refresh({social:false});if(!active())return;dead=true;video?.pause();submit.textContent='Concluído';submit.disabled=true;note.textContent='Conteúdo concluído.';if(!note.isConnected)formEl.insertBefore(note,actions);const top=$('modalBody').querySelector('.lxp-lesson-progress');if(top){const t=top.querySelector('span'),b=top.querySelector('i');if(t)t.textContent='100% concluído';if(b)b.style.width='100%'}updateNext();toast('Conteúdo concluído.')}catch(error){err.textContent=error.message;submit.disabled=strict&&!ready;}}}
 }

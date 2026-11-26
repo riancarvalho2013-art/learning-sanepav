@@ -1,5 +1,6 @@
 import http from 'node:http'
 import {Readable} from 'node:stream'
+import {pipeline} from 'node:stream/promises'
 import {createHash, timingSafeEqual, randomUUID} from 'node:crypto'
 import app from './platform.mjs'
 import {BUCKET,DOMAIN} from './storage.mjs'
@@ -137,7 +138,7 @@ http.createServer(async (req,res) => {
       res.writeHead(result.status,Object.fromEntries(result.headers));return res.end(JSON.stringify(data))
     }
     res.writeHead(result.status,Object.fromEntries(result.headers))
-    if (result.body) Readable.fromWeb(result.body).pipe(res)
+    if (result.body) await pipeline(Readable.fromWeb(result.body),res)
     else res.end()
   } catch(error) {
     console.error(JSON.stringify({type:'unhandled_request_error',at:new Date().toISOString(),requestId,name:error?.name||'Error'}))

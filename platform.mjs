@@ -1,6 +1,8 @@
 import {hashPassword,verifyPassword} from './credentials.mjs'
 import {recoveryConfigured} from './recovery.mjs'
 import {ASSETS} from './assets.mjs'
+import {prepareVideoPolicy,saveVideoPolicy,restrictedVideo} from './video-policy-v25.mjs'
+import {socialVideoUpload,consumeVideoSession,videoResponse} from './social-video-v24.mjs'
 import {courseStatus,courseRevision,requirePublished,checkCourseRevision,stampCourse,changeCourseState,missingPrerequisites,requireLearningAccess} from './learning.mjs'
 const pulseContexts=["Orgulho do time", "Metas claras", "Semana muito produtiva", "Apoio de alguém", "Carga de trabalho alta", "Falta de clareza", "Metas pouco claras", "Problemas pessoais", "Precisando de apoio"];
 const stateKey='system/state-v1'
@@ -236,6 +238,7 @@ function update(s,u,op,b){
  if(c.type==='Questionário'){requireOk(c.body&&Array.isArray(b.options)&&b.options.length>=2&&b.options.length<=8,'Informe pergunta e alternativas.');c.options=b.options.map(x=>str(x));requireOk(c.options.every(Boolean),'Alternativa vazia.');c.answer=number(b.answer,0,c.options.length-1)}
  c.description=str(b.description,500)
  c.cover=takeCover(s,u,b.cover)
+ saveVideoPolicy(c,b)
  c.status='draft';stampCourse(c,u,'created')
  s.courses.push(c)}
  else if(op==='courseEdit'){
@@ -247,6 +250,7 @@ function update(s,u,op,b){
    Object.assign(course,{title:str(b.title,150),track:str(b.track,100)||'Catálogo geral',description:str(b.description,500),minutes:number(b.minutes,1,10000),cover:takeCover(s,u,b.cover)||course.cover})
    if(course.type==='Leitura'&&Object.hasOwn(b,'body')){requireOk(str(b.body,24000),'Escreva o conteúdo.');course.body=str(b.body,24000)}
    if(course.type==='Link'&&Object.hasOwn(b,'url')){requireOk(/^https:\/\//i.test(b.url),'Informe um endereço HTTPS.');course.url=str(b.url,2000)}
+   saveVideoPolicy(course,b)
    stampCourse(course,u,'edited')
  }
  else if(op==='courseState'){assertLearning(u);changeCourseState(s.courses.find(c=>c.id===b.id),u,b)}
@@ -287,7 +291,7 @@ function update(s,u,op,b){
  else if(op==='assign'){requireOk(manager,'Permissão insuficiente.',403);member(s,u,b.person);requireOk(s.courses.some(c=>c.id===b.course)&&(admin||u.role==='RH/DHO'||s.enroll.some(e=>e.course===b.course&&group(s,u).some(p=>p.id===e.person))),'Curso indisponível.');requirePublished(s.courses.find(c=>c.id===b.course));requireOk(!s.enroll.some(e=>e.course===b.course&&e.person===b.person),'Matrícula já existe.',409);const due=b.date||''
  requireOk(!due||validDate(due),'Informe um prazo válido para o curso.')
  s.enroll.push({id:id(),person:b.person,course:b.course,progress:0,due});if(b.person!==u.id)notify(s,b.person,'Catálogo LMS','Novo curso atribuído',s.courses.find(c=>c.id===b.course).title,{target:b.course,due})}
- else if(op==='progress'){const e=s.enroll.find(e=>e.id===b.id&&e.person===u.id);requireOk(e,'Matrícula indisponível.',403);requireLearningAccess(s,e);const c=s.courses.find(c=>c.id===e.course);requireOk(c&&courseStatus(c)!=='draft','Curso indisponível.',403);let progress=number(b.progress,0,100)
+ else if(op==='progress'){const e=s.enroll.find(e=>e.id===b.id&&e.person===u.id);requireOk(e,'Matrícula indisponível.',403);requireLearningAccess(s,e);const c=s.courses.find(c=>c.id===e.course);requireOk(c&&courseStatus(c)!=='draft','Curso indisponível.',403);requireOk(!restrictedVideo(c),'Use o player autorizado para registrar reprodução obrigatória.',403);let progress=number(b.progress,0,100)
  if(c.type==='Questionário'){const correct=b.answer!=null&&Number(b.answer)===c.answer;e.score=correct?100:0;progress=correct?100:1}
  if(c.type==='SCORM'){requireOk(b.cmi&&JSON.stringify(b.cmi).length<90000,'Estado SCORM inválido.');e.cmi=Object.fromEntries(Object.entries(b.cmi).filter(([k,v])=>k.startsWith('cmi.')&&typeof v==='string'));const raw=e.cmi['cmi.score.raw']??e.cmi['cmi.core.score.raw'];if(raw!=null&&Number.isFinite(Number(raw)))e.score=Number(raw);progress=['completed','passed'].includes(e.cmi['cmi.core.lesson_status'])||e.cmi['cmi.completion_status']==='completed'?100:Math.min(99,Math.max(1,Math.round(Number(e.cmi['cmi.progress_measure']||0)*100)||1))}
  e.progress=Math.max(e.progress,progress);e.updated=iso();if(e.progress===100&&!e.completed)e.completed=e.updated
@@ -295,7 +299,7 @@ function update(s,u,op,b){
  else if(op==='pulse'){requireOk(['Líder','RH/DHO'].includes(u.role),'Permissão insuficiente.',403);requireOk(str(b.title)&&validDate(b.date)&&b.date>=saoPauloDate(),'Informe pergunta e prazo válido.');const people=group(s,u).filter(p=>p.active&&(!b.person||p.id===b.person)).map(p=>p.id);requireOk(people.length,'Público vazio.');const pulse={id:id(),title:str(b.title,150),date:b.date,people,author:u.id};(s.pulses??=[]).push(pulse);for(const recipient of people)notify(s,recipient,'Pulse','Nova pesquisa de Pulse',pulse.title,{target:pulse.id,due:pulse.date});audit(s,u,'Pesquisa pulse publicada');return}
  else if(op==='record'){
  if(b.kind==='Elogio')requireOk(s.users.some(person=>person.id===b.person&&person.active&&sameOrganization(s,u,person.id))&&b.person!==u.id,'Escolha um colega ativo para reconhecer.')
- else member(s,u,b.person);requireOk(!['Administrador','Diretoria'].includes(u.role)||b.person===u.id,'Este perfil permite apenas registros pessoais.',403);requireOk(kinds.includes(b.kind)&&str(b.title),'Informe o tipo e o título.');let r=s.records.find(r=>r.id===b.id);requireOk(!b.id||r&&r.person===b.person&&r.kind===b.kind,'Registro incompatível.');requireOk(!r||r.author===u.id,'Somente quem enviou pode editar este registro.',403)
+ else {member(s,u,b.person);requireOk(!['Administrador','Diretoria'].includes(u.role)||b.person===u.id,'Este perfil permite apenas registros pessoais.',403);}requireOk(kinds.includes(b.kind)&&str(b.title),'Informe o tipo e o título.');let r=s.records.find(r=>r.id===b.id);requireOk(!b.id||r&&r.person===b.person&&r.kind===b.kind,'Registro incompatível.');requireOk(!r||r.author===u.id,'Somente quem enviou pode editar este registro.',403)
  if(b.pulse||r?.pulse){const p=(s.pulses||[]).find(p=>p.id===(r?.pulse||b.pulse));requireOk(b.kind==='Pulse'&&p?.people.includes(u.id)&&p.date>=new Date(Date.now()-10800000).toISOString().slice(0,10),'Pesquisa encerrada ou indisponível.');requireOk(!s.records.some(x=>x.pulse===p.id&&x.person===u.id&&x!==r),'Resposta já registrada.',409);b.title=p.title;b.pulse=p.id}
  if(b.kind==='Desempenho')requireOk(manager,'Avaliação reservada à liderança.',403)
  if(b.kind==='Pulse')requireOk(b.person===u.id,'Cada pessoa responde a sua pesquisa.',403)
@@ -396,7 +400,7 @@ function takeSocialMedia(state,user,upload,photoOnly=false){
   const item=pending[index]
   requireOk(!photoOnly||item.type.startsWith('image/'),'Escolha uma foto compatível.')
   pending.splice(index,1)
-  return {id:item.id,type:item.type}
+  return consumeVideoSession(state,item)
 }
 function socialUpdate(state,user,operation,body){
   if(operation==='avatar'){
@@ -493,6 +497,7 @@ async function socialFile(req,env,state,path,user){
     (state.socialPosts||[]).find(post=>post.id===itemId)?.media
   const owner=kind==='avatar'?itemId:(state.socialPosts||[]).find(post=>post.id===itemId)?.author
   requireOk(item&&sameOrganization(state,user,owner),'Mídia indisponível.',404)
+  if(item.storage==='parts-v24')return videoResponse(req,env.BUCKET,item,{'content-type':item.type,'cache-control':'private,max-age=60','x-content-type-options':'nosniff'})
   const stored=await env.BUCKET.get('social/'+item.id)
   requireOk(stored,'Mídia indisponível.',404)
   return fileResponse(req,stored.body,{'content-type':item.type,'cache-control':'private,max-age=60','x-content-type-options':'nosniff'},item.type)
@@ -641,7 +646,10 @@ async function handle(req,env){
  requireOk(result,'E-mail ou senha inválidos.',401);return response({ok:true},200,{'set-cookie':'learning='+token+'; Path=/; HttpOnly; SameSite=Strict; Max-Age=28800'+(url.protocol==='https:'?'; Secure':'')})}
  const u=actor(state,digest,identity)
  if(req.method==='GET'&&path==='/api/socialFeed')return response(socialFeed(state,u,url.searchParams.get('after'),url.searchParams.get('post')))
- if(req.method==='POST'&&path==='/api/socialUpload')return socialUpload(req,env,state,u,digest,identity,url)
+ if(req.method==='POST'&&path==='/api/socialUpload'){
+   if(url.searchParams.has('action'))return socialVideoUpload(req,{bucket:env.BUCKET,userId:u.id,readState:async()=>{const current=await (await env.BUCKET.get(stateKey)).json();actor(current,digest,identity);return current},mutate:fn=>change(env,s=>fn(s,actor(s,digest,identity)))})
+   return socialUpload(req,env,state,u,digest,identity,url)
+ }
  if(['GET','HEAD'].includes(req.method)&&/^\/social\/(avatar|post)\/[^/]+$/.test(path))return socialFile(req,env,state,path,u)
  if(req.method==='POST'&&['/api/avatar','/api/socialPost','/api/socialComment','/api/socialReaction'].includes(path)){
    const body=await req.json()
@@ -712,7 +720,7 @@ async function handle(req,env){
  if(['Apresentação','Documento'].includes(c.type))headers['content-disposition']='attachment'
  return fileResponse(req,obj.body,headers,mime)}
  if(req.method==='POST'&&path.startsWith('/api/')){const op=path.slice(5),b=await req.json();delete b.secret;if(op==='user'&&b.password){assertAdmin(u);b.secret=await password(b.password)}delete b.password
- await change(env,s=>update(s,actor(s,digest,identity),op,b));return response({ok:true})}
+ await change(env,async s=>{const user=actor(s,digest,identity);const prepared=await prepareVideoPolicy(env.BUCKET,s,user,op,b);return update(s,user,op,prepared)});return response({ok:true})}
  requireOk(false,'Página inexistente.',404)
 }
 export default {async fetch(req,env){try{return await handle(req,env)}catch(e){if(e instanceof SyntaxError||e instanceof URIError)return response({error:'Solicitação inválida.'},400);return response({error:e.status?e.message:'Falha ao processar a solicitação.'},e.status||500)}}}

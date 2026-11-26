@@ -15,6 +15,8 @@ const dept=(s,id)=>assignment(s,id)?.department_id||null
 const person=(s,id)=>s.users.find(u=>u.id===id&&u.active)
 const admin=u=>u.role==='Administrador'
 const leader=u=>u.role==='Líder'
+const director=u=>u.role==='Diretoria'
+const hr=u=>u.role==='RH/DHO'
 const type=o=>o.scope||'individual'
 const registry=s=>s.organization?.departments||[]
 const activeDepartment=(s,t,id)=>registry(s).find(x=>x.id===id&&x.company_id===t&&x.active!==0&&x.active!==false)
@@ -26,7 +28,16 @@ function departmentRelevant(s,u,t,id){return dept(s,u.id)===id||leader(u)&&membe
 function inTenant(s,d,u,t){return activeCompany(s,t)&&company(s,u.id)===t&&d.allowedCompanies(s,u).includes(t)}
 function ownerValid(s,o){return !!o.ownerId&&!!person(s,o.ownerId)&&company(s,o.ownerId)===o.companyId&&(!o.departmentId||dept(s,o.ownerId)===o.departmentId)}
 export function canManageOKR(s,d,u,o){if(admin(u))return true;if(!leader(u)||!inTenant(s,d,u,o.companyId))return false;if(type(o)==='department')return managesDepartment(s,u,o.companyId,o.departmentId);return type(o)==='individual'&&ownerValid(s,o)&&o.ownerId!==u.id&&team(s,u,o.ownerId,o.companyId)}
-function canView(s,d,u,o){if(canManageOKR(s,d,u,o))return true;if(o.status==='draft'||!inTenant(s,d,u,o.companyId))return false;if(type(o)==='company')return true;if(type(o)==='department')return !!activeDepartment(s,o.companyId,o.departmentId)&&departmentRelevant(s,u,o.companyId,o.departmentId);return type(o)==='individual'&&ownerValid(s,o)&&u.id===o.ownerId}
+function canView(s,d,u,o){
+ if(canManageOKR(s,d,u,o))return true
+ if(o.status==='draft'||!inTenant(s,d,u,o.companyId))return false
+ // Corporate visibility is strategic and never inherited merely by belonging to a company.
+ if(type(o)==='company')return director(u)
+ // Directors see departmental aggregates in their own company. Other profiles stay in their
+ // registered/managed department; individual objectives remain private to the owner or leader.
+ if(type(o)==='department')return !!activeDepartment(s,o.companyId,o.departmentId)&&(director(u)||departmentRelevant(s,u,o.companyId,o.departmentId))
+ return type(o)==='individual'&&ownerValid(s,o)&&u.id===o.ownerId
+}
 function canCheckin(s,d,u,o){return o.status==='active'&&(canManageOKR(s,d,u,o)||canView(s,d,u,o)&&ownerValid(s,o)&&o.ownerId===u.id)}
 function target(s,d,u,b){
  fail(admin(u)||leader(u),'Configuração reservada à administração e à liderança autorizada.',403)
@@ -49,6 +60,14 @@ function options(s,d,u){
  const levels=[...(isAdmin&&companies.length?['company']:[]),...(visibleDepts.some(x=>x.canManage)?['department']:[]),...(people.length?['individual']:[])]
  return {companies,departments:visibleDepts,people,levels}
 }
+function accessPolicy(s,d,u){
+ const companyId=company(s,u.id)||null,departmentId=dept(s,u.id)||null
+ if(admin(u))return {mode:'administrator',label:'Visão consolidada administrativa',allowedScopes:['company','department','individual'],canSelectCompany:true,companyId:null,departmentId:null}
+ if(director(u))return {mode:'director',label:'Visão estratégica da empresa autorizada',allowedScopes:['company','department'],canSelectCompany:false,companyId,departmentId:null}
+ if(leader(u))return {mode:'leader',label:'Departamento e equipe sob sua liderança',allowedScopes:['department','individual'],canSelectCompany:false,companyId,departmentId}
+ if(hr(u))return {mode:'hr',label:'Departamento autorizado e objetivos próprios',allowedScopes:departmentId?['department','individual']:['individual'],canSelectCompany:false,companyId,departmentId}
+ return {mode:'self',label:'Seu departamento e seus objetivos individuais',allowedScopes:departmentId?['department','individual']:['individual'],canSelectCompany:false,companyId,departmentId}
+}
 export function krProgress(k){const value=k.checkins.at(-1)?.value??k.baseline;return Math.round(Math.max(0,Math.min(1,(value-k.baseline)/(k.target-k.baseline)))*10000)/100}
 export function objectiveProgress(o){const weight=o.results.reduce((n,k)=>n+k.weight,0);return weight?Math.round(o.results.reduce((n,k)=>n+krProgress(k)*k.weight,0)/weight*100)/100:null}
 function metricTarget(o,scope,legacy){if(!scope.allCompanies.has(o.companyId)||scope.from&&o.endsOn<scope.from||scope.to&&o.startsOn>scope.to)return false;if(scope.person)return type(o)==='individual'&&o.ownerId===scope.person&&(!scope.department||((o.departmentId||dept(legacy||{},o.ownerId))===scope.department));if(scope.department)return type(o)==='department'?o.departmentId===scope.department:type(o)==='individual'&&(o.departmentId||dept(legacy||{},o.ownerId))===scope.department;return true}
@@ -68,7 +87,7 @@ function project(s,d,u,o){
   results:o.results.map(k=>({id:k.id,title:k.title,unit:k.unit,baseline:k.baseline,target:k.target,weight:k.weight,progress:krProgress(k),current:k.checkins.at(-1)?.value??k.baseline,checkinCount:k.checkins.length,canSeeHistory:history,
    checkins:history?k.checkins.map(({businessDate,value,note,at,actorId})=>({businessDate,value,note,at,...(admin(u)?{actorId,actorName:name(actorId)}:{})})):[]}))}
 }
-export function listOKR(db,s,d,u){const opts=options(s,d,u);return {items:rows(db).filter(o=>canView(s,d,u,o)).map(o=>project(s,d,u,o)),...opts,canCreate:opts.levels.length>0,legacy:(s.records||[]).filter(r=>r.kind==='OKR'&&legacyVisible(s,d,u,r)).map(r=>({id:r.id,title:r.title,ownerName:s.users.find(p=>p.id===r.person)?.name||'Pessoa indisponível',status:r.status,target:r.target,actual:r.actual,date:r.date,note:r.note}))}}
+export function listOKR(db,s,d,u){const opts=options(s,d,u),access=accessPolicy(s,d,u);return {items:rows(db).filter(o=>canView(s,d,u,o)).map(o=>project(s,d,u,o)),...opts,access,canCreate:opts.levels.length>0,legacy:(s.records||[]).filter(r=>r.kind==='OKR'&&legacyVisible(s,d,u,r)).map(r=>({id:r.id,title:r.title,ownerName:s.users.find(p=>p.id===r.person)?.name||'Pessoa indisponível',status:r.status,target:r.target,actual:r.actual,date:r.date,note:r.note}))}}
 export function mutateOKR(db,s,d,u,action,b){
  fail(b&&typeof b==='object'&&!Array.isArray(b),'Dados inválidos.');db.okrsV13??=[]
  if(action==='create'){

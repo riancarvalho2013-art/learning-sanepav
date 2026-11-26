@@ -114,12 +114,20 @@ function okrCards(){
 async function renderOKR13(){
  await asyncScreen(screen('Gestão de metas','Objetivos e resultados-chave','Acompanhe resultados mensuráveis, com histórico e responsabilidade.',load()),async current=>{
   const result=await apiLxp('okr');if(!current())return;okrDraft=result
-  const selectableCompanies=[...new Map([...(result.companies||[]),...(result.items||[]).map(o=>({id:o.companyId,name:o.companyName}))].map(c=>[c.id,c])).values()]
-  if(!selectableCompanies.some(c=>c.id===okrCompanyFilter))okrCompanyFilter=''
+  const access=result.access||{mode:'self',label:'Seu escopo autorizado',allowedScopes:['individual'],canSelectCompany:false}
+  const allowedScopes=(access.allowedScopes||[]).filter(scope=>okrLabels[scope]),allowedFilters=['all',...allowedScopes]
+  if(!allowedFilters.includes(okrFilter))okrFilter='all'
+  const selectableCompanies=access.canSelectCompany?[...new Map([...(result.companies||[]),...(result.items||[]).map(o=>({id:o.companyId,name:o.companyName}))].map(c=>[c.id,c])).values()]:[]
+  if(!access.canSelectCompany||!selectableCompanies.some(c=>c.id===okrCompanyFilter))okrCompanyFilter=''
   const items=result.items||[],results=items.flatMap(o=>o.results||[]),average=items.length?Math.round(items.reduce((sum,o)=>sum+Number(o.progress||0),0)/items.length):0,active=items.filter(o=>o.status==='active').length
   const summary='<div class="okr-executive-summary">'+metric('Objetivos no recorte',items.length,'visíveis no seu escopo')+metric('Resultados-chave',results.length,'indicadores mensuráveis')+metric('Progresso médio',average+'%','média simples dos objetivos')+metric('Em andamento',active,'objetivos ativos')+'</div>'
-  const scopeTabs='<div class="okr-scope-tabs" role="tablist" aria-label="Nível do OKR">'+[['all','Todos'],...Object.entries(okrLabels)].map(([value,label])=>'<button type="button" role="tab" aria-selected="'+(okrFilter===value?'true':'false')+'" data-okr-scope="'+e(value)+'">'+e(label)+'</button>').join('')+'</div>'
-  const filters='<div class="lxp-panel okr-filters">'+scopeTabs+select('Empresa','okrCompanyFilter',[['','Todas as autorizadas'],...selectableCompanies.map(c=>[c.id,c.name])],okrCompanyFilter)+'</div>'
+  const modeLabels={administrator:'Visão consolidada',director:'Minha empresa',leader:'Minha gestão',hr:'Meu escopo de RH/DHO',self:'Minha visão'}
+  const tabLabels={administrator:{company:'Empresa',department:'Departamento',individual:'Colaborador(a)'},director:{company:'Corporativos',department:'Departamentos'},leader:{department:'Meu departamento',individual:'Minha equipe'},hr:{department:'Meu departamento',individual:'Meus objetivos'},self:{department:'Meu departamento',individual:'Meus objetivos'}}
+  const tabs=[['all',modeLabels[access.mode]||'Meu escopo'],...allowedScopes.map(scope=>[scope,tabLabels[access.mode]?.[scope]||okrLabels[scope]])]
+  const scopeTabs='<div class="okr-scope-tabs" role="tablist" aria-label="Recorte autorizado de OKRs">'+tabs.map(([value,label])=>'<button type="button" role="tab" aria-selected="'+(okrFilter===value?'true':'false')+'" data-okr-scope="'+e(value)+'">'+e(label)+'</button>').join('')+'</div>'
+  const context='<div class="okr-access-context"><span>Escopo de acesso</span><strong>'+e(access.label||'Seu escopo autorizado')+'</strong><small>As informações são filtradas no servidor conforme seu perfil, empresa, departamento e hierarquia.</small></div>'
+  const companySelect=access.canSelectCompany?select('Empresa','okrCompanyFilter',[['','Todas as autorizadas'],...selectableCompanies.map(c=>[c.id,c.name])],okrCompanyFilter):context
+  const filters='<div class="lxp-panel okr-filters" data-access-mode="'+e(access.mode)+'">'+scopeTabs+companySelect+'</div>'
   const create=result.canCreate?'<button type="button" class="lxp-btn primary" data-okr13="new">Novo objetivo</button>':''
   enterScreen(screen('Gestão de metas','OKR / Metas','Objetivos corporativos, departamentais e individuais. Atribuições e resultados respeitam seu escopo.',filters+summary+'<div class="okr-list-heading"><div><h2>Objetivos e resultados-chave</h2><p>Acompanhe responsáveis, prazos, check-ins e evolução do ciclo.</p></div></div><div id="okrCards">'+okrCards()+'</div>',create))
  })

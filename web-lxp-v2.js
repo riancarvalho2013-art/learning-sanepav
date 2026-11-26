@@ -433,7 +433,7 @@ if(modalElement){
 document.addEventListener('click',event=>{
  const btn=event.target.closest('[data-act]');if(!btn)return
  const act=btn.dataset.act
- if(['learn','openMission'].includes(act)){
+ if(act==='learn'){
   learningImmersive={id:btn.dataset.id,from:page};modalElement?.classList.add('lxp-immersive');document.body.classList.add('lxp-reading')
   if(act==='learn')history.replaceState(null,'','#/aula/'+encodeURIComponent(btn.dataset.id))
  }

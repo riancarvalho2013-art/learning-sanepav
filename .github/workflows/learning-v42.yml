@@ -1,7 +1,7 @@
 name: Learning Academy - V42 consolidation
 on:
   push:
-    branches: [v42-consolidacao]
+    branches: [homologacao-dna]
   workflow_dispatch:
 permissions:
   contents: read
@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   consolidate:
-    if: github.ref == 'refs/heads/v42-consolidacao'
+    if: github.ref == 'refs/heads/homologacao-dna'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:

@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {Script} from 'node:vm';
+import {patchApp,patchCss,patchIndex,styles,install} from './topbar-v40-5.mjs';
+import {mkdtempSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+const base=`/* V40.3 sidebar */\nconst marker='la404-catalog-grid';\nfunction draw(){app.innerHTML='<div class="shell"><main><header>'+globalSearch()+companyContext()+'<div class="la40-account-actions">'+notificationBell()+profileButton()+'</div></header></main></div>'}`;
+const css='/* V40.4 compact catalog */';
+const index='<link href="/topbar-v40-1.css?v=40.4"><script src="/app.js?v=40.4"></script>';
+test('group company with account controls without duplicating or changing calls',()=>{const s=patchApp(base);new Script(s);assert.equal(patchApp(s),s);assert.match(s,/header id="academyTopbar"/);assert.match(s,/la405-right.*companyContext\(\).*la40-account-actions.*notificationBell\(\)\+profileButton\(\)/);for(const k of ['globalSearch','companyContext','notificationBell','profileButton'])assert.equal(s.split(k+'()').length,2);});
+test('installer refuses missing previous version and duplicate anchors',()=>{assert.throws(()=>patchApp(base.replace('la404-catalog-grid','x')));assert.throws(()=>patchApp(base+base));assert.throws(()=>patchCss(''));assert.throws(()=>patchIndex(''));});
+test('CSS dimensions, responsive container and reduced motion',()=>{const s=patchCss(css);assert.equal(patchCss(s),s);assert.match(styles,/--la405-control:44px/);assert.match(styles,/container:academy-topbar \/ inline-size/);assert.match(styles,/max-width:860px/);assert.match(styles,/max-width:345px/);assert.match(styles,/notification-list\[hidden\]/);assert.match(styles,/prefers-reduced-motion:reduce/);assert.match(styles,/\.company-context select[^}]*width:184px/);});
+test('cache versions, no route changes',()=>{const s=patchIndex(index);assert.equal(s,index.replaceAll('40.4','40.5'));assert.equal(patchIndex(s),s);});
+test('integration writes only three assets, second install identical, bad input does not write',()=>{const dir=mkdtempSync(join(tmpdir(),'la405-'));try{const f=join(dir,'web-app.js'),c=join(dir,'web-topbar-v40-1.css'),h=join(dir,'web-index.html');writeFileSync(f,base);writeFileSync(c,css);writeFileSync(h,'bad');assert.throws(()=>install(dir));assert.equal(readFileSync(f,'utf8'),base);assert.equal(readFileSync(c,'utf8'),css);writeFileSync(h,index);assert.equal(install(dir),3);const before=[f,c,h].map(x=>readFileSync(x,'utf8'));install(dir);assert.deepEqual([f,c,h].map(x=>readFileSync(x,'utf8')),before);}finally{rmSync(dir,{recursive:true,force:true});}});

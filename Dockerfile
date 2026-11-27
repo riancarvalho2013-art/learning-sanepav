@@ -1,7 +1,7 @@
 FROM node:24-bookworm-slim
 WORKDIR /app
 COPY . .
-RUN node pipeline-v39-1.mjs && node people-analytics-v40.mjs --install && node topbar-v40-1.mjs --install
+RUN node pipeline-v39-1.mjs && node people-analytics-v40.mjs --install && node topbar-v40-1.mjs --install && node fluidez-v40-2.mjs --install
 RUN npm install --no-save --package-lock=false --ignore-scripts --omit=dev --no-audit --no-fund @aws-sdk/client-s3@3.1174.0 \
     && LEARNING_MEDIA_MODE=sqlite LEARNING_BACKUP_DIRECTORY= npm test \
     && LEARNING_BACKUP_DIRECTORY= node verify-enterprise-v27.mjs \
@@ -18,6 +18,7 @@ RUN npm install --no-save --package-lock=false --ignore-scripts --omit=dev --no-
     && node --test verify-estabilidade-v39-1.mjs \
     && node --test verify-people-analytics-v40.mjs \
     && node --test verify-topbar-v40-1.mjs \
+    && node --test verify-fluidez-v40-2.mjs \
     && mkdir -p /data
 ENV NODE_ENV=production LEARNING_DB=/data/learning.sqlite
 EXPOSE 8080

@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {Script} from 'node:vm';
+import {patchApp,patchCss,patchIndex,runtime,styles} from './fluidez-v40-2.mjs';
+const source=`function draw(){app.innerHTML='<div class="shell"><main><header><div class="la40-account-actions"></div></header><div id="inside"></div></main></div>';body()}
+function click(ev,el,act,id){if(act==='nav'){page=id==='Rede social'?'Intranet':id;search='';draw();window.scrollTo({top:0,behavior:'instant'});if(isIntranet())void loadSocial()}}`;
+test('installer syntax, exact anchors, idempotence',()=>{const s=patchApp(source);new Script(s);assert.equal(patchApp(s),s);assert.match(s,/rememberShellV402\(\);body\(\)/);assert.match(s,/navigateV402\(id,el,ev.detail===0\)/);assert.throws(()=>patchApp(source+source));assert.throws(()=>patchApp(source.replace('la40-account-actions','old')));});
+test('guards ensure only same data, org, scope, role, user, known route and no modal',()=>{for(const x of ['ctx.data!==d','ctx.org!==organizationData','ctx.company!==organizationCompany','ctx.person!==d.me.id','ctx.role!==d.me.role','modal.open','if(!selected)return false'])assert.ok(runtime.includes(x),x);assert.ok(runtime.includes('if(!reuseShellV402(page,trigger,keyboard))draw()'));});
+test('no response caching or bypass, old content detached and actual body reused',()=>{assert.match(runtime,/root.replaceWith\(next\);\s*body\(\)/);assert.doesNotMatch(runtime,/localStorage|sessionStorage|fetch\(|cloneNode\(/);assert.match(runtime,/if\(isIntranet\(\)\)void loadSocial\(\)/);});
+test('accessibility and header state preserved',()=>{for(const x of ['aria-current','aria-expanded','results.replaceChildren()','notificationOpen=false','preventScroll:true','detail.open=false'])assert.ok(runtime.includes(x),x);});
+test('motion is subtle and reduced motion supported',()=>{const css=patchCss('.la40-account-actions{}');assert.equal(patchCss(css),css);assert.match(styles,/opacity:\.94/);assert.doesNotMatch(styles,/opacity:0[;}]/);assert.match(styles,/prefers-reduced-motion:reduce/);assert.throws(()=>patchCss('body{}'));});
+test('asset URLs versioned without new manifest paths',()=>{const s='<head><link rel="stylesheet" href="/topbar-v40-1.css"></head><script src="/app.js"></script>';const v=patchIndex(s);assert.equal(patchIndex(v),v);assert.match(v,/topbar-v40-1.css\?v=40.2/);assert.match(v,/app.js\?v=40.2/);assert.throws(()=>patchIndex('<head></head>'));});

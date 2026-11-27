@@ -97,6 +97,48 @@ function scormBridge(setup){
  window.addEventListener('pagehide',()=>{if(initialized)message('commit')})
  window.addEventListener('beforeunload',()=>{if(initialized)message('commit')})
  try{window.top.postMessage({type:'DNA_SCORM_READY_V3',key},setup.parentOrigin)}catch{}
+
+ // Video requests cross the same authenticated message channel as the SCORM runtime.
+ // Never relax the sandbox or expose the bearer URL to YouTube.
+ if(typeof document!=='undefined'&&typeof MutationObserver!=='undefined'){
+  const videoId=(raw,kind)=>{
+   try{
+    const u=new URL(raw,document.baseURI)
+    if(u.protocol!=='https:'||u.username||u.password||u.port)return null
+    const host=u.hostname,allowed=host==='www.youtube.com'||host==='youtube.com'||host==='www.youtube-nocookie.com'||host==='youtube-nocookie.com'
+    let id=null
+    if(allowed&&u.pathname.startsWith('/embed/'))id=u.pathname.slice(7)
+    else if(kind==='link'&&(host==='www.youtube.com'||host==='youtube.com')&&u.pathname==='/watch')id=u.searchParams.get('v')
+    else if(kind==='link'&&host==='youtu.be')id=u.pathname.slice(1)
+    return typeof id==='string'&&/^[A-Za-z0-9_-]{11}$/.test(id)?id:null
+   }catch{return null}
+  }
+  const requestVideo=(id,mode)=>{try{window.top.postMessage({type:'DNA_SCORM_VIDEO_V3',key,videoId:id,mode},setup.parentOrigin)}catch{}}
+  document.addEventListener('click',event=>{
+   if(!event.isTrusted||event.defaultPrevented||event.button!==0)return
+   const a=event.target?.closest?.('a[href]');if(!a)return
+   const id=videoId(a.getAttribute('href'),'link');if(!id)return
+   event.preventDefault();event.stopImmediatePropagation();requestVideo(id,'link')
+  },true)
+  const replaceVideo=frame=>{
+   if(!frame.isConnected)return
+   const id=videoId(frame.getAttribute('src')||'','embed');if(!id)return
+   const box=document.createElement('div'),text=document.createElement('p'),button=document.createElement('button')
+   box.className='video-placeholder';box.style.cssText='padding:20px;text-align:center;display:grid;gap:10px;justify-items:center'
+   text.textContent='Vídeo disponível no player protegido do Learning Academy.'
+   button.type='button';button.className='btn subtle';button.textContent='▶ Abrir vídeo no Learning'
+   button.addEventListener('click',event=>{if(event.isTrusted)requestVideo(id,'embed')})
+   box.append(text,button);frame.replaceWith(box)
+   // A dynamically inserted player often follows a direct click. Opening the local
+   // dialog is harmless; the parent requires a second, explicit click before any
+   // external request. Static embeds are simply replaced with the local button.
+   if(navigator.userActivation?.isActive)requestVideo(id,'embed')
+  }
+  const scan=node=>{if(node.nodeType!==1)return;if(node.matches?.('iframe[src]'))replaceVideo(node);for(const f of node.querySelectorAll?.('iframe[src]')||[])replaceVideo(f)}
+  const observer=new MutationObserver(records=>{for(const record of records){if(record.type==='attributes')scan(record.target);else for(const node of record.addedNodes)scan(node)}})
+  observer.observe(document,{subtree:true,childList:true,attributes:true,attributeFilter:['src']})
+  if(document.documentElement)scan(document.documentElement)
+ }
 }
 function injectedHTML(html,session,origin){
  const data={key:session.key,parentOrigin:origin,cmi:session.cmi,navigation:session.plan?.version==='2004'?{index:session.plan.index,count:session.plan.items.length,forwardOnly:session.plan.forwardOnly}:null}
@@ -144,8 +186,7 @@ function permitted(state,user,courseId,enrollId='',uploadId=''){
 function securityHeaders(origin,html){
  const allowed=origin.replace(/\/$/,'')
  return {...noStore,'Access-Control-Allow-Origin':'null','Cross-Origin-Resource-Policy':'cross-origin',
-  // Limit the referrer to the site origin: never expose the SCORM bearer URL.
-  ...(html?{'Referrer-Policy':'origin','Content-Security-Policy':[
+  ...(html?{'Content-Security-Policy':[
    'sandbox allow-scripts allow-forms',
    `default-src ${allowed} data: blob:`,
    `script-src ${allowed} 'unsafe-inline' 'unsafe-eval' blob:`,
@@ -154,10 +195,19 @@ function securityHeaders(origin,html){
    `font-src ${allowed} data:`,
    `media-src ${allowed} data: blob:`,
    `connect-src ${allowed}`,
-   `frame-src ${allowed} blob: https://www.youtube.com/embed/ https://www.youtube-nocookie.com/embed/`,
+   `frame-src ${allowed} blob:`,
    `worker-src ${allowed} blob:`,
    "object-src 'none'",`base-uri ${allowed}`,`form-action ${allowed}`
   ].join('; ')}: {})}
+}
+// A trusted, fixed HTML viewer, outside the untrusted SCORM sandbox.
+// It is authenticated, contains no application script or personal data, and
+// sends only the site origin as referrer (never a session URL or token).
+function youtubeViewer(request,url){
+ const id=url.searchParams.get('id')||''
+ if(!/^[A-Za-z0-9_-]{11}$/.test(id)||[...url.searchParams.keys()].some(k=>k!=='id')||url.searchParams.getAll('id').length!==1)return failure(400,'Identificador de vídeo inválido.')
+ const html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="strict-origin-when-cross-origin"><title>Vídeo de apoio</title><style>html,body{margin:0;height:100%;background:#000}iframe{display:block;width:100%;height:100%;border:0}</style></head><body><iframe title="Vídeo de apoio do YouTube" src="https://www.youtube-nocookie.com/embed/${id}?rel=0&amp;autoplay=1" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></body></html>`
+ return new Response(request.method==='HEAD'?null:html,{status:200,headers:{...noStore,'Content-Type':'text/html;charset=utf-8','Referrer-Policy':'strict-origin-when-cross-origin','X-Frame-Options':'SAMEORIGIN','Cross-Origin-Resource-Policy':'same-origin','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; frame-src https://www.youtube-nocookie.com/embed/ https://www.youtube.com/embed/; frame-ancestors 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"}})
 }
 function fileResponse(req,buffer,headers){
  const size=buffer.length,range=req.headers.get('range')
@@ -197,6 +247,7 @@ export function createScormRuntime({clock=()=>Date.now()}={}){
   if(path.startsWith('/api/scorm/v3/')){
    const state=await readState(BUCKET),user=authenticated(state,request)
    if(!user)return failure(401,'Entre no Learning para acessar esse conteúdo.')
+   if(path==='/api/scorm/v3/video')return youtubeViewer(request,url)
    if(path==='/api/scorm/v3/launch'){
     const enrollmentId=url.searchParams.get('enrollment')||'',courseId=url.searchParams.get('course')||''
     if(!UUID.test(enrollmentId)&&!UUID.test(courseId))return failure(400,'Selecione uma matrícula ou curso.')

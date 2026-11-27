@@ -103,6 +103,38 @@
   if(urgent)void flush()
   else state.timer=setTimeout(flush,420)
  }
+
+ // The package can request a video, but cannot open arbitrary URLs or load an
+ // external resource in the trusted UI without a fresh user action.
+ let videoDialog=null,videoLast=0
+ function dismissVideo(){
+  const dialog=videoDialog;videoDialog=null
+  if(dialog){if(dialog.open)dialog.close();dialog.remove()}
+ }
+ function showVideo(id,mode){
+  if(typeof id!=='string'||!/^[A-Za-z0-9_-]{11}$/.test(id)||!['embed','link'].includes(mode))return
+  if(videoDialog?.open||Date.now()-videoLast<800)return
+  if(!$('modal')?.open)return
+  videoLast=Date.now()
+  const dialog=document.createElement('dialog');dialog.id='scormV3VideoDialog';dialog.setAttribute('aria-labelledby','scormV3VideoTitle')
+  dialog.style.cssText='position:fixed;inset:0;margin:auto;width:min(900px,94vw);max-width:94vw;max-height:90vh;height:auto;overflow:auto;padding:20px;box-sizing:border-box;background:#fff;color:#17365d;border:1px solid #cbdceb;border-radius:16px;box-shadow:0 12px 48px #0005'
+  const heading=document.createElement('h2');heading.id='scormV3VideoTitle';heading.textContent='Vídeo de apoio';heading.style.cssText='margin:0 0 12px;font-size:20px'
+  const help=document.createElement('p');help.textContent='O vídeo é fornecido pelo YouTube. Se a reprodução estiver indisponível, abra-o em uma nova aba ou retorne à aula.'
+  const controls=document.createElement('div');controls.style.cssText='display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:12px 0'
+  const play=document.createElement('button');play.type='button';play.className='scorm-v3-btn';play.textContent='▶ Reproduzir aqui'
+  const link=document.createElement('a');link.href='https://www.youtube.com/watch?v='+id;link.target='_blank';link.rel='noopener noreferrer';link.className='scorm-v3-btn';link.textContent='Abrir no YouTube ↗';link.style.cssText='text-decoration:none'
+  const close=document.createElement('button');close.type='button';close.className='scorm-v3-btn';close.textContent='Voltar à aula';close.addEventListener('click',dismissVideo)
+  const slot=document.createElement('div');slot.style.cssText='width:100%;margin-top:12px'
+  play.addEventListener('click',event=>{
+   if(!event.isTrusted||videoDialog!==dialog||!dialog.open||slot.firstChild)return
+   const player=document.createElement('iframe');player.title='Player protegido do YouTube';player.style.cssText='width:100%;aspect-ratio:16/9;display:block;border:0;background:#000;border-radius:10px'
+   player.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';player.allowFullscreen=true;player.referrerPolicy='strict-origin-when-cross-origin';player.src=route+'video?id='+encodeURIComponent(id)
+   slot.append(player);play.disabled=true
+  })
+  controls.append(play,link,close);dialog.append(heading,help,controls,slot);document.body.append(dialog);videoDialog=dialog
+  dialog.addEventListener('close',()=>{if(videoDialog===dialog)videoDialog=null;dialog.remove()},{once:true})
+  try{dialog.showModal();(mode==='link'?link:play).focus()}catch{dismissVideo()}
+ }
  window.addEventListener('message',ev=>{
   if(!state.opened||!state.launch||state.changing)return
   if(ev.origin!=='null'&&ev.origin!==location.origin)return
@@ -110,6 +142,7 @@
   let source=ev.source,belongs=false;try{for(let i=0;i<16;i++){if(source===frame.contentWindow){belongs=true;break}const parent=source.parent;if(!parent||parent===source)break;source=parent}}catch{}
   if(!belongs)return
   if(!ev.data||ev.data.key!==state.launch.key)return
+  if(ev.data.type==='DNA_SCORM_VIDEO_V3'){showVideo(ev.data.videoId,ev.data.mode);return}
   if(ev.data.type==='DNA_SCORM_READY_V3'){
    state.events++;updateState('Runtime SCORM conectado. Execute as atividades para registrar o progresso.')
   }
@@ -124,6 +157,7 @@
   }
  })
  async function closeRoom(){
+  dismissVideo()
   if(!state.opened)return
   await flush()
   if(state.pending){updateState('Há progresso não sincronizado. Tente recarregar a aula somente após salvar.',true);return}
@@ -172,6 +206,7 @@
  }
  async function changeSco(index){
   if(!state.opened||state.changing)return
+  dismissVideo()
   state.changing=true;showSco(state.multiSco)
   try{
    await flush()
@@ -196,6 +231,7 @@
   if(scormAction==='diagnose')void diagnostics()
  })
  $('modal')?.addEventListener('close',()=>{
+  dismissVideo()
   if(state.opened){void flush().finally(()=>{state.opened=false;state.version++;if(state.keepalive)clearInterval(state.keepalive);state.launch=null})}
   $('modal')?.classList.remove('scorm-v3-dialog')
  })

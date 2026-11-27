@@ -1,0 +1,44 @@
+/* V40.1: compact topbar. Scope strictly to the main application header. */
+#app .shell.la23-shell > main > header.la23-header {
+  justify-content:flex-start; align-items:center; gap:12px; flex-wrap:wrap; height:auto; overflow:visible;
+}
+#app .shell.la23-shell > main > header.la23-header .global-search {
+  flex:1 1 180px; order:0; min-width:0; min-inline-size:0; margin-inline-end:auto;
+}
+#app .shell.la23-shell > main > header.la23-header .company-context {
+  flex:0 1 auto; min-width:0; margin:0; max-width:200px;
+}
+#app .shell.la23-shell > main > header.la23-header .la40-account-actions {
+  display:flex; position:relative; align-items:center; justify-content:flex-end;
+  flex:0 0 auto; min-width:0; max-width:100%; gap:8px; margin-inline-start:auto;
+  overflow:visible;
+}
+#app .shell.la23-shell > main > header.la23-header .la40-account-actions .notification-area {
+  position:static; margin:0; flex:0 0 auto;
+}
+#app .shell.la23-shell > main > header.la23-header .la40-account-actions .notification-list {
+  position:absolute; inset-inline-end:0; inset-inline-start:auto; top:calc(100% + 10px);
+  width:min(25rem,calc(100vw - 24px)); max-width:calc(100vw - 24px); max-height:65dvh;
+  z-index:40; overflow:auto; overscroll-behavior:contain;
+}
+#app .shell.la23-shell > main > header.la23-header .la40-account-actions .la23-profile {
+  display:flex; align-items:center; gap:8px; padding-inline-start:10px; margin:0; flex:0 0 auto;
+}
+#app .shell.la23-shell > main > header.la23-header .la40-account-actions .la23-profile-summary {min-height:40px;}
+#app .shell.la23-shell > main > header.la23-header .la40-account-actions .notification-list[hidden] {display:none;}
+@media(max-width:960px){
+  #app .shell.la23-shell > main > header.la23-header .global-search {order:4; flex:1 1 100%; max-width:none; max-inline-size:100%; margin:0;}
+  #app .shell.la23-shell > main > header.la23-header .company-context {max-width:170px;}
+}
+@media(max-width:760px){
+  #app .shell.la23-shell > main > header.la23-header {gap:8px; padding:8px 12px;}
+  #app .shell.la23-shell > main > header.la23-header .company-context {max-width:140px;}
+  #app .shell.la23-shell > main > header.la23-header .la40-account-actions {gap:6px;}
+  #app .shell.la23-shell > main > header.la23-header .la40-account-actions .la23-profile {padding-inline-start:6px; gap:5px;}
+}
+@media(max-width:420px){
+  #app .shell.la23-shell > main > header.la23-header .company-context {flex:1 1 64px; max-width:115px;}
+  #app .shell.la23-shell > main > header.la23-header .company-context select {width:100%; max-width:100%;}
+  #app .shell.la23-shell > main > header.la23-header .la40-account-actions .la23-profile-copy {display:none;}
+  #app .shell.la23-shell > main > header.la23-header .la40-account-actions .la23-profile-summary {min-width:24px; justify-content:center;}
+}

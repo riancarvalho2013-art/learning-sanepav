@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {Script} from 'node:vm';
+import {patchApp,patchDesign,patchIndex,patchManifest} from './topbar-v40-1.mjs';
+const original="function draw(){return '<header>'+globalSearch()+companyContext()+notificationBell()+profileButton()+'</header>'}";
+const updated=patchApp(original);
+test('contiguous account wrapper preserves function invocations and syntax',()=>{new Script(updated);assert.match(updated,/la40-account-actions.*notificationBell\(\)\+profileButton\(\)/);assert.equal(updated.split('notificationBell()').length,2);assert.equal(updated.split('profileButton()').length,2);assert.equal(patchApp(updated),updated);});
+test('fail closed on missing or duplicated header anchor',()=>{assert.throws(()=>patchApp('unrelated'));assert.throws(()=>patchApp(original+original));});
+test('profile summary accessible in compact mode',()=>{const a="const sum=el('summary','la23-profile-summary');";const b=patchDesign(a);new Script(b);assert.match(b,/aria-label/);assert.equal(patchDesign(b),b);});
+test('asset loaded after V38, idempotent, conflicts rejected',()=>{const h='<head><link href="/web-usabilidade-v38.css"></head>';const r=patchIndex(h);assert.ok(r.indexOf('/topbar-v40-1.css')>r.indexOf('/web-usabilidade-v38.css'));assert.equal(patchIndex(r),r);assert.throws(()=>patchIndex('<head></head>'));assert.throws(()=>patchIndex(h.replace('</head>','<link href="/topbar-v40-1.css"></head>')));const m=patchManifest({'/':{file:'web-index.html'}});assert.equal(m['/topbar-v40-1.css'].mime,'text/css;charset=utf-8');assert.throws(()=>patchManifest({...m,'/topbar-v40-1.css':{file:'wrong'}}));});
+test('CSS constrains dropdown and preserves hidden state',()=>{const s=readFileSync(new URL('./web-topbar-v40-1.css',import.meta.url),'utf8');for(const x of ['justify-content:flex-start','position:relative','inset-inline-end:0','calc(100vw - 24px)','notification-list[hidden]','max-width:420px'])assert.ok(s.includes(x),x);});

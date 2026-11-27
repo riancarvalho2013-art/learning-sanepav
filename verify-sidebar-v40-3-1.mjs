@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {patchCss,patchIndex,styles,install} from './sidebar-v40-3-1.mjs';
+import {styles as prior} from './sidebar-v40-3.mjs';
+import {mkdtempSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+test('only compact desktop scope; legacy forced spacing neutralized',()=>{assert.match(styles,/@media\(min-width:761px\)/);assert.match(styles,/padding:0!important;gap:0!important/);assert.match(styles,/letter-spacing:0/);assert.match(styles,/position:absolute;inset:0;margin:auto/);assert.match(styles,/scrollbar-width:none/);assert.match(styles,/overflow-y:auto/);assert.match(styles,/:focus-visible/);assert.doesNotMatch(styles,/!important[^}]*display:none[^}]*nav\s*\{/);});
+test('compose after V40.3 and repeat safely',()=>{const s=patchCss(prior);assert.equal(patchCss(s),s);assert.ok(s.startsWith(prior));assert.throws(()=>patchCss('body{}'));assert.throws(()=>patchCss(prior+'/* V40.3.1 compact rail alignment */'));});
+test('only CSS asset version changes',()=>{const old='<link href="/topbar-v40-1.css?v=40.3"><script src="/app.js?v=40.3"></script>';const s=patchIndex(old);assert.match(s,/topbar-v40-1.css\?v=40.3.1/);assert.match(s,/app.js\?v=40.3"/);assert.equal(patchIndex(s),s);assert.throws(()=>patchIndex('missing'));});
+test('installer validates both assets before writing, no business code mutation',()=>{const root=mkdtempSync(join(tmpdir(),'la4031-'));try{const css=join(root,'web-topbar-v40-1.css'),html=join(root,'web-index.html');writeFileSync(css,prior);writeFileSync(html,'missing');assert.throws(()=>install(root));assert.equal(readFileSync(css,'utf8'),prior);writeFileSync(html,'/topbar-v40-1.css?v=40.3');assert.equal(install(root),2);assert.equal(install(root),2);assert.equal(readFileSync(css,'utf8'),patchCss(prior));}finally{rmSync(root,{recursive:true,force:true});}});

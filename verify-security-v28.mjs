@@ -28,8 +28,11 @@ try{
  writeFileSync(join(tmp,'serve.mjs'),source)
  writeFileSync(join(tmp,'platform.mjs'),'export default {fetch:async()=>new Response("fixture",{status:200})}')
  writeFileSync(join(tmp,'storage.mjs'),'export const BUCKET={get:async()=>null};export const DOMAIN={}')
+ // V39.1.1: use the real synchronous authentication limiter, not an async handler stub.
+ assert.ok(source.includes("import {createAuthRateV391} from './estabilidade-v39-1.mjs'"),'Limitador V39.1 ausente do servidor');n++
+ writeFileSync(join(tmp,'estabilidade-v39-1.mjs'),readFileSync(new URL('./estabilidade-v39-1.mjs',import.meta.url)))
  for(const m of source.matchAll(/^import \{([^}]+)\} from '\.\/(.+\.mjs)'$/gm)){
-  if(m[2]==='storage.mjs')continue
+  if(m[2]==='storage.mjs'||m[2]==='estabilidade-v39-1.mjs')continue
   const lines=m[1].split(',').map(x=>x.trim()).map(x=>x==='createRouteRegistry'?`export const ${x}=(rules,fallback)=>async req=>fallback(req)` :x==='guardLegacyOKR'?`export const ${x}=(req,ctx,fallback)=>fallback(req)`:`export const ${x}=async()=>new Response('stub')`)
   writeFileSync(join(tmp,m[2]),lines.join('\n'))
  }
@@ -51,6 +54,12 @@ try{
  eq((await login(cookie.slice(0,-1)+(cookie.endsWith('a')?'b':'a'))).status,403)
  eq((await login(cookie.replace(/=\d{13}\./,'=1000000000000.'))).status,403)
  r=await fetch(origin+'/api/data',{method:'POST',headers:{origin},body:'x'.repeat(256*1024+1)});eq(r.status,413)
- await new Promise(r=>setTimeout(r,100));eq(logs.includes('unknown-private-id'),false);eq(logs.includes('/api/other'),true)
-}finally{if(child){child.kill();await new Promise(r=>child.once('exit',r))}rmSync(tmp,{recursive:true,force:true})}
-console.log(`PASS V28 ingress: ${n} verificações (funções reais e servidor HTTP com handlers simulados).`)
+ // Exercise the actual V39.1 rate limiter through HTTP. No real email is sent by the fixture.
+ for(let i=0;i<30;i++){r=await fetch(origin+'/api/request-password-reset',{method:'POST',headers:{origin},body:'{}'});eq(r.status,200);await r.text()}
+ r=await fetch(origin+'/api/request-password-reset',{method:'POST',headers:{origin},body:'{}'});eq(r.status,429);eq(r.headers.get('retry-after'),'60');await r.text()
+ r=await fetch(origin+'/api/reset-password',{method:'POST',headers:{origin},body:'{}'});eq(r.status,200);await r.text()
+ r=await fetch(origin+'/healthz');eq(r.status,200);eq((await r.json()).ok,true)
+ r=await fetch(origin+'/readyz');eq(r.status,200);eq((await r.json()).checks.sqlite,'ready')
+ await new Promise(r=>setTimeout(r,100));eq(logs.includes('unknown-private-id'),false);eq(logs.includes('/api/other'),true);eq(logs.includes('unhandled_request_error'),false)
+}finally{if(child){child.kill();if(child.exitCode===null&&child.signalCode===null)await new Promise(r=>child.once('exit',r))}rmSync(tmp,{recursive:true,force:true})}
+console.log(`PASS V28/V39.1.1 ingress: ${n} verificações (funções reais, limitador real e servidor HTTP com handlers simulados).`)

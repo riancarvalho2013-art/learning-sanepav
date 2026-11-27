@@ -1,0 +1,83 @@
+name: Learning Academy - V42 consolidation
+on:
+  push:
+    branches: [v42-consolidacao]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: learning-v42-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  consolidate:
+    if: github.ref == 'refs/heads/v42-consolidacao'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      LEARNING_MEDIA_MODE: sqlite
+      LEARNING_BACKUP_DIRECTORY: ''
+      LEARNING_NOTIFICATIONS_ENABLED: 'false'
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Initialize evidence
+        run: mkdir -p "$RUNNER_TEMP/v42-logs"
+      - name: Verify consolidation tools
+        run: |
+          set -o pipefail
+          node --test verify-v42-consolidar.mjs 2>&1 | tee "$RUNNER_TEMP/v42-logs/tool-tests.log"
+      - name: Materialize independent copies and generate lockfile
+        run: |
+          set -o pipefail
+          node v42-consolidar.mjs "$GITHUB_WORKSPACE" "$RUNNER_TEMP/v42" 2>&1 | tee "$RUNNER_TEMP/v42-logs/consolidation.log"
+      - name: Baseline Docker build (original V41)
+        run: |
+          set -o pipefail
+          docker build --progress=plain -t learning-v42-baseline "$GITHUB_WORKSPACE" 2>&1 | tee "$RUNNER_TEMP/v42-logs/baseline.log"
+      - name: Candidate Docker build (without patch pipeline)
+        run: |
+          set -o pipefail
+          docker build --progress=plain -t learning-v42-candidate "$RUNNER_TEMP/v42/candidate" 2>&1 | tee "$RUNNER_TEMP/v42-logs/candidate.log"
+      - name: Install locked dependencies and audit
+        working-directory: ${{ runner.temp }}/v42/candidate
+        run: |
+          npm ci --ignore-scripts --omit=dev --no-audit --no-fund
+          npm audit --omit=dev --audit-level=high --json > "$RUNNER_TEMP/v42-logs/dependency-audit.json"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install browser test environment
+        run: |
+          python -m pip install playwright==1.55.0
+          python -m playwright install --with-deps chromium
+      - name: Run existing real-browser and isolated restore suite
+        working-directory: ${{ runner.temp }}/v42/candidate
+        run: |
+          set -o pipefail
+          python verify-browser-v13.py 2>&1 | tee "$RUNNER_TEMP/v42-logs/browser.log"
+      - name: Record passed gates
+        run: |
+          printf '%s\n' 'V42: ferramentas, materialização determinística, sintaxe, builds Docker V41 e candidato, auditoria npm (nível alto), E2E existente e restauração isolada aprovados nesta execução.' 'Não equivale a homologação V42 integral, pentest, auditoria de todo o código ou validação de todos os módulos.' "Commit de entrada: $GITHUB_SHA" > "$RUNNER_TEMP/v42/upload/V42-GATES.txt"
+      - name: Publish candidate files only after all gates pass
+        uses: actions/upload-artifact@v4
+        with:
+          name: Learning-Academy-V42-Candidato
+          path: ${{ runner.temp }}/v42/upload/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Learning-Academy-V42-Evidencias
+          path: |
+            ${{ runner.temp }}/v42-logs/
+            ${{ runner.temp }}/v42/evidence/
+          if-no-files-found: warn
+          retention-days: 14

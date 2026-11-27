@@ -48,3 +48,81 @@ dialog.scorm-v3-dialog #modalBody {width:min(1540px,100%);margin:0 auto;padding:
 .scorm-v3-room [hidden]{display:none!important}
 #scormV12Steps{font-size:.85rem;font-weight:650;color:#245e93;white-space:normal}
 .scorm-v3-btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* SCORM classroom viewport: scope all overrides to the active SCORM dialog.
+   Keep the original iframe sandbox, course scrolling and video dialog intact. */
+dialog#modal.scorm-v3-dialog.lxp-immersive[open] {
+  box-sizing:border-box; position:fixed; inset:0; margin:0!important;
+  width:100%!important; max-width:none!important; min-width:0!important;
+  height:100vh!important; height:100dvh!important; max-height:none!important;
+  padding:0!important; border:0!important; border-radius:0!important;
+  overflow:auto!important; overscroll-behavior:contain;
+}
+dialog#modal.scorm-v3-dialog.lxp-immersive[open] #modalBody {
+  box-sizing:border-box; width:100%!important; max-width:none!important;
+  min-width:0; min-height:100%!important; height:100%; margin:0!important;
+  padding:clamp(6px,1vw,16px)!important; display:block!important;
+}
+dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-room {
+  box-sizing:border-box; width:100%; max-width:none; min-width:0;
+  height:100%; min-height:0; display:grid;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto auto minmax(280px,1fr) auto auto;
+  gap:8px;
+}
+dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-top {
+  box-sizing:border-box; display:block; margin:0!important;
+  padding:10px 16px!important; min-height:0; width:100%; border-radius:12px;
+}
+dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-eyebrow {
+  margin:0 0 4px; font-size:10px;
+}
+dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-top-grid {
+  grid-template-columns:minmax(0,1fr) minmax(120px,210px); gap:10px;
+}
+dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-top h1 {
+  font-size:clamp(20px,2vw,30px); line-height:1.15; margin:0 0 3px;
+}
+dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-kicker {display:none}
+dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-meta {font-size:12px; margin:0}
+dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-bar {height:7px; margin-top:4px}
+dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-toolbar {
+  box-sizing:border-box; width:100%; margin:0!important; padding:6px 10px; gap:6px;
+}
+dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-btn {
+  min-height:36px; padding:6px 10px; white-space:normal;
+}
+dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-canvas {
+  box-sizing:border-box; width:100%; max-width:none!important;
+  height:100%!important; min-height:0!important; max-height:none!important;
+  margin:0; border-radius:12px; box-shadow:none; overflow:hidden;
+}
+dialog#modal.scorm-v3-dialog.lxp-immersive[open] #scormV3Frame {
+  box-sizing:border-box; width:100%!important; height:100%!important;
+  max-width:none!important; max-height:none!important; min-height:0!important;
+  border:0; margin:0;
+}
+dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-bottom {
+  padding:0 4px; gap:4px 12px; font-size:11px; margin:0;
+}
+dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-help {
+  box-sizing:border-box; padding:6px 10px; margin:0; min-width:0;
+}
+/* Diagnostics may exceed a short viewport; keep its text reachable. */
+dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-help[open] {
+  max-height:32vh; max-height:32dvh; overflow:auto; overflow-wrap:anywhere;
+}
+@media(max-width:780px){
+  dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-top {padding:8px 10px!important}
+  dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-top-grid {grid-template-columns:minmax(0,1fr); gap:4px}
+  dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-top h1 {font-size:20px}
+  dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-toolbar-left {width:auto; margin:0 auto 0 0}
+  dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-btn {flex:1 1 auto; min-height:40px; font-size:12px; padding:6px 8px}
+  dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-room {gap:6px}
+}
+/* On short screens, a usable course viewport takes priority over suppressing
+   outer scroll. Never hide controls or clip the bottom of the classroom. */
+@media(max-height:600px){
+  dialog#modal.scorm-v3-dialog.lxp-immersive[open] #modalBody {height:auto; min-height:100%!important}
+  dialog#modal.scorm-v3-dialog.lxp-immersive[open] .scorm-v3-room {height:auto; grid-template-rows:auto auto minmax(340px,1fr) auto auto}
+}

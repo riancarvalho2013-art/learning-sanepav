@@ -1,0 +1,72 @@
+/* V38 | Progressive UI hardening. No business rules, navigation or permissions changed. */
+:root { --la38-focus: #0754e7; --la38-header-height: 64px; }
+#app .shell, #app .shell > main, #app #inside { min-inline-size: 0; }
+#app .shell > main, #app #inside { scroll-padding-block-start: calc(var(--la38-header-height) + 12px); }
+html { scroll-padding-block-start: calc(var(--la38-header-height) + 12px); }
+#app #inside, #app #inside [data-direct], #app #inside [data-social-card] { scroll-margin-block-start: 12px; }
+#app .shell > main > header { min-inline-size: 0; max-inline-size: 100%; }
+#app #inside :is(.lxp-page,.lxp-panel,.lxp-heading-body,.lxp-heading-actions,.lxp-line,.lxp-card,.lxp-metric,.la21-split,.social-hub,.social-hero,.intranet-layout,.social-card,.intranet-sidebar,.social-feed,.card,.filters,.page-actions,.actions) { min-inline-size:0; }
+#app #inside :is(.lxp-heading,.lxp-panel-top,.social-hero,.social-post-header,.intranet-section-title,.heading) { min-inline-size:0; block-size:auto; }
+#app #inside :is(.lxp-heading-actions,.lxp-form-actions,.lxp-panel-top,.social-post-header,.intranet-section-title,.social-reactions,.actions,.filters,.page-actions) { flex-wrap:wrap; row-gap:8px; }
+#app #inside :is(.lxp-heading-body,.lxp-line,.social-author,.la21-feedback-card) > div { min-inline-size:0; }
+#app #inside :is(h1,h2,h3,h4,p,small,.social-text,.lxp-note,.lxp-error,.lxp-muted,.lxp-blank,.lxp-line strong,.lxp-field span,td,th) { overflow-wrap:anywhere; }
+#app #inside :is(.lxp-field,.lxp-form-actions,form,label) { min-inline-size:0; }
+#app #inside :is(input:not([type=checkbox]):not([type=radio]),select,textarea), #modal:not(.lxp-immersive):not(.a6-immersive):not([data-la22-modal=player]) :is(input:not([type=checkbox]):not([type=radio]),select,textarea) { max-inline-size:100%; min-inline-size:0; box-sizing:border-box; }
+#app #inside textarea, #modal:not(.lxp-immersive):not(.a6-immersive):not([data-la22-modal=player]) textarea { resize:vertical; }
+#app #inside :is(button,.lxp-btn), #modal:not(.lxp-immersive):not(.a6-immersive):not([data-la22-modal=player]) button { max-inline-size:100%; white-space:normal; overflow-wrap:anywhere; }
+#app #inside :is(.social-media,canvas,video,img), #modal:not(.lxp-immersive):not(.a6-immersive):not([data-la22-modal=player]) :is(img,video,canvas) { max-inline-size:100%; }
+/* Keep native tables; their containing region scrolls when needed. */
+#app .la38-table-scroll, #modal .la38-table-scroll { max-inline-size:100%; min-inline-size:0; overflow-x:auto; overscroll-behavior-inline:contain; }
+#app .la38-table-scroll:focus-visible, #modal .la38-table-scroll:focus-visible { outline-offset:-3px; }
+/* Keyboard focus uses a two-tone ring that remains distinguishable on light and dark surfaces. */
+#app :is(button,a,input,select,textarea,summary,[tabindex]):focus-visible, #modal :is(button,a,input,select,textarea,summary,[tabindex]):focus-visible, #la38-skip:focus-visible { outline:3px solid var(--la38-focus)!important; outline-offset:3px; box-shadow:0 0 0 2px #fff!important; }
+#app :is(button,input,select,textarea):disabled, #modal :is(button,input,select,textarea):disabled { cursor:not-allowed; }
+#app #inside :is(.lxp-btn,button[data-act],button[data-lxp]), #modal:not(.lxp-immersive):not(.a6-immersive):not([data-la22-modal=player]) button { min-block-size:32px; }
+#app #inside :is(.lxp-progress,.lxp-error,.lxp-blank) { overflow-wrap:anywhere; }
+#la38-skip { position:fixed; z-index:2147483647; inset-inline-start:12px; inset-block-start:12px; padding:12px 16px; border-radius:8px; color:#fff; background:#081d50; text-decoration:none; transform:translateY(-180%); }
+#la38-skip:focus { transform:none; }
+/* Avoid touching the immersive player, SCORM iframe, or existing full-screen dialogs. */
+dialog#modal:not(.lxp-immersive):not(.a6-immersive):not([data-la22-modal=player]):not([fullscreen]) { max-inline-size:calc(100vw - 24px); max-block-size:calc(100vh - 24px); max-block-size:calc(100dvh - 24px); }
+#modal:not(.lxp-immersive):not(.a6-immersive):not([data-la22-modal=player]) #modalBody { min-inline-size:0; overflow-wrap:anywhere; }
+@media (max-width:1100px) {
+ #app #inside :is(.la21-split,.intranet-layout) { grid-template-columns:minmax(0,1fr)!important; }
+ #app #inside :is(.la21-split,.intranet-layout) > * { min-inline-size:0; }
+ #app #inside :is(.lxp-heading,.social-hero,.heading) { flex-wrap:wrap; gap:12px; }
+ #app #inside :is(.lxp-heading-actions,.page-actions) { justify-content:flex-start; }
+}
+@media (max-width:700px) {
+ #app .shell > main > header { flex-wrap:wrap; block-size:auto; gap:8px; }
+ #app .shell > main > header > * { min-inline-size:0; max-inline-size:100%; }
+ #app #inside :is(.lxp-metrics,.lxp-grid,.lxp-shortcuts) { grid-template-columns:minmax(0,1fr)!important; }
+ #app #inside :is(.lxp-heading,.social-hero,.lxp-line,.intranet-section-title,.heading) { flex-wrap:wrap; }
+ #app #inside :is(.lxp-heading-actions,.lxp-form-actions,.page-actions,.filters) { max-inline-size:100%; }
+ #app #inside :is(.lxp-btn,button[data-act],button[data-lxp]), #modal:not(.lxp-immersive):not(.a6-immersive):not([data-la22-modal=player]) button { min-block-size:44px; }
+ #app #inside :is(.social-reactions,.actions) { gap:8px; }
+ #app #inside :is(.lxp-heading h1,.social-hero h1,.heading h1) { font-size:clamp(1.5rem,5vw,2.25rem); line-height:1.2; }
+}
+@media (prefers-reduced-motion:reduce) {
+ html, #app .shell > main, #app #inside { scroll-behavior:auto!important; }
+ #app #inside :is(button,a,.card,.lxp-panel), #modal:not(.lxp-immersive):not(.a6-immersive):not([data-la22-modal=player]) button { transition:none!important; }
+}
+@media (forced-colors:active) {
+ #app :is(button,a,input,select,textarea,summary,[tabindex]):focus-visible, #modal :is(button,a,input,select,textarea,summary,[tabindex]):focus-visible { outline:3px solid Highlight!important; box-shadow:none!important; }
+}
+
+/* Verified selectors in V22–V27 and the specialist module styles. */
+#app .shell.la23-shell[data-la22-route] .inside .la22-hero {max-inline-size:100%; min-inline-size:0; height:auto; max-height:none;}
+#app .shell[data-la22-route] .la22-hero :is(.page-actions,.lxp-heading-actions,.dna-hero-actions,.social-post-header) {min-inline-size:0; max-inline-size:100%; flex-wrap:wrap;}
+#app #inside :is(.r3-wrapper,.r3-filters,.r3-table-scroll,.a6-grid,.a6-fields,.a6-option-grid,.a6-form-footer,.kp7-grid-two,.p5-grid,.p5-form-grid,.p5-kpis,.okr-filters,.okr-target,.oc-filters,.bulk-import) {min-inline-size:0;max-inline-size:100%;}
+#app #inside :is(.r3-filters,.a6-fields,.a6-option-grid,.p5-form-grid,.okr-filters,.oc-filters) > * {min-inline-size:0;}
+#app #inside :is(.r3-hero,.a6-hero,.kp7-hero,.p5-hero) p {max-inline-size:100%;overflow-wrap:anywhere;}
+#app #inside :is(.a6-form-footer,.kp7-actions,.p5-footer) {flex-wrap:wrap;gap:8px;}
+#app #inside :is(.a6-form-footer,.kp7-actions,.p5-footer) > * {min-inline-size:0;max-inline-size:100%;overflow-wrap:anywhere;}
+@media(max-width:760px){
+ #app .shell.la23-shell > main > header.la23-header {height:auto;flex-wrap:wrap;gap:8px;padding:8px 12px;}
+ #app .shell.la23-shell > main > header.la23-header .global-search {flex:1 1 100%;max-inline-size:100%;order:4;}
+ #app .shell.la23-shell .la23-header .company-context {min-inline-size:0;max-inline-size:100%;}
+ #app .shell.la23-shell .la23-header .company-context select {max-inline-size:100%;}
+ #app .shell.la23-shell .la23-header .la23-profile {padding-inline-start:8px;}
+ #app .shell[data-la22-route] .la22-hero.heading,#app .shell[data-la22-route] .la22-hero.hero:has(>h1) {grid-template-columns:auto minmax(0,1fr);}
+ #app .shell[data-la22-route] .la22-hero.heading>.la22-hero-copy,#app .shell[data-la22-route] .la22-hero.hero:has(>h1)>.la22-hero-copy {grid-column:1/-1;grid-row:auto;max-inline-size:100%;margin-inline-start:0;}
+ #app .shell.la23-shell[data-la22-route] .inside .la22-hero h1 {font-size:clamp(1.5rem,5vw,2.15rem);line-height:1.2;}
+}

@@ -23,10 +23,14 @@ check(platform.includes("u.role==='Administrador'")||read('okr-v13.mjs').include
 const okr=read('okr-v13.mjs')
 check(okr.includes("if(type(o)==='company')return director(u)")&&okr.includes("allowedScopes:['company','department','individual']"),'backend separa visões corporativa, departamental e individual por papel')
 check(okr.includes("mode:'self'")&&okr.includes('canSelectCompany:false'),'colaborador não recebe seleção consolidada de empresas')
-check(foundation.includes('plataforma enviará automaticamente um convite'),'cadastro informa envio automático')
-check(foundation.includes("api('first-access/invite'"),'cadastro dispara convite de primeiro acesso')
-check(lxp.includes("el.textContent='Acessos criados. Enviando convites corporativos"),'importação em lote dispara convites automáticos')
+// V30: convites somente por opção expressa do administrador (incluindo importação).
+check(foundation.includes('<input type="checkbox" name="notifyEmail" value="1">')&&foundation.includes('Enviar e-mail para notificar a criação da conta'),'cadastro apresenta opção de convite desmarcada por padrão')
+check(/if\(!id&&body\.notifyEmail==='1'\)\{[\s\S]*?api\('first-access\/invite'/.test(foundation),'cadastro dispara convite condicionado à seleção')
+check(foundation.includes('Acesso criado. Nenhum convite enviado.'),'cadastro confirma criação sem convite quando opção não é selecionada')
+check(lxp.includes('<input id="bulkNotifyEmail" type="checkbox">')&&lxp.includes("notifyEmail=$('bulkNotifyEmail')?.checked===true"),'importação apresenta opção de envio desmarcada por padrão')
+check(/if\(!notifyEmail\)\{[^}]*return\}el\.textContent='Acessos criados\. Enviando convites corporativos…';[\s\S]*?api\('first-access\/invite'/.test(lxp),'importação interrompe fluxo de envio quando opção não é selecionada')
+check(lxp.includes('data-act="changeOwnPassword"')&&foundation.includes('showRecoveryRequest(access.recoveryConfigured,access.me.email)')&&foundation.includes('email:ownEmail||editor.elements.email.value')&&foundation.includes('input.readOnly=true'),'alteração de senha usa o e-mail cadastrado da própria conta')
 check(platform.includes("else if(op==='user'&&!b.id)"),'novo acesso recebe segredo técnico não utilizável')
 check(index.includes('/design-v26.css?v=26.1')&&manifest['/design-v26.css'],'camada V26.1 incluída no build')
 
-console.log('PASS V26: '+checks+' verificações de banners, relatórios, OKR, Intranet, 9Box, convites e remoção de estrelas.')
+console.log('PASS V26/V30: '+checks+' verificações de banners, relatórios, OKR, Intranet, 9Box, convites opcionais, alteração de senha e remoção de estrelas.')

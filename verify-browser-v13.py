@@ -60,17 +60,46 @@ with tempfile.TemporaryDirectory(prefix='learning-e2e-v13-') as tmp:
                 for width in (1440,390):
                     ctx=browser.new_context(viewport={'width':width,'height':900});name,value=cookie.split('=',1);ctx.add_cookies([{'name':name,'value':value,'url':origin,'httpOnly':True}]);tab=ctx.new_page();errors=[];tab.on('pageerror',lambda error:errors.append(str(error)));tab.set_default_timeout(10000);tab.goto(origin);tab.locator('aside nav').wait_for(state='attached')
                     def go(name):
-                        # Click visible navigation if available; dispatch through the actual app navigation otherwise.
-                        button=tab.locator('aside nav button[data-id="'+name+'"]').first
-                        button.wait_for(state='attached');button.evaluate('(e)=>e.click()')
-                    go('OKR');tab.get_by_text('Objetivos e resultados-chave',exact=True).wait_for()
-                    if width==1440:
-                        tab.get_by_role('button',name='Novo objetivo').click();tab.locator('#okr13Form [name=title]').fill('Objetivo QA V13');tab.locator('#okr13Form [name=krTitle]').fill('Entregas');tab.locator('#okr13Form [name=unit]').fill('unidades');tab.locator('#okr13Form button[type=submit]').click();tab.get_by_text('Objetivo QA V13',exact=True).wait_for();tab.get_by_role('button',name='Publicar',exact=True).click();tab.locator('#okr13Form button[type=submit]').click();tab.get_by_role('button',name='Registrar check-in').click();tab.locator('#okr13Form [name=value]').fill('50');tab.locator('#okr13Form [name=note]').fill('Evidência QA');tab.locator('#okr13Form button[type=submit]').click();tab.get_by_text('50% do objetivo',exact=True).wait_for()
-                    else:tab.get_by_text('50% do objetivo',exact=True).wait_for()
-                    go('Relatórios');tab.get_by_role('button',name='Indicadores unificados').click();tab.get_by_text('Catálogo e valores',exact=True).wait_for();assert tab.get_by_role('link',name='Exportar indicadores XLSX').count()==1
-                    go('Pulse');tab.get_by_text('Pulse de sentimentos',exact=True).first.wait_for()
-                    go('Eficácia dos treinamentos');tab.get_by_text('Nenhum treinamento disponível neste recorte.',exact=False).wait_for()
-                    assert not errors,errors;ctx.close();print(f'PASS navegador real {width}px: OKR, relatórios, Pulse, Kirkpatrick')
+                        button = tab.locator('aside nav button[data-id="'+name+'"]').first
+                        button.wait_for(state='attached')
+                        button.evaluate('(e)=>e.click()')
+
+                    go('OKR')
+                    tab.get_by_text('Objetivos e resultados-chave', exact=True).wait_for()
+
+                    if width == 1440:
+                        tab.get_by_role('button', name='Novo objetivo').click()
+                        tab.locator('#okr13Form [name=title]').fill('Objetivo QA V13')
+                        tab.locator('#okr13Form [name=krTitle]').fill('Entregas')
+                        tab.locator('#okr13Form [name=unit]').fill('unidades')
+                        tab.locator('#okr13Form button[type=submit]').click()
+                        tab.get_by_text('Objetivo QA V13', exact=True).wait_for()
+                        tab.get_by_role('button', name='Publicar', exact=True).click()
+                        tab.locator('#okr13Form button[type=submit]').click()
+                        tab.get_by_role('button', name='Registrar check-in').click()
+                        tab.locator('#okr13Form [name=value]').fill('50')
+                        tab.locator('#okr13Form [name=note]').fill('Evidência QA')
+                        tab.locator('#okr13Form button[type=submit]').click()
+
+                    objective = tab.locator('.okr-objective').filter(
+                        has=tab.get_by_text('Objetivo QA V13', exact=True)
+                    )
+                    objective.locator('progress.okr-progress[value="50"]').wait_for(state='visible')
+
+                    go('Relatórios')
+                    tab.get_by_role('button', name='Indicadores unificados').click()
+                    tab.get_by_text('Catálogo e valores', exact=True).wait_for()
+                    assert tab.get_by_role('link', name='Exportar indicadores XLSX').count() == 1
+
+                    go('Pulse')
+                    tab.get_by_text('Pulse de sentimentos', exact=True).first.wait_for()
+
+                    go('Eficácia dos treinamentos')
+                    tab.get_by_text('Nenhum treinamento disponível neste recorte.', exact=False).wait_for()
+
+                    assert not errors, errors
+                    ctx.close()
+                    print(f'PASS navegador real {width}px: OKR, relatórios, Pulse, Kirkpatrick')
                 browser.close()
             stored,_=request(origin,'/api/lxp/v2/okr',cookie=cookie);assert stored['items'][0]['progress']==50
             env=dict(os.environ,LEARNING_DB=str(primary),NODE_ENV='test');subprocess.run([NODE,'recovery-v13.mjs','create',str(external),'--test-same-device'],cwd=ROOT,env=env,check=True)

@@ -144,7 +144,8 @@ function permitted(state,user,courseId,enrollId='',uploadId=''){
 function securityHeaders(origin,html){
  const allowed=origin.replace(/\/$/,'')
  return {...noStore,'Access-Control-Allow-Origin':'null','Cross-Origin-Resource-Policy':'cross-origin',
-  ...(html?{'Content-Security-Policy':[
+  // Limit the referrer to the site origin: never expose the SCORM bearer URL.
+  ...(html?{'Referrer-Policy':'origin','Content-Security-Policy':[
    'sandbox allow-scripts allow-forms',
    `default-src ${allowed} data: blob:`,
    `script-src ${allowed} 'unsafe-inline' 'unsafe-eval' blob:`,
@@ -153,7 +154,7 @@ function securityHeaders(origin,html){
    `font-src ${allowed} data:`,
    `media-src ${allowed} data: blob:`,
    `connect-src ${allowed}`,
-   `frame-src ${allowed} blob:`,
+   `frame-src ${allowed} blob: https://www.youtube.com/embed/ https://www.youtube-nocookie.com/embed/`,
    `worker-src ${allowed} blob:`,
    "object-src 'none'",`base-uri ${allowed}`,`form-action ${allowed}`
   ].join('; ')}: {})}
